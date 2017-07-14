@@ -322,9 +322,9 @@ class Executor<SYCL> {
     // Two accessors to local memory
     auto sharedSize = ((nWG < localSize) ? localSize : nWG);
     cont_type shMem1(sharedSize);
-    auto opShMem1 = LHS_type(shMem1, 0, 1, sharedSize);
+    auto opShMemA = LHS_type(shMem1, 0, 1, sharedSize);
     cont_type shMem2(sharedSize);
-    auto opShMem2 = LHS_type(shMem2, 0, 1, sharedSize);
+    auto opShMemB = LHS_type(shMem2, 0, 1, sharedSize);
 
     bool frst = true;
     bool even = false;
@@ -332,15 +332,15 @@ class Executor<SYCL> {
       auto globalSize = nWG * localSize;
       if (frst) {
         // THE FIRST CASE USES THE ORIGINAL BINARY/TERNARY FUNCTION
-        auto localTree = input_type(((nWG == 1) ? lhs : opShMem1), rhs,
+        auto localTree = input_type(((nWG == 1) ? lhs : opShMemA), rhs,
                                     localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       } else {
         // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
         auto localTree = blas::AssignReduction<oper_type, LHS_type, LHS_type>(
-            ((nWG == 1) ? lhs : (even ? opShMem2 : opShMem1)),
-            (even ? opShMem1 : opShMem2), localSize, globalSize);
+            ((nWG == 1) ? lhs : (even ? opShMemB : opShMemA)),
+            (even ? opShMemA : opShMemB), localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       }
@@ -372,8 +372,8 @@ class Executor<SYCL> {
 
     // Two accessors to local memory
     auto sharedSize = ((nWG < localSize) ? localSize : nWG);
-    auto opShMem1 = LHS_type(scr, 0, 1, sharedSize);
-    auto opShMem2 = LHS_type(scr, sharedSize, 1, sharedSize);
+    auto opShMemA = LHS_type(scr, 0, 1, sharedSize);
+    auto opShMemB = LHS_type(scr, sharedSize, 1, sharedSize);
 
     bool frst = true;
     bool even = false;
@@ -381,15 +381,15 @@ class Executor<SYCL> {
       auto globalSize = nWG * localSize;
       if (frst) {
         // THE FIRST CASE USES THE ORIGINAL BINARY/TERNARY FUNCTION
-        auto localTree = input_type(((nWG == 1) ? lhs : opShMem1), rhs,
+        auto localTree = input_type(((nWG == 1) ? lhs : opShMemA), rhs,
                                     localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       } else {
         // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
         auto localTree = blas::AssignReduction<oper_type, LHS_type, LHS_type>(
-            ((nWG == 1) ? lhs : (even ? opShMem2 : opShMem1)),
-            (even ? opShMem1 : opShMem2), localSize, globalSize);
+            ((nWG == 1) ? lhs : (even ? opShMemB : opShMemA)),
+            (even ? opShMemA : opShMemB), localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       }
@@ -399,6 +399,74 @@ class Executor<SYCL> {
       even = !even;
     } while (_N > 1);
   };
+
+  /*!
+   * @brief Applies a reduction to a two trees, receiving a scratch buffer.
+   //   * @brief Applies a reduction to a two trees, receiving two scratch buffers.
+   */
+  template <typename Tree, typename Scratch>
+  void reduce_2Ops(Tree t, Scratch scr) {
+//  void reduce_2Ops(Tree t, Scratch scr1, Scratch scr2) {
+    using oper_type = typename blas::Evaluate<Tree>::oper_type;
+    using input_type = typename blas::Evaluate<Tree>::input_type;
+    using cont_type = typename blas::Evaluate<Tree>::cont_type;
+    using LHS1_type = typename blas::Evaluate<Tree>::LHS1_type;
+    using LHS2_type = typename blas::Evaluate<Tree>::LHS2_type;
+    auto _N = t.getSize();
+    auto localSize = t.blqS;
+    // IF THERE ARE ENOUGH ELEMENTS, EACH BLOCK PROCESS TWO BLOCKS OF ELEMENTS
+    // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
+    // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
+    // ALL THE ELEMENTS ARE PROCESSED
+    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+    auto lhs1 = t.l1;
+    auto rhs1 = t.r1;
+    auto lhs2 = t.l2;
+    auto rhs2 = t.r2;
+
+    // Two accessors to local memory
+    auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+    auto opShMemA1 = LHS1_type(scr, 0*sharedSize, 1, sharedSize);
+    auto opShMemB1 = LHS1_type(scr, 1*sharedSize, 1, sharedSize);
+    auto opShMemA2 = LHS2_type(scr, 2*sharedSize, 1, sharedSize);
+    auto opShMemB2 = LHS2_type(scr, 3*sharedSize, 1, sharedSize);
+    // auto opShMemA1 = LHS1_type(scr1, 0, 1, sharedSize);
+    // auto opShMemB1 = LHS1_type(scr1, sharedSize, 1, sharedSize);
+    // auto opShMemA2 = LHS2_type(scr2, 0, 1, sharedSize);
+    // auto opShMemB2 = LHS2_type(scr2, sharedSize, 1, sharedSize);
+
+    bool frst = true;
+    bool even = false;
+    do {
+      auto globalSize = nWG * localSize;
+      /* */
+      if (frst) {
+        // THE FIRST CASE USES THE ORIGINAL BINARY/TERNARY FUNCTION
+        auto localTree = input_type(((nWG == 1) ? lhs1 : opShMemA1), rhs1,
+                                    ((nWG == 1) ? lhs2 : opShMemA2), rhs2,
+                                    localSize, globalSize);
+        execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
+                                                globalSize, 2*sharedSize);
+      } else {
+        // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
+        auto localTree = blas::AssignReduction_2Ops
+                      <oper_type, LHS1_type, LHS1_type, LHS2_type, LHS2_type>(
+                        ((nWG == 1) ? lhs1 : (even ? opShMemB1 : opShMemA1)),
+                                              (even ? opShMemA1 : opShMemB1),
+                        ((nWG == 1) ? lhs2 : (even ? opShMemB2 : opShMemA2)),
+                                              (even ? opShMemA2 : opShMemB2),
+                        localSize, globalSize);
+        execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
+                                                globalSize, 2*sharedSize);
+      }
+      /* */
+      _N = nWG;
+      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+      frst = false;
+      even = !even;
+    } while (_N > 1);
+  };
+
 };
 
 }  // namespace blas

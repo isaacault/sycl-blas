@@ -1,0 +1,1 @@
+cmake ../ -DCOMPUTECPP_PACKAGE_ROOT_DIR=/home/jose/Desktop/packages/ComputeCpp-CE-0.2.1-Linux/ -DOpenCL_INCLUDE_DIR=/home/jose/Desktop/packages/ComputeCpp-CE-0.2.1-Linux/include/ -DCOMPUTECPP_DISABLE_GCC_DUAL_ABI=OFF

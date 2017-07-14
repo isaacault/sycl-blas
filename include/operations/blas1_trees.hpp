@@ -379,6 +379,117 @@ auto make_minIndAssignReduction(LHS &l, RHS &r, size_t blqS, size_t grdS)
   return make_AssignReduction<minIndOp2_struct>(l, r, blqS, grdS);
 }
 
+/*! AssignReduction_2Ops.
+ * @brief Implements the reduction operation for assignments (in the form y = x)
+ *  with y a scalar and x a subexpression tree.
+ */
+template <typename Operator, class LHS1, class RHS1, class LHS2, class RHS2>
+struct AssignReduction_2Ops {
+  using value_type = typename RHS1::value_type;
+  LHS1 l1;
+  RHS1 r1;
+  LHS2 l2;
+  RHS2 r2;
+  size_t blqS;  // block  size
+  size_t grdS;  // grid  size
+
+  AssignReduction_2Ops(LHS1 &_l1, RHS1 &_r1, LHS2 &_l2, RHS2 &_r2,
+                          size_t _blqS, size_t _grdS)
+      : l1(_l1), r1(_r1), l2(_l2), r2(_r2),blqS(_blqS), grdS(_grdS){};
+
+  size_t getSize() { return r1.getSize(); }
+
+  value_type eval(size_t i) {
+    size_t vecS = r1.getSize();
+    size_t frs_thrd = 2 * blqS * i;
+    size_t lst_thrd = ((frs_thrd + blqS) > vecS) ? vecS : (frs_thrd + blqS);
+    // Reduction across the grid
+    value_type val1 = Operator::init(r1);
+    value_type val2 = Operator::init(r2);
+    for (size_t j = frs_thrd; j < lst_thrd; j++) {
+      value_type local_val1 = Operator::init(r1);
+      value_type local_val2 = Operator::init(r2);
+      for (size_t k = j; k < vecS; k += 2 * grdS) {
+        local_val1 = Operator::eval(local_val1, r1.eval(k));
+        local_val2 = Operator::eval(local_val2, r2.eval(k));
+        if (k + blqS < vecS) {
+          local_val1 = Operator::eval(local_val1, r1.eval(k + blqS));
+          local_val2 = Operator::eval(local_val2, r2.eval(k + blqS));
+        }
+      }
+      // Reduction inside the block
+      val1 = Operator::eval(val1, local_val1);
+      val2 = Operator::eval(val2, local_val2);
+    }
+    l1.eval(i) = val1;
+    return l2.eval(i) = val2;
+  }
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+  template <typename sharedT>
+//  value_type eval(sharedT scratch1, sharedT scratch2, cl::sycl::nd_item<1> ndItem) {
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+
+    size_t vecS = r1.getSize();
+    size_t frs_thrd = 2 * groupid * localSz + localid;
+
+//    sharedT scratch1 = sharedT(scratch, 0, 1, localSz);
+//    sharedT scratch2 = sharedT(scratch, 0, 1, localSz);
+    size_t shft1 = 0;
+    size_t shft2 = localSz;
+
+    // Reduction across the grid
+    value_type val1 = Operator::init(r1);
+    value_type val2 = Operator::init(r2);
+    for (size_t k = frs_thrd; k < vecS; k += 2 * grdS) {
+      val1 = Operator::eval(val1, r1.eval(k));
+      val2 = Operator::eval(val2, r2.eval(k));
+      if ((k + blqS < vecS)) {
+        val1 = Operator::eval(val1, r1.eval(k + blqS));
+        val2 = Operator::eval(val2, r2.eval(k + blqS));
+      }
+    }
+
+//    scratch1[localid] = val1;
+//    scratch2[localid] = val2;
+    scratch[shft1+localid] = val1;
+    scratch[shft2+localid] = val2;
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    // Reduction inside the block
+    for (size_t offset = localSz >> 1; offset > 0; offset >>= 1) {
+      if (localid < offset) {
+        scratch[shft1+localid] =
+            Operator::eval(scratch[shft1+localid], scratch[shft1+localid + offset]);
+        scratch[shft2+localid] =
+            Operator::eval(scratch[shft2+localid], scratch[shft2+localid + offset]);
+      }
+      // This barrier is mandatory to be sure the data are on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+    }
+    if (localid == 0) {
+      l1.eval(groupid) = scratch[shft1+localid];
+      l2.eval(groupid) = scratch[shft2+localid];
+    }
+    return l2.eval(groupid);
+  }
+};
+
+template <typename Operator, typename LHS1, typename RHS1,
+                             typename LHS2, typename RHS2>
+AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>
+            make_AssignReduction_2Ops(LHS1 &l1, RHS1 &r1, LHS2 &l2, RHS2 &r2,
+                                                             size_t blqS,
+                                                             size_t grdS) {
+  return AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>
+                                               (l1, r1, l2, r2, blqS, grdS);
+}
+
 /*!
 @brief Template function for constructing operation nodes based on input
 tempalte and function arguments. Non-specialised case for N reference operands.

@@ -204,6 +204,32 @@ struct Evaluate<AssignReduction<Operator, LHS, RHS>> {
   }
 };
 
+/*! Evaluate<AssignReduction<Operator, LHS, RHS>>
+ * @brief See Evaluate.
+ */
+template <typename Operator, typename LHS1, typename RHS1, typename LHS2, typename RHS2>
+struct Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>> {
+  using value_type = typename LHS1::value_type;
+  using oper_type = Operator;
+  using LHS1_type = LHS1;
+  using LHS2_type = LHS2;
+  using cont_type = typename LHS1::ContainerT;
+  using lhs1_type = typename Evaluate<LHS1>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using lhs2_type = typename Evaluate<LHS2>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using input_type = AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>;
+  using type = AssignReduction_2Ops<Operator, lhs1_type, rhs1_type, lhs2_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs1 = Evaluate<LHS1>::convert_to(v.l1, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto lhs2 = Evaluate<LHS2>::convert_to(v.l2, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(lhs1, rhs1, lhs2, rhs2, v.blqS, v.grdS);
+  }
+};
+
 /*! Evaluate<vector_view<ScalarT, cl::sycl::buffer<ScalarT, 1>>>
  * @brief See Evaluate.
  */
