@@ -1,3 +1,18 @@
+/*
+#include <algorithm>
+#include <cstdlib>
+#include <interface/blas1_interface_sycl.hpp>
+#include <iostream>
+#include <operations/blas1_trees.hpp>
+#include <stdexcept>
+#include <vector>
+
+#include <clBLAS.h>
+
+using namespace cl::sycl;
+using namespace blas;
+
+*/
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -8,7 +23,8 @@
 #include <clBLAS.h>
 
 using namespace cl::sycl;
-using namespace blas;
+//using namespace blas;
+/* */
 
 #define DEF_NUM_ELEM 1200
 #define DEF_STRIDE 1
@@ -17,7 +33,7 @@ using namespace blas;
 
 #define SHOW_TIMES 1  // If it exists, the code prints the execution time
 // The ... should be changed by the corresponding routine
-#define NUMBER_REPEATS 2  // Number of times the computations are made
+#define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
 
 // #########################
@@ -159,7 +175,10 @@ int main(int argc, char *argv[]) {
 #endif
 
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
+    cl::sycl::gpu_selector   s;
+    // cl::sycl::intel_selector s;
+    cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
+//    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
         for (auto &e : eL) {
           std::rethrow_exception(e);
@@ -352,7 +371,13 @@ int main(int argc, char *argv[]) {
         }
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_copy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_copy = t_stop - t_start;
+        } else if (i > 0) {
+          t0_copy += t_stop - t_start;
+        } else {
+          t0_copy = t_start - t_start;
+        }
 #endif
 
 #ifdef SHOW_TIMES
@@ -381,7 +406,13 @@ int main(int argc, char *argv[]) {
 /* */
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_axpy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_axpy = t_stop - t_start;
+        } else if (i > 0) {
+          t0_axpy += t_stop - t_start;
+        } else {
+          t0_axpy = t_start - t_start;
+        }
 #endif
 
 #ifdef SHOW_TIMES
@@ -419,7 +450,13 @@ int main(int argc, char *argv[]) {
         }  // End of copy
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_add = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_add = t_stop - t_start;
+        } else if (i > 0) {
+          t0_add += t_stop - t_start;
+        } else {
+          t0_add = t_start - t_start;
+        }
 #endif
       }
 
@@ -573,20 +610,21 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef SHOW_TIMES
+    int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
     // COMPUTATIONAL TIMES
-    std::cout << "t_copy, " << t0_copy.count() << std::endl;
-    //    std::cout <<   "t_copy --> (" << t0_copy.count() << ", " <<
-    //    t1_copy.count()
-    //                          << ", " << t2_copy.count() << ", " <<
-    //                          t3_copy.count() << ")" << std::endl;
-    std::cout << "t_axpy, " << t0_axpy.count() << std::endl;
-    //    std::cout <<   "t_axpy --> (" << t0_axpy.count() << ", " <<
-    //    t1_axpy.count()
-    //                          << ", " << t2_axpy.count() << ", " <<
-    //                          t3_axpy.count() << ")" << std::endl;
-    std::cout << "t_add, " << t0_add.count() << std::endl;
-//    std::cout <<   "t_add  --> (" << t0_add.count()  << ", " << t1_add.count()
-//                          << ", " << t2_add.count()  << ", " << t3_add.count()
+    std::cout << "t_copy, " << t0_copy.count()/div << std::endl;
+    //    std::cout <<   "t_copy --> (" << t0_copy.count()/div << ", " <<
+    //    t1_copy.count()/div
+    //                          << ", " << t2_copy.count()/div << ", " <<
+    //                          t3_copy.count()/div << ")" << std::endl;
+    std::cout << "t_axpy, " << t0_axpy.count()/div << std::endl;
+    //    std::cout <<   "t_axpy --> (" << t0_axpy.count()/div << ", " <<
+    //    t1_axpy.count()/div
+    //                          << ", " << t2_axpy.count()/div << ", " <<
+    //                          t3_axpy.count()/div << ")" << std::endl;
+    std::cout << "t_add, " << t0_add.count()/div << std::endl;
+//    std::cout <<   "t_add  --> (" << t0_add.count()/div  << ", " << t1_add.count()/div
+//                          << ", " << t2_add.count()/div  << ", " << t3_add.count()/div
 //                          << ")" << std::endl;
 //
 #endif

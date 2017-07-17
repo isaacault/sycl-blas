@@ -13,7 +13,8 @@ def plot_graph(per_exp, found_variants, output_file_name, platform_info, ylabel,
    
   y_pos = np.arange(len(per_exp.keys()))
   performance_bars_height = {}
-  model_color = [ 'g', 'r', 'w', 'b', 'y' ]
+#  model_color = [ 'g', 'r', 'w', 'b', 'y' ]
+  model_color = [ 'g', 'r', 'k', 'b', 'y' ]
   for v in found_variants:
     if not v in performance_bars_height:
       performance_bars_height[v] = []
@@ -172,7 +173,8 @@ if __name__ == '__main__':
   else:
     # Executes the benchmark
     platform_info = os.uname()
-    sizes = [ 128 , 196, 256, 512, 718, 1200, 1024, 2048, 4096, 16386 ]
+#    sizes = [ 128 , 196, 256, 512, 718, 1200, 1024, 2048, 4096, 16386 ]
+    sizes = [ 128 , 256, 512, 1024, 2048, 4096, 8192, 16386 ]
     for size in sizes:
       results = execution(variants, path, date_string, size)
       print results

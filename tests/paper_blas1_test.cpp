@@ -19,12 +19,14 @@ using namespace blas;
 // #define SHOW_VALUES   1
 #define SHOW_TIMES 1  // If it exists, the code prints the execution time
                       // The ... should be changed by the corresponding routine
-#define NUMBER_REPEATS 3  // Number of times the computations are made
+#define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
 
 #define LOCALSIZE 64
 
 #define REDUCE_SCRATCH 1
+
+#define ONE_SCRATCH 1
 
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*
@@ -38,9 +40,9 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
     * nWG = (N + 2 * localsize - 1) / (2 * localsize)
   */
   unsigned localSize = LOCALSIZE;
-  // unsigned nWg = (N + localSize - 1) / localSize;
+  unsigned nWg = (N + localSize - 1) / localSize;
   // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  unsigned nWg = 2 * localSize;
+  // unsigned nWg = 2 * localSize;
 
   // unsigned nWg = LOCAL_REDUCTIONS * localSize;
   // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
@@ -77,8 +79,46 @@ void _one_add(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
   my_rs.printH("VR");
 #endif
 }
+
 template <typename ExecutorType, typename T, typename ContainerT>
 void _two_add(Executor<ExecutorType> ex, int _N,
+              vector_view<T, ContainerT> _vx1, int _incx1,
+              vector_view<T, ContainerT> _rs1, vector_view<T, ContainerT> _sc1,
+//              vector_view<T, ContainerT> _rs1, // vector_view<T, ContainerT> _sc1,
+              vector_view<T, ContainerT> _vx2, int _incx2,
+              vector_view<T, ContainerT> _rs2, vector_view<T, ContainerT> _sc2){
+//              vector_view<T, ContainerT> _rs2, vector_view<T, ContainerT> _sc) {
+  // Common definitions
+  auto kernelPair = get_reduction_params(_N);
+  auto localSize = kernelPair.first;
+  auto nWG = kernelPair.second;
+  // _rs1 = add(_vx1)
+  auto my_vx1 = vector_view<T, ContainerT>(_vx1, _vx1.getDisp(), _incx1, _N);
+  auto my_rs1 = vector_view<T, ContainerT>(_rs1, _rs1.getDisp(), 1, 1);
+  auto my_sc1 = vector_view<T, ContainerT>(_sc1, _sc1.getDisp(), 1, _N);
+  auto assignOp1 =
+      make_addAbsAssignReduction(my_rs1, my_vx1, localSize, localSize * nWG);
+#ifdef REDUCE_SCRATCH
+  ex.reduce(assignOp1, my_sc1);
+#else
+  ex.reduce(assignOp1);
+#endif
+  // _rs2 = add(_vx2)
+  auto my_vx2 = vector_view<T, ContainerT>(_vx2, _vx2.getDisp(), _incx2, _N);
+  auto my_rs2 = vector_view<T, ContainerT>(_rs2, _rs2.getDisp(), 1, 1);
+  auto my_sc2 = vector_view<T, ContainerT>(_sc2, _sc2.getDisp(), 1, _N);
+  auto assignOp2 =
+      make_addAbsAssignReduction(my_rs2, my_vx2, localSize, localSize * nWG);
+#ifdef REDUCE_SCRATCH
+  ex.reduce(assignOp2, my_sc2);
+#else
+  ex.reduce(assignOp2);
+#endif
+
+}
+
+template <typename ExecutorType, typename T, typename ContainerT>
+void _two_addB(Executor<ExecutorType> ex, int _N,
               vector_view<T, ContainerT> _vx1, int _incx1,
 //              vector_view<T, ContainerT> _rs1, vector_view<T, ContainerT> _sc1,
               vector_view<T, ContainerT> _rs1, // vector_view<T, ContainerT> _sc1,
@@ -92,26 +132,10 @@ void _two_add(Executor<ExecutorType> ex, int _N,
   // _rs1 = add(_vx1)
   auto my_vx1 = vector_view<T, ContainerT>(_vx1, _vx1.getDisp(), _incx1, _N);
   auto my_rs1 = vector_view<T, ContainerT>(_rs1, _rs1.getDisp(), 1, 1);
-//  auto my_sc1 = vector_view<T, ContainerT>(_sc1, _sc1.getDisp(), 1, 1);
-//  auto assignOp1 =
-//      make_addAbsAssignReduction(my_rs1, my_vx1, localSize, localSize * nWG);
-//#ifdef REDUCE_SCRATCH
-//  ex.reduce(assignOp1, my_sc1);
-//#else
-//  ex.reduce(assignOp1);
-// #endif
   // _rs2 = add(_vx2)
   auto my_vx2 = vector_view<T, ContainerT>(_vx2, _vx2.getDisp(), _incx2, _N);
   auto my_rs2 = vector_view<T, ContainerT>(_rs2, _rs2.getDisp(), 1, 1);
-//  auto my_sc2 = vector_view<T, ContainerT>(_sc2, _sc2.getDisp(), 1, 1);
-  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, 1);
-//  auto assignOp2 =
-//      make_addAbsAssignReduction(my_rs2, my_vx2, localSize, localSize * nWG);
-//#ifdef REDUCE_SCRATCH
-//  ex.reduce(assignOp2, my_sc2);
-//#else
-//  ex.reduce(assignOp2);
-//#endif
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, 2*_N);
 
   // concatenate both operations
   //  auto doubleAssignOp = make_op<Join>(assignOp1, assignOp2);
@@ -123,13 +147,13 @@ void _two_add(Executor<ExecutorType> ex, int _N,
   //  auto assignOp1 =
   //      make_addAbsAssignReduction(my_rs1, my_vx1, localSize, localSize * nWG);
 #ifdef REDUCE_SCRATCH
-//  ex.reduce_2Ops(assignOp12, my_sc1, my_sc2);
   ex.reduce_2Ops(assignOp12, my_sc);
 #else
   ex.reduce_2Ops(assignOp12);
 #endif
 
 }
+
 template <typename ExecutorType, typename T, typename ContainerT>
 void _four_add(Executor<ExecutorType> ex, int _N,
                vector_view<T, ContainerT> _vx1, int _incx1,
@@ -412,25 +436,28 @@ int main(int argc, char *argv[]) {
     std::vector<double> vX1(sizeV);
     std::vector<double> vY1(sizeV);
     std::vector<double> vZ1(sizeV);
-//    std::vector<double> vR1(sizeV);
     std::vector<double> vS1(4);
     std::vector<double> vX2(sizeV);
     std::vector<double> vY2(sizeV);
     std::vector<double> vZ2(sizeV);
-//    std::vector<double> vR2(sizeV);
     std::vector<double> vS2(4);
     std::vector<double> vX3(sizeV);
     std::vector<double> vY3(sizeV);
     std::vector<double> vZ3(sizeV);
-//    std::vector<double> vR3(sizeV);
     std::vector<double> vS3(4);
     std::vector<double> vX4(sizeV);
     std::vector<double> vY4(sizeV);
     std::vector<double> vZ4(sizeV);
-//    std::vector<double> vR4(sizeV);
     std::vector<double> vS4(4);
     // CREATING INTERMEDIATE DATA
+#ifdef ONE_SCRATCH
     std::vector<double> vR (sizeV*4);
+#else
+    std::vector<double> vR1(sizeV);
+    std::vector<double> vR2(sizeV);
+    std::vector<double> vR3(sizeV);
+    std::vector<double> vR4(sizeV);
+#endif
 
     // INITIALIZING DATA
     size_t vSeed, gap;
@@ -497,7 +524,10 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
+    cl::sycl::gpu_selector   s;
+    // cl::sycl::intel_selector s;
+    cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
+//    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
         for (auto &e : eL) {
           std::rethrow_exception(e);
@@ -514,24 +544,21 @@ int main(int argc, char *argv[]) {
       buffer<double, 1> bX1(vX1.data(), range<1>{vX1.size()});
       buffer<double, 1> bY1(vY1.data(), range<1>{vY1.size()});
       buffer<double, 1> bZ1(vZ1.data(), range<1>{vZ1.size()});
-//      buffer<double, 1> bR1(vR1.data(), range<1>{vR1.size()});
       buffer<double, 1> bS1(vS1.data(), range<1>{vS1.size()});
       buffer<double, 1> bX2(vX2.data(), range<1>{vX2.size()});
       buffer<double, 1> bY2(vY2.data(), range<1>{vY2.size()});
       buffer<double, 1> bZ2(vZ2.data(), range<1>{vZ2.size()});
-//      buffer<double, 1> bR2(vR2.data(), range<1>{vR2.size()});
       buffer<double, 1> bS2(vS2.data(), range<1>{vS2.size()});
       buffer<double, 1> bX3(vX3.data(), range<1>{vX3.size()});
       buffer<double, 1> bY3(vY3.data(), range<1>{vY3.size()});
       buffer<double, 1> bZ3(vZ3.data(), range<1>{vZ3.size()});
-//      buffer<double, 1> bR3(vR3.data(), range<1>{vR3.size()});
       buffer<double, 1> bS3(vS3.data(), range<1>{vS3.size()});
       buffer<double, 1> bX4(vX4.data(), range<1>{vX4.size()});
       buffer<double, 1> bY4(vY4.data(), range<1>{vY4.size()});
       buffer<double, 1> bZ4(vZ4.data(), range<1>{vZ4.size()});
-//      buffer<double, 1> bR4(vR4.data(), range<1>{vR4.size()});
       buffer<double, 1> bS4(vS4.data(), range<1>{vS4.size()});
       // CREATION OF THE SCRATCH
+#ifdef ONE_SCRATCH
       buffer<double, 1> bR1(vR.data(), range<1>{vY1.size()});
       buffer<double, 1> bR2(vR.data()+vY1.size(), range<1>{vY2.size()});
       buffer<double, 1> bR3(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()});
@@ -539,29 +566,32 @@ int main(int argc, char *argv[]) {
       buffer<double, 1> bR12(vR.data(), range<1>{vY1.size()+vY2.size()});
       buffer<double, 1> bR34(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()+vY4.size()});
       buffer<double, 1> bR1234(vR.data(), range<1>{vY1.size()+vY2.size()+vY3.size()+vY4.size()});
+#else
+      buffer<double, 1> bR1(vR1.data(), range<1>{vR1.size()});
+      buffer<double, 1> bR2(vR2.data(), range<1>{vR2.size()});
+      buffer<double, 1> bR3(vR3.data(), range<1>{vR3.size()});
+      buffer<double, 1> bR4(vR4.data(), range<1>{vR4.size()});
+#endif
 
 //      buffer<double, 1> bR (vR .data(), range<1>{vR .size()});
       // BUILDING A SYCL VIEW OF THE BUFFERS
       BufferVectorView<double> bvX1(bX1);
       BufferVectorView<double> bvY1(bY1);
       BufferVectorView<double> bvZ1(bZ1);
-//      BufferVectorView<double> bvR1(bR1);
       BufferVectorView<double> bvS1(bS1);
       BufferVectorView<double> bvX2(bX2);
       BufferVectorView<double> bvY2(bY2);
       BufferVectorView<double> bvZ2(bZ2);
-//      BufferVectorView<double> bvR2(bR2);
       BufferVectorView<double> bvS2(bS2);
       BufferVectorView<double> bvX3(bX3);
       BufferVectorView<double> bvY3(bY3);
       BufferVectorView<double> bvZ3(bZ3);
-//      BufferVectorView<double> bvR3(bR3);
       BufferVectorView<double> bvS3(bS3);
       BufferVectorView<double> bvX4(bX4);
       BufferVectorView<double> bvY4(bY4);
       BufferVectorView<double> bvZ4(bZ4);
-//      BufferVectorView<double> bvR4(bR4);
       BufferVectorView<double> bvS4(bS4);
+#ifdef ONE_SCRATCH
       BufferVectorView<double> bvR1(bR1);
       BufferVectorView<double> bvR2(bR2);
       BufferVectorView<double> bvR3(bR3);
@@ -569,6 +599,12 @@ int main(int argc, char *argv[]) {
       BufferVectorView<double> bvR12(bR12);
       BufferVectorView<double> bvR34(bR34);
       BufferVectorView<double> bvR1234(bR1234);
+#else
+      BufferVectorView<double> bvR1(bR1);
+      BufferVectorView<double> bvR2(bR2);
+      BufferVectorView<double> bvR3(bR3);
+      BufferVectorView<double> bvR4(bR4);
+#endif
 
       // Force update here to avoid including memory copies on the
       // benchmark
@@ -637,7 +673,14 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_copy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_copy = t_stop - t_start;
+        } else if (i > 0) {
+          t0_copy += t_stop - t_start;
+        } else {
+          t0_copy = t_start - t_start;
+        }
+          
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -649,7 +692,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_axpy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_axpy = t_stop - t_start;
+        } else if (i > 0) {
+          t0_axpy += t_stop - t_start;
+        } else {
+          t0_axpy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -661,7 +710,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t0_add = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t0_add = t_stop - t_start;
+        } else if (i > 0) {
+          t0_add += t_stop - t_start;
+        } else {
+          t0_add = t_start - t_start;
+        }
 #endif
 // EXECUTION OF THE ROUTINES (SINGLE OPERATIONS)
 #ifdef SHOW_TIMES
@@ -674,7 +729,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t1_copy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t1_copy = t_stop - t_start;
+        } else if (i > 0) {
+          t1_copy += t_stop - t_start;
+        } else {
+          t1_copy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -686,7 +747,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t1_axpy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t1_axpy = t_stop - t_start;
+        } else if (i > 0) {
+          t1_axpy += t_stop - t_start;
+        } else {
+          t1_axpy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -698,7 +765,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t1_add = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t1_add = t_stop - t_start;
+        } else if (i > 0) {
+          t1_add += t_stop - t_start;
+        } else {
+          t1_add = t_start - t_start;
+        }
 #endif
 // EXECUTION OF THE ROUTINES (DOUBLE OPERATIONS)
 #ifdef SHOW_TIMES
@@ -711,7 +784,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t2_copy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t2_copy = t_stop - t_start;
+        } else if (i > 0) {
+          t2_copy += t_stop - t_start;
+        } else {
+          t2_copy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -723,23 +802,38 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t2_axpy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t2_axpy = t_stop - t_start;
+        } else if (i > 0) {
+          t2_axpy += t_stop - t_start;
+        } else {
+          t2_axpy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
 #endif
-//        _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvR1, bvY2, strd,
-//                       bvS2 + 2, bvR2);
-//        _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
-//                       bvS4 + 2, bvR4);
-        _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvY2, strd,
+/*
+        _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvR1, bvY2, strd,
+                       bvS2 + 2, bvR2);
+        _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
+                       bvS4 + 2, bvR4);
+*/
+        _two_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvY2, strd,
                        bvS2 + 2, bvR12);
-        _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvY4, strd,
+        _two_addB<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvY4, strd,
                        bvS4 + 2, bvR34);
+/**/
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t2_add = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t2_add = t_stop - t_start;
+        } else if (i > 0) {
+          t2_add += t_stop - t_start;
+        } else {
+          t2_add = t_start - t_start;
+        }
 #endif
 // EXECUTION OF THE ROUTINES (QUADUBLE OPERATIONS)
 #ifdef SHOW_TIMES
@@ -750,7 +844,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t3_copy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t3_copy = t_stop - t_start;
+        } else if (i > 0) {
+          t3_copy += t_stop - t_start;
+        } else {
+          t3_copy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -762,7 +862,13 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t3_axpy = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t3_axpy = t_stop - t_start;
+        } else if (i > 0) {
+          t3_axpy += t_stop - t_start;
+        } else {
+          t3_axpy = t_start - t_start;
+        }
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -773,20 +879,27 @@ int main(int argc, char *argv[]) {
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
-        t3_add = t_stop - t_start;
+        if (NUMBER_REPEATS == 1) {
+          t3_add = t_stop - t_start;
+        } else if (i > 0) {
+          t3_add  += t_stop - t_start;
+        } else {
+          t3_add = t_start - t_start;
+        }
 #endif
       }
     }
 #ifdef SHOW_TIMES
+    int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
     // COMPUTATIONAL TIMES
-    std::cout << "t_copy , " << t0_copy.count() << ", " << t1_copy.count()
-              << ", " << t2_copy.count() << ", " << t3_copy.count()
+    std::cout << "t_copy , " << t0_copy.count()/div << ", " << t1_copy.count()/div
+              << ", " << t2_copy.count()/div << ", " << t3_copy.count()/div
               << std::endl;
-    std::cout << "t_axpy , " << t0_axpy.count() << ", " << t1_axpy.count()
-              << ", " << t2_axpy.count() << ", " << t3_axpy.count()
+    std::cout << "t_axpy , " << t0_axpy.count()/div << ", " << t1_axpy.count()/div
+              << ", " << t2_axpy.count()/div << ", " << t3_axpy.count()/div
               << std::endl;
-    std::cout << "t_add  , " << t0_add.count() << ", " << t1_add.count() << ", "
-              << t2_add.count() << ", " << t3_add.count() << std::endl;
+    std::cout << "t_add  , " << t0_add.count()/div << ", " << t1_add.count()/div << ", "
+              << t2_add.count()/div << ", " << t3_add.count()/div << std::endl;
 #endif
     // ANALYSIS OF THE RESULTS
     double res;
