@@ -28,7 +28,7 @@ using namespace blas;
 
 #define ONE_SCRATCH 1
 
-// #define FUSION_ADDS 1
+#define FUSION_ADDS 1
 
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*

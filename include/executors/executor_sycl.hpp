@@ -201,6 +201,9 @@ struct ExecTreeFunctor {
   ExecTreeFunctor(SharedMem scratch_, Evaluator evaluator_)
       : scratch(scratch_), evaluator(evaluator_) {}
   void operator()(cl::sycl::nd_item<1> i) {
+    #ifdef TRACE_ERROR
+          printf ("(D) %ld\n", localSize);
+    #endif
     tree<usingSharedMem, Evaluator, value_type>::eval(evaluator, scratch, i);
   }
 };
@@ -231,6 +234,9 @@ static void execute_tree(cl::sycl::queue &q_, Tree t, size_t _localSize,
 
     cl::sycl::nd_range<1> gridConfiguration = cl::sycl::nd_range<1>{
         cl::sycl::range<1>{globalSize}, cl::sycl::range<1>{localSize}};
+        #ifdef TRACE_ERROR
+              printf ("(C) %ld\n", localSize);
+        #endif
     h.parallel_for(
         gridConfiguration,
         ExecTreeFunctor<usingSharedMem, decltype(nTree), decltype(scratch),
@@ -387,6 +393,9 @@ class Executor<SYCL> {
         // THE FIRST CASE USES THE ORIGINAL BINARY/TERNARY FUNCTION
         auto localTree = input_type(((nWG == 1) ? lhs : opShMemA), rhs,
                                     localSize, globalSize);
+        #ifdef TRACE_ERROR
+              printf ("(A)\n");
+        #endif
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       } else {
@@ -406,6 +415,9 @@ class Executor<SYCL> {
         auto localTree = blas::AssignReduction<oper_type, LHS_type, LHS_type>(
             ((nWG == 1) ? lhs : (even ? opShMemB : opShMemA)),
             (even ? opShMemA : opShMemB), localSize, globalSize);
+        #ifdef TRACE_ERROR
+              printf ("(B)\n");
+        #endif
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
                                                 globalSize, sharedSize);
       }
@@ -541,7 +553,7 @@ class Executor<SYCL> {
                                     ((nWG == 1) ? lhs4 : opShMemA4), rhs4,
                                     localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
-                                                globalSize, 2*sharedSize);
+                                                globalSize, 4*sharedSize);
       } else {
         // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
         auto localTree = blas::AssignReduction_4Ops
@@ -557,7 +569,7 @@ class Executor<SYCL> {
                                               (even ? opShMemA4 : opShMemB4),
                         localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
-                                                globalSize, 2*sharedSize);
+                                                globalSize, 4*sharedSize);
       }
       /* */
       _N = nWG;

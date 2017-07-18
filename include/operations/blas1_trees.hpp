@@ -269,7 +269,6 @@ struct TupleOp {
  * @brief Implements the reduction operation for assignments (in the form y = x)
  *  with y a scalar and x a subexpression tree.
  */
-
 // #define TRACE_ERROR 1
 
 template <typename Operator, class LHS, class RHS>
@@ -323,6 +322,7 @@ struct AssignReduction {
     size_t vecS = r.getSize();
     size_t frs_thrd = 2 * groupid * localSz + localid;
 
+//    printf ("Hola %lu \n", localid);
     // Reduction across the grid
     value_type val = Operator::init(r);
     for (size_t k = frs_thrd; k < vecS; k += 2 * grdS) {
