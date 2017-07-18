@@ -204,7 +204,7 @@ struct Evaluate<AssignReduction<Operator, LHS, RHS>> {
   }
 };
 
-/*! Evaluate<AssignReduction<Operator, LHS, RHS>>
+/*! Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>>
  * @brief See Evaluate.
  */
 template <typename Operator, typename LHS1, typename RHS1, typename LHS2, typename RHS2>
@@ -227,6 +227,51 @@ struct Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>> {
     auto lhs2 = Evaluate<LHS2>::convert_to(v.l2, h);
     auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
     return type(lhs1, rhs1, lhs2, rhs2, v.blqS, v.grdS);
+  }
+};
+
+/*! Evaluate<AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+                                            LHS3, RHS3, LHS4, RHS4>>
+ * @brief See Evaluate.
+ */
+template <typename Operator, typename LHS1, typename RHS1,
+                             typename LHS2, typename RHS2,
+                             typename LHS3, typename RHS3,
+                             typename LHS4, typename RHS4>
+struct Evaluate<AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+                                               LHS3, RHS3, LHS4, RHS4>> {
+  using value_type = typename LHS1::value_type;
+  using oper_type = Operator;
+  using LHS1_type = LHS1;
+  using LHS2_type = LHS2;
+  using LHS3_type = LHS3;
+  using LHS4_type = LHS4;
+  using cont_type = typename LHS1::ContainerT;
+  using lhs1_type = typename Evaluate<LHS1>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using lhs2_type = typename Evaluate<LHS2>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using lhs3_type = typename Evaluate<LHS3>::type;
+  using rhs3_type = typename Evaluate<RHS3>::type;
+  using lhs4_type = typename Evaluate<LHS4>::type;
+  using rhs4_type = typename Evaluate<RHS4>::type;
+  using input_type = AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+                                                    LHS3, RHS3, LHS4, RHS4>;
+  using type = AssignReduction_4Ops<Operator, lhs1_type, rhs1_type,
+                                              lhs2_type, rhs2_type,
+                                              lhs3_type, rhs3_type,
+                                              lhs4_type, rhs4_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs1 = Evaluate<LHS1>::convert_to(v.l1, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto lhs2 = Evaluate<LHS2>::convert_to(v.l2, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    auto lhs3 = Evaluate<LHS2>::convert_to(v.l3, h);
+    auto rhs3 = Evaluate<RHS2>::convert_to(v.r3, h);
+    auto lhs4 = Evaluate<LHS2>::convert_to(v.l4, h);
+    auto rhs4 = Evaluate<RHS2>::convert_to(v.r4, h);
+    return type(lhs1, rhs1, lhs2, rhs2, lhs3, rhs3, lhs4, rhs4, v.blqS, v.grdS);
   }
 };
 

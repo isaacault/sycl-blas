@@ -28,6 +28,8 @@ using namespace blas;
 
 #define ONE_SCRATCH 1
 
+// #define FUSION_ADDS 1
+
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*
   The localsize should be the size of the multiprocessor.
@@ -40,9 +42,9 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
     * nWG = (N + 2 * localsize - 1) / (2 * localsize)
   */
   unsigned localSize = LOCALSIZE;
-  unsigned nWg = (N + localSize - 1) / localSize;
+  // unsigned nWg = (N + localSize - 1) / localSize;
   // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  // unsigned nWg = 2 * localSize;
+  unsigned nWg = 2 * localSize;
 
   // unsigned nWg = LOCAL_REDUCTIONS * localSize;
   // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
@@ -224,6 +226,86 @@ void _four_add(Executor<ExecutorType> ex, int _N,
 
   // execute concatenated operations
   //  ex.execute(quadAssignOp);
+}
+template <typename ExecutorType, typename T, typename ContainerT>
+void _four_addB(Executor<ExecutorType> ex, int _N,
+               vector_view<T, ContainerT> _vx1, int _incx1,
+//               vector_view<T, ContainerT> _rs1, vector_view<T, ContainerT> _sc1,
+               vector_view<T, ContainerT> _rs1, //vector_view<T, ContainerT> _sc1,
+               vector_view<T, ContainerT> _vx2, int _incx2,
+//               vector_view<T, ContainerT> _rs2, vector_view<T, ContainerT> _sc2,
+               vector_view<T, ContainerT> _rs2, //vector_view<T, ContainerT> _sc2,
+               vector_view<T, ContainerT> _vx3, int _incx3,
+//               vector_view<T, ContainerT> _rs3, vector_view<T, ContainerT> _sc3,
+               vector_view<T, ContainerT> _rs3, //vector_view<T, ContainerT> _sc3,
+               vector_view<T, ContainerT> _vx4, int _incx4,
+//               vector_view<T, ContainerT> _rs4, vector_view<T, ContainerT> _sc4) {
+               vector_view<T, ContainerT> _rs4, vector_view<T, ContainerT> _sc) {
+  // Common definitions
+  auto kernelPair = get_reduction_params(_N);
+  auto localSize = kernelPair.first;
+  auto nWG = kernelPair.second;
+
+  // _rs1 = add(_vx1)
+  auto my_vx1 = vector_view<T, ContainerT>(_vx1, _vx1.getDisp(), _incx1, _N);
+  auto my_rs1 = vector_view<T, ContainerT>(_rs1, _rs1.getDisp(), 1, 1);
+//  auto my_sc1 = vector_view<T, ContainerT>(_sc1, _sc1.getDisp(), 1, 1);
+//  auto assignOp1 =
+//      make_addAbsAssignReduction(my_rs1, my_vx1, localSize, localSize * nWG);
+//#ifdef REDUCE_SCRATCH/
+//  ex.reduce(assignOp1, my_sc1);
+//#else
+//  ex.reduce(assignOp1);
+//#endif
+
+  // _rs2 = add(_vx2)
+  auto my_vx2 = vector_view<T, ContainerT>(_vx2, _vx2.getDisp(), _incx2, _N);
+  auto my_rs2 = vector_view<T, ContainerT>(_rs2, _rs2.getDisp(), 1, 1);
+//  auto my_sc2 = vector_view<T, ContainerT>(_sc2, _sc2.getDisp(), 2, 2);
+//  auto assignOp2 =
+//      make_addAbsAssignReduction(my_rs2, my_vx2, localSize, localSize * nWG);
+//#ifdef REDUCE_SCRATCH
+//  ex.reduce(assignOp2, my_sc2);
+//#else
+//  ex.reduce(assignOp2);
+//#endif
+
+  // _rs3 = add(_vx3)
+  auto my_vx3 = vector_view<T, ContainerT>(_vx3, _vx3.getDisp(), _incx3, _N);
+  auto my_rs3 = vector_view<T, ContainerT>(_rs3, _rs3.getDisp(), 1, 1);
+//  auto my_sc3 = vector_view<T, ContainerT>(_sc3, _sc3.getDisp(), 3, 3);
+//  auto assignOp3 =
+//      make_addAbsAssignReduction(my_rs3, my_vx3, localSize, localSize * nWG);
+//#ifdef REDUCE_SCRATCH
+//  ex.reduce(assignOp3, my_sc3);
+//#else
+//  ex.reduce(assignOp3);
+//#endif
+
+  // _rs4 = add(_vx4)
+  auto my_vx4 = vector_view<T, ContainerT>(_vx4, _vx4.getDisp(), _incx4, _N);
+  auto my_rs4 = vector_view<T, ContainerT>(_rs4, _rs4.getDisp(), 1, 1);
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, 4*_N);
+//  auto my_sc4 = vector_view<T, ContainerT>(_sc4, _sc4.getDisp(), 4, 4);
+//  auto assignOp4 =
+//      make_addAbsAssignReduction(my_rs4, my_vx4, localSize, localSize * nWG);
+//#ifdef REDUCE_SCRATCH
+//  ex.reduce(assignOp4, my_sc4);
+//#else
+//  ex.reduce(assignOp4);
+//#endif
+  // concatenate operations
+  auto assignOp1234 = make_AssignReduction_4Ops<addAbsOp2_struct>
+                          (my_rs1, my_vx1, my_rs2, my_vx2,
+                           my_rs3, my_vx3, my_rs4, my_vx4,
+                              localSize, localSize * nWG);
+
+  // execute concatenated operations
+  #ifdef REDUCE_SCRATCH
+    ex.reduce_4Ops(assignOp1234, my_sc);
+  #else
+    ex.reduce_4Ops(assignOp1234);
+  #endif
 }
 // #########################
 // #include <axpys.hpp>
@@ -680,7 +762,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_copy = t_start - t_start;
         }
-          
+
 #endif
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
@@ -813,17 +895,17 @@ int main(int argc, char *argv[]) {
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
 #endif
-/*
-        _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvR1, bvY2, strd,
-                       bvS2 + 2, bvR2);
-        _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
-                       bvS4 + 2, bvR4);
-*/
+#ifdef FUSION_ADDS
         _two_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvY2, strd,
-                       bvS2 + 2, bvR12);
+                        bvS2 + 2, bvR12);
         _two_addB<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvY4, strd,
-                       bvS4 + 2, bvR34);
-/**/
+                        bvS4 + 2, bvR34);
+#else
+        _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvR1, bvY2, strd,
+                        bvS2 + 2, bvR2);
+        _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
+                        bvS4 + 2, bvR4);
+#endif
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
@@ -873,9 +955,16 @@ int main(int argc, char *argv[]) {
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
 #endif
+#ifdef FUSION_ADDS
+        _four_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvY2, strd,
+                        bvS2 + 3, bvY3, strd, bvS3 + 3, bvY4, strd,
+                        bvS4 + 3, bvR1234);
+#else
         _four_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvR1, bvY2, strd,
                         bvS2 + 3, bvR2, bvY3, strd, bvS3 + 3, bvR3, bvY4, strd,
                         bvS4 + 3, bvR4);
+#endif
+
         q.wait();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
@@ -911,7 +1000,7 @@ int main(int argc, char *argv[]) {
                 << std::endl;
 #endif  //  SHOW_VALUES
       if (std::abs((res - sum1) / res) > ERROR_ALLOWED) {
-        std::cout << "ERROR!! --> res = " << res << " , i = " << i
+        std::cout << " (A) ERROR!! --> res = " << res << " , i = " << i
                   << " , sum = " << sum1 << " , err = " << res - sum1
                   << std::endl;
         returnVal += 2 * i;
@@ -925,7 +1014,7 @@ int main(int argc, char *argv[]) {
                 << std::endl;
 #endif  //  SHOW_VALUES
       if (std::abs((res - sum2) / res) > ERROR_ALLOWED) {
-        std::cout << "ERROR!! --> res = " << res << " , i = " << i
+        std::cout << " (B) ERROR!! --> res = " << res << " , i = " << i
                   << " , sum = " << sum2 << " , err = " << res - sum2
                   << std::endl;
         returnVal += 20 * i;
@@ -939,7 +1028,7 @@ int main(int argc, char *argv[]) {
                 << std::endl;
 #endif  //  SHOW_VALUES
       if (std::abs((res - sum3) / res) > ERROR_ALLOWED) {
-        std::cout << "ERROR!! --> res = " << res << " , i = " << i
+        std::cout << " (C) ERROR!! --> res = " << res << " , i = " << i
                   << " , sum = " << sum3 << " , err = " << res - sum3
                   << std::endl;
         returnVal += 200 * i;
@@ -953,7 +1042,7 @@ int main(int argc, char *argv[]) {
                 << std::endl;
 #endif  //  SHOW_VALUES
       if (std::abs((res - sum4) / res) > ERROR_ALLOWED) {
-        std::cout << "ERROR!! --> res = " << res << " , i = " << i
+        std::cout << " (D) ERROR!! --> res = " << res << " , i = " << i
                   << " , sum = " << sum4 << " , err = " << res - sum4
                   << std::endl;
         returnVal += 2000 * i;
