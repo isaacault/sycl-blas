@@ -4,6 +4,7 @@ N_min=1 ; N_max=1048576; N_mlt=2;
 N_min=1 ; N_max=67108864; N_mlt=2;
 N_min=1 ; N_max=16777216; N_mlt=2;
 N=$N_min
+if [ -a res.txt ] ; then rm res.txt ; fi
 while [ $N -le $N_max ] ; do
   echo $N;
   echo $N >> res.txt

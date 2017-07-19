@@ -1,11 +1,12 @@
 cp paper_blas1_test.cpp copy.txt
 for var in 001 002 004 008 016 032 064 128 256 512 ; do
-  echo "LOCALSIZE=$var"
+  var2=`echo $var | sed "s/0//g"` 
+  echo "LOCALSIZE=$var - $var2"
   cat copy.txt | sed "s: :\\\:g" > aux.txt
   for line in `cat aux.txt` ; do
     num=`echo $line | grep define | grep LOCALSIZE | wc -l `
     if [ $num -gt 0 ] ; then
-      echo "#define LOCALSIZE $var"
+      echo "#define LOCALSIZE $var2"
     else
       echo $line | sed "s:\\\: :g"
     fi
