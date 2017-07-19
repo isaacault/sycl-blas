@@ -606,8 +606,8 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    cl::sycl::gpu_selector   s;
-    // cl::sycl::intel_selector s;
+    // cl::sycl::gpu_selector   s;
+    cl::sycl::intel_selector s;
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
@@ -752,7 +752,7 @@ int main(int argc, char *argv[]) {
         _one_copy<SYCL>(ex, numE, bvZ2, strd, bvY2, strd);
         _one_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd);
         _one_copy<SYCL>(ex, numE, bvZ4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -771,7 +771,7 @@ int main(int argc, char *argv[]) {
         _one_axpy<SYCL>(ex, numE, alpha2, bvX2, strd, bvY2, strd);
         _one_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd);
         _one_axpy<SYCL>(ex, numE, alpha4, bvX4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -789,7 +789,7 @@ int main(int argc, char *argv[]) {
         _one_add<SYCL>(ex, numE, bvY2, strd, bvS2, bvR2);
         _one_add<SYCL>(ex, numE, bvY3, strd, bvS3, bvR3);
         _one_add<SYCL>(ex, numE, bvY4, strd, bvS4, bvR4);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -808,7 +808,7 @@ int main(int argc, char *argv[]) {
         _one_copy<SYCL>(ex, numE, bvZ2, strd, bvY2, strd);
         _one_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd);
         _one_copy<SYCL>(ex, numE, bvZ4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -826,7 +826,7 @@ int main(int argc, char *argv[]) {
         _one_axpy<SYCL>(ex, numE, alpha2, bvX2, strd, bvY2, strd);
         _one_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd);
         _one_axpy<SYCL>(ex, numE, alpha4, bvX4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -844,7 +844,7 @@ int main(int argc, char *argv[]) {
         _one_add<SYCL>(ex, numE, bvY2, strd, bvS2 + 1, bvR2);
         _one_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 1, bvR3);
         _one_add<SYCL>(ex, numE, bvY4, strd, bvS4 + 1, bvR4);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -863,7 +863,7 @@ int main(int argc, char *argv[]) {
                         strd);
         _two_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd, bvZ4, strd, bvY4,
                         strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -881,7 +881,7 @@ int main(int argc, char *argv[]) {
                         strd, bvY2, strd);
         _two_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd, alpha4, bvX4,
                         strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -906,7 +906,7 @@ int main(int argc, char *argv[]) {
         _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
                         bvS4 + 2, bvR4);
 #endif
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -923,7 +923,7 @@ int main(int argc, char *argv[]) {
 #endif
         _four_copy<SYCL>(ex, numE, bvZ1, strd, bvY1, strd, bvZ2, strd, bvY2,
                          strd, bvZ3, strd, bvY3, strd, bvZ4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -941,7 +941,7 @@ int main(int argc, char *argv[]) {
         _four_axpy<SYCL>(ex, numE, alpha1, bvX1, strd, bvY1, strd, alpha2, bvX2,
                          strd, bvY2, strd, alpha3, bvX3, strd, bvY3, strd,
                          alpha4, bvX4, strd, bvY4, strd);
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -965,7 +965,7 @@ int main(int argc, char *argv[]) {
                         bvS4 + 3, bvR4);
 #endif
 
-        q.wait();
+        q.wait_and_throw();
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {

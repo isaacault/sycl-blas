@@ -155,6 +155,9 @@ struct tree {
   */
   static void eval(treeT &tree, shared_mem<sharedMemT, usingSharedMem> scratch,
                    cl::sycl::nd_item<1> index) {
+   #ifdef TRACE_ERROR
+         printf ("(E)\n");
+   #endif
     tree.eval(scratch, index);
   }
 };
@@ -202,7 +205,7 @@ struct ExecTreeFunctor {
       : scratch(scratch_), evaluator(evaluator_) {}
   void operator()(cl::sycl::nd_item<1> i) {
     #ifdef TRACE_ERROR
-          printf ("(D) %ld\n", localSize);
+          printf ("(D)\n");
     #endif
     tree<usingSharedMem, Evaluator, value_type>::eval(evaluator, scratch, i);
   }
