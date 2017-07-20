@@ -324,7 +324,8 @@ class Executor<SYCL> {
     // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
     // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
     // ALL THE ELEMENTS ARE PROCESSED
-    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+//    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+    auto nWG = (t.grdS + (localSize) - 1) / (localSize);
     auto lhs = t.l;
     auto rhs = t.r;
 
@@ -375,7 +376,8 @@ class Executor<SYCL> {
     // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
     // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
     // ALL THE ELEMENTS ARE PROCESSED
-    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+//    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+    auto nWG = (t.grdS + (localSize) - 1) / (localSize);
     auto lhs = t.l;
     auto rhs = t.r;
 
@@ -388,6 +390,7 @@ class Executor<SYCL> {
     bool even = false;
     do {
       auto globalSize = nWG * localSize;
+//      printf ("nWG = %lu\n", nWG);
 #ifdef TRACE_ERROR
       printf ("localSize = %lu , nWG = %lu , globalSize = %lu , even = %s\n",
                localSize, nWG, globalSize, (even)?"YES":"NO");
@@ -449,7 +452,8 @@ class Executor<SYCL> {
     // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
     // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
     // ALL THE ELEMENTS ARE PROCESSED
-    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+//    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+    auto nWG = (t.grdS + (localSize) - 1) / (localSize);
     auto lhs1 = t.l1;
     auto rhs1 = t.r1;
     auto lhs2 = t.l2;
@@ -518,7 +522,8 @@ class Executor<SYCL> {
     // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
     // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
     // ALL THE ELEMENTS ARE PROCESSED
-    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+//    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
+    auto nWG = (t.grdS + (localSize) - 1) / (localSize);
     auto lhs1 = t.l1;
     auto rhs1 = t.r1;
     auto lhs2 = t.l2;
