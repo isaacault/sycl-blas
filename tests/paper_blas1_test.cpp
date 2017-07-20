@@ -28,7 +28,9 @@ using namespace blas;
 
 #define ONE_SCRATCH 1
 
-#define FUSION_ADDS 1
+#define FUSION_ADDS      1
+#define FUSION_TWO_ADDS  1
+#define FUSION_FOUR_ADDS 1
 
 #define TEST_COPY 1
 #define TEST_AXPY 1
@@ -610,8 +612,8 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    cl::sycl::gpu_selector   s;
-    // cl::sycl::intel_selector s;
+    // cl::sycl::gpu_selector   s;
+    cl::sycl::intel_selector s;
     // cl::sycl::cpu_selector s;
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
@@ -916,7 +918,7 @@ int main(int argc, char *argv[]) {
   #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
   #endif
-  #ifdef FUSION_ADDS
+  #ifdef FUSION_TWO_ADDS
         _two_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvY2, strd,
                         bvS2 + 2, bvR12);
         _two_addB<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvY4, strd,
@@ -981,14 +983,21 @@ int main(int argc, char *argv[]) {
   #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
   #endif
-  #ifdef FUSION_ADDS
+  #ifdef FUSION_FOUR_ADDS
         _four_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvY2, strd,
                         bvS2 + 3, bvY3, strd, bvS3 + 3, bvY4, strd,
                         bvS4 + 3, bvR1234);
   #else
+    #ifdef FUSION_TWO_ADDS
+        _two_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvY2, strd,
+                        bvS2 + 3, bvR12);
+        _two_addB<SYCL>(ex, numE, bvY3, strd, bvS3 + 3, bvY4, strd,
+                        bvS4 + 3, bvR34);
+    #else
         _four_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvR1, bvY2, strd,
                         bvS2 + 3, bvR2, bvY3, strd, bvS3 + 3, bvR3, bvY4, strd,
                         bvS4 + 3, bvR4);
+    #endif
   #endif
 
         q.wait_and_throw();
