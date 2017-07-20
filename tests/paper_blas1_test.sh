@@ -1,6 +1,10 @@
 cp paper_blas1_test.cpp copy.txt
-for var in 001 002 004 008 016 032 064 128 256 512 ; do
-  var2=`echo $var | sed "s/0//g"` 
+#for var in 001 002 004 008 016 032 064 128 256 512 ; do
+#for var in 016 064 256 512 2048 8192; do
+#for var in 016 032 064 128 256 512 1024 ; do
+for var in 032 064 128 256 ; do
+#for var in 1024 ; do
+  var2=`echo $var | sed "s/^0//g"` 
   echo "LOCALSIZE=$var - $var2"
   cat copy.txt | sed "s: :\\\:g" > aux.txt
   for line in `cat aux.txt` ; do

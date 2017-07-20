@@ -8,8 +8,8 @@ if [ -a res.txt ] ; then rm res.txt ; fi
 while [ $N -le $N_max ] ; do
   echo $N;
   echo $N >> res.txt
-  ../build/tests/paper_clblas_test $N > clblas.txt
-  ../build/tests/paper_blas1_test  $N | cut -d, -f3- > syclblas.txt
+  ../exec.sh ../build/tests/paper_clblas_test $N > clblas.txt
+  ../exec.sh ../build/tests/paper_blas1_test  $N | cut -d, -f3- > syclblas.txt
   cat syclblas.txt | cut -d, -f3- > aux.txt
 #  ../build/tests/paper_blas1_test  $N > syclblas.txt
 #  cat syclblas.txt | cut -d, -f3- > aux.txt

@@ -30,6 +30,10 @@ using namespace blas;
 
 #define FUSION_ADDS 1
 
+#define TEST_COPY 1
+#define TEST_AXPY 1
+#define TEST_ADD  1
+
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*
   The localsize should be the size of the multiprocessor.
@@ -44,7 +48,7 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   unsigned localSize = LOCALSIZE;
   // unsigned nWg = (N + localSize - 1) / localSize;
   // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  unsigned nWg = 2 * localSize;
+  unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
 
   // unsigned nWg = LOCAL_REDUCTIONS * localSize;
   // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
@@ -606,8 +610,9 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    // cl::sycl::gpu_selector   s;
-    cl::sycl::intel_selector s;
+    cl::sycl::gpu_selector   s;
+    // cl::sycl::intel_selector s;
+    // cl::sycl::cpu_selector s;
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
@@ -745,15 +750,16 @@ int main(int argc, char *argv[]) {
 
       for (int i = 0; i < NUMBER_REPEATS; i++) {
 // EXECUTION OF THE ROUTINES (FOR CLBLAS)
-#ifdef SHOW_TIMES
+#ifdef TEST_COPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_copy<SYCL>(ex, numE, bvZ1, strd, bvY1, strd);
         _one_copy<SYCL>(ex, numE, bvZ2, strd, bvY2, strd);
         _one_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd);
         _one_copy<SYCL>(ex, numE, bvZ4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t0_copy = t_stop - t_start;
@@ -762,17 +768,18 @@ int main(int argc, char *argv[]) {
         } else {
           t0_copy = t_start - t_start;
         }
-
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_AXPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_axpy<SYCL>(ex, numE, alpha1, bvX1, strd, bvY1, strd);
         _one_axpy<SYCL>(ex, numE, alpha2, bvX2, strd, bvY2, strd);
         _one_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd);
         _one_axpy<SYCL>(ex, numE, alpha4, bvX4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t0_axpy = t_stop - t_start;
@@ -781,16 +788,18 @@ int main(int argc, char *argv[]) {
         } else {
           t0_axpy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_ADD
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_add<SYCL>(ex, numE, bvY1, strd, bvS1, bvR1);
         _one_add<SYCL>(ex, numE, bvY2, strd, bvS2, bvR2);
         _one_add<SYCL>(ex, numE, bvY3, strd, bvS3, bvR3);
         _one_add<SYCL>(ex, numE, bvY4, strd, bvS4, bvR4);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t0_add = t_stop - t_start;
@@ -799,17 +808,19 @@ int main(int argc, char *argv[]) {
         } else {
           t0_add = t_start - t_start;
         }
+  #endif
 #endif
 // EXECUTION OF THE ROUTINES (SINGLE OPERATIONS)
-#ifdef SHOW_TIMES
+#ifdef TEST_COPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_copy<SYCL>(ex, numE, bvZ1, strd, bvY1, strd);
         _one_copy<SYCL>(ex, numE, bvZ2, strd, bvY2, strd);
         _one_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd);
         _one_copy<SYCL>(ex, numE, bvZ4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t1_copy = t_stop - t_start;
@@ -818,16 +829,18 @@ int main(int argc, char *argv[]) {
         } else {
           t1_copy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_AXPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_axpy<SYCL>(ex, numE, alpha1, bvX1, strd, bvY1, strd);
         _one_axpy<SYCL>(ex, numE, alpha2, bvX2, strd, bvY2, strd);
         _one_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd);
         _one_axpy<SYCL>(ex, numE, alpha4, bvX4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t1_axpy = t_stop - t_start;
@@ -836,16 +849,18 @@ int main(int argc, char *argv[]) {
         } else {
           t1_axpy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_ADD
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _one_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 1, bvR1);
         _one_add<SYCL>(ex, numE, bvY2, strd, bvS2 + 1, bvR2);
         _one_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 1, bvR3);
         _one_add<SYCL>(ex, numE, bvY4, strd, bvS4 + 1, bvR4);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t1_add = t_stop - t_start;
@@ -854,17 +869,19 @@ int main(int argc, char *argv[]) {
         } else {
           t1_add = t_start - t_start;
         }
+  #endif
 #endif
 // EXECUTION OF THE ROUTINES (DOUBLE OPERATIONS)
-#ifdef SHOW_TIMES
+#ifdef TEST_COPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _two_copy<SYCL>(ex, numE, bvZ1, strd, bvY1, strd, bvZ2, strd, bvY2,
                         strd);
         _two_copy<SYCL>(ex, numE, bvZ3, strd, bvY3, strd, bvZ4, strd, bvY4,
                         strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t2_copy = t_stop - t_start;
@@ -873,16 +890,18 @@ int main(int argc, char *argv[]) {
         } else {
           t2_copy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_AXPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _two_axpy<SYCL>(ex, numE, alpha1, bvX1, strd, bvY1, strd, alpha2, bvX2,
                         strd, bvY2, strd);
         _two_axpy<SYCL>(ex, numE, alpha3, bvX3, strd, bvY3, strd, alpha4, bvX4,
                         strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t2_axpy = t_stop - t_start;
@@ -891,23 +910,25 @@ int main(int argc, char *argv[]) {
         } else {
           t2_axpy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_ADD
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
-#ifdef FUSION_ADDS
+  #endif
+  #ifdef FUSION_ADDS
         _two_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvY2, strd,
                         bvS2 + 2, bvR12);
         _two_addB<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvY4, strd,
                         bvS4 + 2, bvR34);
-#else
+  #else
         _two_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 2, bvR1, bvY2, strd,
                         bvS2 + 2, bvR2);
         _two_add<SYCL>(ex, numE, bvY3, strd, bvS3 + 2, bvR3, bvY4, strd,
                         bvS4 + 2, bvR4);
-#endif
+  #endif
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t2_add = t_stop - t_start;
@@ -916,15 +937,17 @@ int main(int argc, char *argv[]) {
         } else {
           t2_add = t_start - t_start;
         }
+  #endif
 #endif
 // EXECUTION OF THE ROUTINES (QUADUBLE OPERATIONS)
-#ifdef SHOW_TIMES
+#ifdef TEST_COPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
+  #endif
         _four_copy<SYCL>(ex, numE, bvZ1, strd, bvY1, strd, bvZ2, strd, bvY2,
                          strd, bvZ3, strd, bvY3, strd, bvZ4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t3_copy = t_stop - t_start;
@@ -933,16 +956,17 @@ int main(int argc, char *argv[]) {
         } else {
           t3_copy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_AXPY
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-        ;
-#endif
+  #endif
         _four_axpy<SYCL>(ex, numE, alpha1, bvX1, strd, bvY1, strd, alpha2, bvX2,
                          strd, bvY2, strd, alpha3, bvX3, strd, bvY3, strd,
                          alpha4, bvX4, strd, bvY4, strd);
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t3_axpy = t_stop - t_start;
@@ -951,22 +975,24 @@ int main(int argc, char *argv[]) {
         } else {
           t3_axpy = t_start - t_start;
         }
+  #endif
 #endif
-#ifdef SHOW_TIMES
+#ifdef TEST_ADD
+  #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
-#endif
-#ifdef FUSION_ADDS
+  #endif
+  #ifdef FUSION_ADDS
         _four_addB<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvY2, strd,
                         bvS2 + 3, bvY3, strd, bvS3 + 3, bvY4, strd,
                         bvS4 + 3, bvR1234);
-#else
+  #else
         _four_add<SYCL>(ex, numE, bvY1, strd, bvS1 + 3, bvR1, bvY2, strd,
                         bvS2 + 3, bvR2, bvY3, strd, bvS3 + 3, bvR3, bvY4, strd,
                         bvS4 + 3, bvR4);
-#endif
+  #endif
 
         q.wait_and_throw();
-#ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
           t3_add = t_stop - t_start;
@@ -975,6 +1001,7 @@ int main(int argc, char *argv[]) {
         } else {
           t3_add = t_start - t_start;
         }
+  #endif
 #endif
       }
     }

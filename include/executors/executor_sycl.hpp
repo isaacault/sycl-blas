@@ -530,6 +530,7 @@ class Executor<SYCL> {
 
     // Two accessors to local memory
     auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+//    printf ("SharedMemory = 8 * %lu = %lu\n", sharedSize, 8*sharedSize);
     auto opShMemA1 = LHS1_type(scr, 0*sharedSize, 1, sharedSize);
     auto opShMemB1 = LHS1_type(scr, 1*sharedSize, 1, sharedSize);
     auto opShMemA2 = LHS2_type(scr, 2*sharedSize, 1, sharedSize);
@@ -556,6 +557,7 @@ class Executor<SYCL> {
                                     ((nWG == 1) ? lhs4 : opShMemA4), rhs4,
                                     localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
+//                                                globalSize, 4*localSize);
                                                 globalSize, 4*sharedSize);
       } else {
         // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
@@ -572,6 +574,7 @@ class Executor<SYCL> {
                                               (even ? opShMemA4 : opShMemB4),
                         localSize, globalSize);
         execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
+//                                                globalSize, 4*localSize);
                                                 globalSize, 4*sharedSize);
       }
       /* */

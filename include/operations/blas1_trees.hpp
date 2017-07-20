@@ -349,10 +349,16 @@ struct AssignReduction {
       // This barrier is mandatory to be sure the data are on the shared memory
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
     }
+#ifdef TRACE_ERROR
+    if (groupid == 0) printf ("XYY %lu %lu %lu\n", groupid, blqS, grdS);
+#endif
     if (localid == 0) {
       l.eval(groupid) = scratch[localid];
 //      if (blqS == grdS) printf ("Fin %lu -> %20.10f\n", groupid, scratch[localid]);
     }
+#ifdef TRACE_ERROR
+    if (groupid == 0) printf ("XYZ %lu %lu %lu\n", groupid, blqS, grdS);
+#endif
     return l.eval(groupid);
   }
 };
