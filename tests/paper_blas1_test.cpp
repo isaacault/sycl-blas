@@ -22,15 +22,15 @@ using namespace blas;
 #define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
 
-#define LOCALSIZE 64
+#define LOCALSIZE 128
 
 #define REDUCE_SCRATCH 1
 
 #define ONE_SCRATCH 1
 
 #define FUSION_ADDS      1
-#define FUSION_TWO_ADDS  1
-#define FUSION_FOUR_ADDS 1
+//#define FUSION_TWO_ADDS  1
+//#define FUSION_FOUR_ADDS 1
 
 #define TEST_COPY 1
 #define TEST_AXPY 1
@@ -519,6 +519,10 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> t1_copy, t1_axpy, t1_add;
     std::chrono::duration<double> t2_copy, t2_axpy, t2_add;
     std::chrono::duration<double> t3_copy, t3_axpy, t3_add;
+    std::vector<std::chrono::duration<double>> v0_copy(NUMBER_REPEATS), v0_axpy(NUMBER_REPEATS), v0_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v1_copy(NUMBER_REPEATS), v1_axpy(NUMBER_REPEATS), v1_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v2_copy(NUMBER_REPEATS), v2_axpy(NUMBER_REPEATS), v2_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v3_copy(NUMBER_REPEATS), v3_axpy(NUMBER_REPEATS), v3_add(NUMBER_REPEATS);
 #endif
     // CREATING DATA
     std::vector<double> vX1(sizeV);
@@ -614,7 +618,7 @@ int main(int argc, char *argv[]) {
     // CREATING THE SYCL QUEUE AND EXECUTOR
     // cl::sycl::gpu_selector   s;
     cl::sycl::intel_selector s;
-    // cl::sycl::cpu_selector s;
+    // cl::sycl::cpu_selector s; NOOOOO
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
@@ -770,6 +774,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_copy = t_start - t_start;
         }
+        v0_copy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_AXPY
@@ -790,6 +795,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_axpy = t_start - t_start;
         }
+        v0_axpy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_ADD
@@ -810,6 +816,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_add = t_start - t_start;
         }
+        v0_add[i] = t_stop - t_start;
   #endif
 #endif
 // EXECUTION OF THE ROUTINES (SINGLE OPERATIONS)
@@ -831,6 +838,7 @@ int main(int argc, char *argv[]) {
         } else {
           t1_copy = t_start - t_start;
         }
+        v1_copy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_AXPY
@@ -851,6 +859,7 @@ int main(int argc, char *argv[]) {
         } else {
           t1_axpy = t_start - t_start;
         }
+        v1_axpy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_ADD
@@ -871,6 +880,7 @@ int main(int argc, char *argv[]) {
         } else {
           t1_add = t_start - t_start;
         }
+        v1_add[i] = t_stop - t_start;
   #endif
 #endif
 // EXECUTION OF THE ROUTINES (DOUBLE OPERATIONS)
@@ -892,6 +902,7 @@ int main(int argc, char *argv[]) {
         } else {
           t2_copy = t_start - t_start;
         }
+        v2_copy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_AXPY
@@ -912,6 +923,7 @@ int main(int argc, char *argv[]) {
         } else {
           t2_axpy = t_start - t_start;
         }
+        v2_axpy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_ADD
@@ -939,6 +951,7 @@ int main(int argc, char *argv[]) {
         } else {
           t2_add = t_start - t_start;
         }
+        v2_add[i] = t_stop - t_start;
   #endif
 #endif
 // EXECUTION OF THE ROUTINES (QUADUBLE OPERATIONS)
@@ -958,6 +971,7 @@ int main(int argc, char *argv[]) {
         } else {
           t3_copy = t_start - t_start;
         }
+        v3_copy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_AXPY
@@ -977,6 +991,7 @@ int main(int argc, char *argv[]) {
         } else {
           t3_axpy = t_start - t_start;
         }
+        v3_axpy[i] = t_stop - t_start;
   #endif
 #endif
 #ifdef TEST_ADD
@@ -1010,6 +1025,7 @@ int main(int argc, char *argv[]) {
         } else {
           t3_add = t_start - t_start;
         }
+        v3_add[i] = t_stop - t_start;
   #endif
 #endif
       }
@@ -1025,6 +1041,41 @@ int main(int argc, char *argv[]) {
               << std::endl;
     std::cout << "t_add  , " << t0_add.count()/div << ", " << t1_add.count()/div << ", "
               << t2_add.count()/div << ", " << t3_add.count()/div << std::endl;
+
+    std::sort (v0_copy.begin()+1, v0_copy.end());
+    std::sort (v1_copy.begin()+1, v1_copy.end());
+    std::sort (v2_copy.begin()+1, v2_copy.end());
+    std::sort (v3_copy.begin()+1, v3_copy.end());
+    std::cout << "m_copy , " << v0_copy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v1_copy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v2_copy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v3_copy[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
+    std::sort (v0_axpy.begin()+1, v0_axpy.end());
+    std::sort (v1_axpy.begin()+1, v1_axpy.end());
+    std::sort (v2_axpy.begin()+1, v2_axpy.end());
+    std::sort (v3_axpy.begin()+1, v3_axpy.end());
+    std::cout << "m_axpy , " << v0_axpy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v1_axpy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v2_axpy[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v3_axpy[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
+    std::sort (v0_add.begin()+1, v0_add.end());
+    std::sort (v1_add.begin()+1, v1_add.end());
+    std::sort (v2_add.begin()+1, v2_add.end());
+    std::sort (v3_add.begin()+1, v3_add.end());
+    std::cout << "m_add  , " << v0_add[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v1_add[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v2_add[(NUMBER_REPEATS+1)/2].count() 
+              << ", "        << v3_add[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
+/*  ERROR
+    for (const auto time:v0_copy) std::cout << time.count() << " ";
+    std::cout << std::endl;
+    std::sort (v0_copy.begin()+1, v0_copy.end());
+    for (const auto time:v0_copy) std::cout << time.count() << " ";
+    std::cout << " -> £" << v0_copy[(NUMBER_REPEATS+1)/2].count() << std::endl;
+*/
 #endif
     // ANALYSIS OF THE RESULTS
     double res;

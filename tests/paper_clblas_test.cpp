@@ -63,6 +63,10 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> t1_copy, t1_axpy, t1_add;
     std::chrono::duration<double> t2_copy, t2_axpy, t2_add;
     std::chrono::duration<double> t3_copy, t3_axpy, t3_add;
+    std::vector<std::chrono::duration<double>> v0_copy(NUMBER_REPEATS), v0_axpy(NUMBER_REPEATS), v0_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v1_copy(NUMBER_REPEATS), v1_axpy(NUMBER_REPEATS), v1_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v2_copy(NUMBER_REPEATS), v2_axpy(NUMBER_REPEATS), v2_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<double>> v3_copy(NUMBER_REPEATS), v3_axpy(NUMBER_REPEATS), v3_add(NUMBER_REPEATS);
 #endif
 
     // CREATING DATA
@@ -378,6 +382,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_copy = t_start - t_start;
         }
+        v0_copy[i] = t_stop - t_start;
 #endif
 
 #ifdef SHOW_TIMES
@@ -413,6 +418,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_axpy = t_start - t_start;
         }
+        v0_axpy[i] = t_stop - t_start;
 #endif
 
 #ifdef SHOW_TIMES
@@ -457,6 +463,7 @@ int main(int argc, char *argv[]) {
         } else {
           t0_add = t_start - t_start;
         }
+        v0_add[i] = t_stop - t_start;
 #endif
       }
 
@@ -612,21 +619,49 @@ int main(int argc, char *argv[]) {
 #ifdef SHOW_TIMES
     int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
     // COMPUTATIONAL TIMES
-    std::cout << "t_copy, " << t0_copy.count()/div << std::endl;
+    std::cout << "t_copy , " << t0_copy.count()/div << std::endl;
     //    std::cout <<   "t_copy --> (" << t0_copy.count()/div << ", " <<
     //    t1_copy.count()/div
     //                          << ", " << t2_copy.count()/div << ", " <<
     //                          t3_copy.count()/div << ")" << std::endl;
-    std::cout << "t_axpy, " << t0_axpy.count()/div << std::endl;
+    std::cout << "t_axpy , " << t0_axpy.count()/div << std::endl;
     //    std::cout <<   "t_axpy --> (" << t0_axpy.count()/div << ", " <<
     //    t1_axpy.count()/div
     //                          << ", " << t2_axpy.count()/div << ", " <<
     //                          t3_axpy.count()/div << ")" << std::endl;
-    std::cout << "t_add, " << t0_add.count()/div << std::endl;
+    std::cout << "t_add  , " << t0_add.count()/div << std::endl;
 //    std::cout <<   "t_add  --> (" << t0_add.count()/div  << ", " << t1_add.count()/div
 //                          << ", " << t2_add.count()/div  << ", " << t3_add.count()/div
 //                          << ")" << std::endl;
 //
+
+    std::sort (v0_copy.begin()+1, v0_copy.end());
+//    std::sort (v1_copy.begin()+1, v1_copy.end());
+//    std::sort (v2_copy.begin()+1, v2_copy.end());
+//    std::sort (v3_copy.begin()+1, v3_copy.end());
+    std::cout << "m_copy , " << v0_copy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v1_copy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v2_copy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v3_copy[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
+    std::sort (v0_axpy.begin()+1, v0_axpy.end());
+//    std::sort (v1_axpy.begin()+1, v1_axpy.end());
+//    std::sort (v2_axpy.begin()+1, v2_axpy.end());
+//    std::sort (v3_axpy.begin()+1, v3_axpy.end());
+    std::cout << "m_axpy , " << v0_axpy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v1_axpy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v2_axpy[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v3_axpy[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
+    std::sort (v0_add.begin()+1, v0_add.end());
+//    std::sort (v1_add.begin()+1, v1_add.end());
+//    std::sort (v2_add.begin()+1, v2_add.end());
+//    std::sort (v3_add.begin()+1, v3_add.end());
+    std::cout << "m_add  , " << v0_add[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v1_add[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v2_add[(NUMBER_REPEATS+1)/2].count() 
+//              << ", "        << v3_add[(NUMBER_REPEATS+1)/2].count() 
+              << std::endl;
 #endif
 
     // ANALYSIS OF THE RESULTS
