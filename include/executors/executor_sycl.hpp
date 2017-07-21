@@ -330,7 +330,7 @@ class Executor<SYCL> {
     auto rhs = t.r;
 
     // Two accessors to local memory
-    auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+    auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
     cont_type shMem1(sharedSize);
     auto opShMemA = LHS_type(shMem1, 0, 1, sharedSize);
     cont_type shMem2(sharedSize);
@@ -355,7 +355,8 @@ class Executor<SYCL> {
                                                 globalSize, sharedSize);
       }
       _N = nWG;
-      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+//      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+      nWG = (_N + (NUM_LOCAL_ADDS * localSize) - 1) / (NUM_LOCAL_ADDS * localSize);
       frst = false;
       even = !even;
     } while (_N > 1);
@@ -382,7 +383,7 @@ class Executor<SYCL> {
     auto rhs = t.r;
 
     // Two accessors to local memory
-    auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+    auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
     auto opShMemA = LHS_type(scr, 0, 1, sharedSize);
     auto opShMemB = LHS_type(scr, sharedSize, 1, sharedSize);
 
@@ -430,7 +431,8 @@ class Executor<SYCL> {
 //                                                globalSize, sharedSize);
       }
       _N = nWG;
-      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+//      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+      nWG = (_N + (NUM_LOCAL_ADDS * localSize) - 1) / (NUM_LOCAL_ADDS * localSize);
       frst = false;
       even = !even;
     } while (_N > 1);
@@ -462,7 +464,7 @@ class Executor<SYCL> {
     auto rhs2 = t.r2;
 
     // Two accessors to local memory
-    auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+    auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
     auto opShMemA1 = LHS1_type(scr, 0*sharedSize, 1, sharedSize);
     auto opShMemB1 = LHS1_type(scr, 1*sharedSize, 1, sharedSize);
     auto opShMemA2 = LHS2_type(scr, 2*sharedSize, 1, sharedSize);
@@ -500,7 +502,8 @@ class Executor<SYCL> {
       }
       /* */
       _N = nWG;
-      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+//      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+      nWG = (_N + (NUM_LOCAL_ADDS * localSize) - 1) / (NUM_LOCAL_ADDS * localSize);
       frst = false;
       even = !even;
     } while (_N > 1);
@@ -538,7 +541,7 @@ class Executor<SYCL> {
     auto rhs4 = t.r4;
 
     // Two accessors to local memory
-    auto sharedSize = ((nWG < localSize) ? localSize : nWG);
+    auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
 //    printf ("SharedMemory = 8 * %lu = %lu\n", sharedSize, 8*sharedSize);
     auto opShMemA1 = LHS1_type(scr, 0*sharedSize, 1, sharedSize);
     auto opShMemB1 = LHS1_type(scr, 1*sharedSize, 1, sharedSize);
@@ -588,7 +591,8 @@ class Executor<SYCL> {
       }
       /* */
       _N = nWG;
-      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+//      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
+      nWG = (_N + (NUM_LOCAL_ADDS * localSize) - 1) / (NUM_LOCAL_ADDS * localSize);
       frst = false;
       even = !even;
     } while (_N > 1);
