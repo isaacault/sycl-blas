@@ -22,19 +22,22 @@ using namespace blas;
 #define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
 
-#define LOCALSIZE 128
+#define LOCALSIZE 256
 
 #define REDUCE_SCRATCH 1
 
 #define ONE_SCRATCH 1
 
 #define FUSION_ADDS      1
-//#define FUSION_TWO_ADDS  1
-//#define FUSION_FOUR_ADDS 1
+#define FUSION_TWO_ADDS  1
+#define FUSION_FOUR_ADDS 1
 
 #define TEST_COPY 1
 #define TEST_AXPY 1
 #define TEST_ADD  1
+
+#define NUM_JUMPS_INIT_BLOCK  16
+// #define NUM_JUMPS_INIT_BLOCK  16 / NUM_LOCAL_ADDS
 
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*
@@ -50,7 +53,10 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   unsigned localSize = LOCALSIZE;
   // unsigned nWg = (N + localSize - 1) / localSize;
   // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
+//  unsigned nWg = (N < (32*localSize))? 1: 2 * localSize;
+//  unsigned nWg = (N < (localSize))? 1: localSize;
+//  unsigned nWg = (N <= (NUM_LOCAL_ADDS * NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
 
   // unsigned nWg = LOCAL_REDUCTIONS * localSize;
   // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
@@ -616,8 +622,8 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
-    // cl::sycl::gpu_selector   s;
-    cl::sycl::intel_selector s;
+    cl::sycl::gpu_selector   s;
+    // cl::sycl::intel_selector s;
     // cl::sycl::cpu_selector s; NOOOOO
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {

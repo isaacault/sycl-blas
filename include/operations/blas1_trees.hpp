@@ -270,7 +270,12 @@ struct TupleOp {
  *  with y a scalar and x a subexpression tree.
  */
 // #define TRACE_ERROR 1
-
+// #define TWO_LOCAL_ADDS
+#ifdef TWO_LOCAL_ADDS
+  #define NUM_LOCAL_ADDS 2
+#else
+  #define NUM_LOCAL_ADDS 1
+#endif
 template <typename Operator, class LHS, class RHS>
 struct AssignReduction {
   using value_type = typename RHS::value_type;
@@ -290,7 +295,7 @@ struct AssignReduction {
 
   value_type eval(size_t i) {
     size_t vecS = r.getSize();
-    size_t frs_thrd = 2 * blqS * i;
+    size_t frs_thrd = NUM_LOCAL_ADDS * blqS * i;
     size_t lst_thrd = ((frs_thrd + blqS) > vecS) ? vecS : (frs_thrd + blqS);
     // Reduction across the grid
 #ifdef TRACE_ERROR
@@ -299,11 +304,13 @@ struct AssignReduction {
     value_type val = Operator::init(r);
     for (size_t j = frs_thrd; j < lst_thrd; j++) {
       value_type local_val = Operator::init(r);
-      for (size_t k = j; k < vecS; k += 2 * grdS) {
+      for (size_t k = j; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
         local_val = Operator::eval(local_val, r.eval(k));
+#ifdef TWO_LOCAL_ADDS
         if (k + blqS < vecS) {
           local_val = Operator::eval(local_val, r.eval(k + blqS));
         }
+#endif
       }
       // Reduction inside the block
       val = Operator::eval(val, local_val);
@@ -320,16 +327,18 @@ struct AssignReduction {
     size_t groupid = ndItem.get_group(0);
 
     size_t vecS = r.getSize();
-    size_t frs_thrd = 2 * groupid * localSz + localid;
+    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    printf ("Hola %lu \n", localid);
     // Reduction across the grid
     value_type val = Operator::init(r);
-    for (size_t k = frs_thrd; k < vecS; k += 2 * grdS) {
+    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
       val = Operator::eval(val, r.eval(k));
+#ifdef TWO_LOCAL_ADDS
       if ((k + blqS < vecS)) {
         val = Operator::eval(val, r.eval(k + blqS));
       }
+#endif
     }
 #ifdef TRACE_ERROR
 //    if (blqS == grdS) printf ("Hola %lu -> %20.10f\n", localid, val);
@@ -422,7 +431,7 @@ struct AssignReduction_2Ops {
 
   value_type eval(size_t i) {
     size_t vecS = r1.getSize();
-    size_t frs_thrd = 2 * blqS * i;
+    size_t frs_thrd = NUM_LOCAL_ADDS * blqS * i;
     size_t lst_thrd = ((frs_thrd + blqS) > vecS) ? vecS : (frs_thrd + blqS);
     // Reduction across the grid
     value_type val1 = Operator::init(r1);
@@ -430,13 +439,15 @@ struct AssignReduction_2Ops {
     for (size_t j = frs_thrd; j < lst_thrd; j++) {
       value_type local_val1 = Operator::init(r1);
       value_type local_val2 = Operator::init(r2);
-      for (size_t k = j; k < vecS; k += 2 * grdS) {
+      for (size_t k = j; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
         local_val1 = Operator::eval(local_val1, r1.eval(k));
         local_val2 = Operator::eval(local_val2, r2.eval(k));
+#ifdef TWO_LOCAL_ADDS
         if (k + blqS < vecS) {
           local_val1 = Operator::eval(local_val1, r1.eval(k + blqS));
           local_val2 = Operator::eval(local_val2, r2.eval(k + blqS));
         }
+#endif
       }
       // Reduction inside the block
       val1 = Operator::eval(val1, local_val1);
@@ -456,7 +467,7 @@ struct AssignReduction_2Ops {
     size_t groupid = ndItem.get_group(0);
 
     size_t vecS = r1.getSize();
-    size_t frs_thrd = 2 * groupid * localSz + localid;
+    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    sharedT scratch1 = sharedT(scratch, 0, 1, localSz);
 //    sharedT scratch2 = sharedT(scratch, 0, 1, localSz);
@@ -466,13 +477,15 @@ struct AssignReduction_2Ops {
     // Reduction across the grid
     value_type val1 = Operator::init(r1);
     value_type val2 = Operator::init(r2);
-    for (size_t k = frs_thrd; k < vecS; k += 2 * grdS) {
+    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
       val1 = Operator::eval(val1, r1.eval(k));
       val2 = Operator::eval(val2, r2.eval(k));
+#ifdef TWO_LOCAL_ADDS
       if ((k + blqS < vecS)) {
         val1 = Operator::eval(val1, r1.eval(k + blqS));
         val2 = Operator::eval(val2, r2.eval(k + blqS));
       }
+#endif
     }
 
 //    scratch1[localid] = val1;
@@ -540,7 +553,7 @@ struct AssignReduction_4Ops {
 
   value_type eval(size_t i) {
     size_t vecS = r1.getSize();
-    size_t frs_thrd = 2 * blqS * i;
+    size_t frs_thrd = NUM_LOCAL_ADDS * blqS * i;
     size_t lst_thrd = ((frs_thrd + blqS) > vecS) ? vecS : (frs_thrd + blqS);
     // Reduction across the grid
     value_type val1 = Operator::init(r1);
@@ -552,17 +565,19 @@ struct AssignReduction_4Ops {
       value_type local_val2 = Operator::init(r2);
       value_type local_val3 = Operator::init(r3);
       value_type local_val4 = Operator::init(r4);
-      for (size_t k = j; k < vecS; k += 2 * grdS) {
+      for (size_t k = j; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
         local_val1 = Operator::eval(local_val1, r1.eval(k));
         local_val2 = Operator::eval(local_val2, r2.eval(k));
         local_val3 = Operator::eval(local_val3, r3.eval(k));
         local_val4 = Operator::eval(local_val4, r4.eval(k));
+#ifdef TWO_LOCAL_ADDS
         if (k + blqS < vecS) {
           local_val1 = Operator::eval(local_val1, r1.eval(k + blqS));
           local_val2 = Operator::eval(local_val2, r2.eval(k + blqS));
           local_val3 = Operator::eval(local_val3, r3.eval(k + blqS));
           local_val4 = Operator::eval(local_val4, r4.eval(k + blqS));
         }
+#endif
       }
       // Reduction inside the block
       val1 = Operator::eval(val1, local_val1);
@@ -586,7 +601,7 @@ struct AssignReduction_4Ops {
     size_t groupid = ndItem.get_group(0);
 
     size_t vecS = r1.getSize();
-    size_t frs_thrd = 2 * groupid * localSz + localid;
+    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    sharedT scratch1 = sharedT(scratch, 0, 1, localSz);
 //    sharedT scratch2 = sharedT(scratch, 0, 1, localSz);
@@ -600,17 +615,19 @@ struct AssignReduction_4Ops {
     value_type val2 = Operator::init(r2);
     value_type val3 = Operator::init(r3);
     value_type val4 = Operator::init(r4);
-    for (size_t k = frs_thrd; k < vecS; k += 2 * grdS) {
+    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
       val1 = Operator::eval(val1, r1.eval(k));
       val2 = Operator::eval(val2, r2.eval(k));
       val3 = Operator::eval(val3, r3.eval(k));
       val4 = Operator::eval(val4, r4.eval(k));
+#ifdef TWO_LOCAL_ADDS
       if ((k + blqS < vecS)) {
         val1 = Operator::eval(val1, r1.eval(k + blqS));
         val2 = Operator::eval(val2, r2.eval(k + blqS));
         val3 = Operator::eval(val3, r3.eval(k + blqS));
         val4 = Operator::eval(val4, r4.eval(k + blqS));
       }
+#endif
     }
 
 //    scratch1[localid] = val1;
