@@ -14,6 +14,33 @@ using namespace blas;
 
 #define RANDOM_DATA 1
 
+#define LOCALSIZE 128
+
+#define SHOW_TIMES 1
+
+std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
+  /*
+  The localsize should be the size of the multiprocessor.
+  nWG determines the number of reduction steps.
+  Experimentally, we concluded that two steps were the best option in Kepler.
+  For these reasons, we fixed nWG = 2 * localsize.
+  In other GPUs, the conclusion could be different.
+  You can test two options:
+    * nWG = (N + localsize - 1) / localsize
+    * nWG = (N + 2 * localsize - 1) / (2 * localsize)
+  */
+  unsigned localSize = LOCALSIZE;
+  // unsigned nWg = (N + localSize - 1) / localSize;
+  // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
+  unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
+
+  // unsigned nWg = LOCAL_REDUCTIONS * localSize;
+  // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
+  // localSize);
+
+  return std::pair<unsigned, unsigned>(localSize, nWg);
+}
+
 // This routine assures the symmetric matrix defined by td ans ts is SPD
 void trdSP(std::vector<double> &td, std::vector<double> &ts) {
   int size = td.size();
@@ -42,19 +69,19 @@ void prdTrdSP(Executor<ExecutorType> ex, vector_view<T, ContainerT> &td,
   // Computations related to the diagonal
   auto prdVctOp0 = make_op<BinaryOp, prdOp2_struct>(my_x0, my_td0);
   auto assignOp0 = make_op<Assign>(my_y0, prdVctOp0);
-  ex.execute(assignOp0);
+  ex.execute(assignOp0, LOCALSIZE);
 
   // Computations related to the superdiagonal
   auto prdVctOp1 = make_op<BinaryOp, prdOp2_struct>(my_x1, my_ts);
   auto addVctOp1 = make_op<BinaryOp, addOp2_struct>(my_y1, prdVctOp1);
   auto assignOp1 = make_op<Assign>(my_y1, addVctOp1);
-  ex.execute(assignOp1);
+  ex.execute(assignOp1, LOCALSIZE);
 
   // Computations related to the subdiagonal
   auto prdVctOp2 = make_op<BinaryOp, prdOp2_struct>(my_x2, my_ts);
   auto addVctOp2 = make_op<BinaryOp, addOp2_struct>(my_y2, prdVctOp2);
   auto assignOp2 = make_op<Assign>(my_y2, addVctOp2);
-  ex.execute(assignOp2);
+  ex.execute(assignOp2, LOCALSIZE);
 }
 
 template <class RHS1, class RHS2>
@@ -101,6 +128,11 @@ struct Evaluate<TrdMatVctPrd<RHS1, RHS2>> {
 }  // namespace blas
 
 void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+  // VARIABLES FOR TIMING
+#ifdef SHOW_TIMES
+  std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+  std::chrono::duration<double> comp_time;
+#endif
   // Variables definition
   std::vector<double> vX(dim);
   std::vector<double> vZ(dim);
@@ -210,7 +242,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     {
       auto initOp = make_op<UnaryOp, iniAddOp1_struct>(bvX);
       auto assignOp = make_op<Assign>(bvX, initOp);
-      ex.execute(assignOp);  // x = 0
+      ex.execute(assignOp, LOCALSIZE);  // x = 0
     }
 
     // Begin CG
@@ -219,7 +251,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     {
       auto prdMtrVctOp = make_trdMatVctPrd(bvTT, bvX);
       auto assignOp = make_op<Assign>(bvZ, prdMtrVctOp);
-      ex.execute(assignOp);
+      ex.execute(assignOp, LOCALSIZE);
     }
 
     _copy<SYCL>(ex, dim, bvB + 0, 1, bvR + 0, 1);        // r = b
@@ -229,7 +261,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     {
       auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(bvBe);
       auto assignOp = make_op<Assign>(bvTo, sqrtOp);  // tol = sqrt(beta)
-      ex.execute(assignOp);
+      ex.execute(assignOp, LOCALSIZE);
 
       auto hostAcc =
           bTo.get_access<access::mode::read, access::target::host_buffer>();
@@ -239,16 +271,20 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     printf("tol = %e \n", tol);
 #endif  // VERBOSE
     while ((tol > thold) && (step < maxItr)) {
+#ifdef SHOW_TIMES
+      if (step == 1)
+        t_start = std::chrono::steady_clock::now();
+#endif
       {
         auto prdMtrVctOp = make_trdMatVctPrd(bvTT, bvD);
         auto assignOp = make_op<Assign>(bvZ, prdMtrVctOp);
-        ex.execute(assignOp);
+        ex.execute(assignOp, LOCALSIZE);
       }
       _dot<SYCL>(ex, dim, bvD + 0, 1, bvZ + 0, 1, bvAl);  // alpha = d' * z
       {
         auto divOp = make_op<BinaryOp, divOp2_struct>(bvBe, bvAl);
         auto assignOp = make_op<Assign>(bvRh, divOp);  // rho = beta / alpha
-        ex.execute(assignOp);
+        ex.execute(assignOp, LOCALSIZE);
 
         auto hostAcc =
             bRh.get_access<access::mode::read, access::target::host_buffer>();
@@ -258,13 +294,13 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
       _axpy<SYCL>(ex, dim, -rho, bvZ + 0, 1, bvR + 0, 1);  // r = r - rho * z
       {
         auto assignOp = make_op<Assign>(bvAl, bvBe);  // alpha = beta
-        ex.execute(assignOp);
+        ex.execute(assignOp, LOCALSIZE);
       }
       _dot<SYCL>(ex, dim, bvR + 0, 1, bvR + 0, 1, bvBe);  // beta = r' * r
       {
         auto divOp = make_op<BinaryOp, divOp2_struct>(bvBe, bvAl);
         auto assignOp = make_op<Assign>(bvAl, divOp);  // alpha = beta / alpha
-        ex.execute(assignOp);
+        ex.execute(assignOp, LOCALSIZE);
 
         auto hostAcc =
             bAl.get_access<access::mode::read, access::target::host_buffer>();
@@ -275,7 +311,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
       {
         auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(bvBe);
         auto assignOp = make_op<Assign>(bvTo, sqrtOp);  // tol = sqrt(beta)
-        ex.execute(assignOp);
+        ex.execute(assignOp, LOCALSIZE);
 
         auto hostAcc =
             bTo.get_access<access::mode::read, access::target::host_buffer>();
@@ -286,9 +322,15 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
       printf("tol = %e \n", tol);
 #endif  // VERBOSE
     }
-
     // End CG
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+    comp_time = t_stop - t_start;
+    printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
+            comp_time.count() / (step - 1));
+#else
     printf("tolF = %e , steps = %ld\n", tol, step);
+#endif
   }
 }
 
@@ -302,7 +344,7 @@ void _xpay(Executor<ExecutorType> ex, int _N, double _alpha,
   auto scalOp = make_op<ScalarOp, prdOp2_struct>(_alpha, my_vy);
   auto addBinaryOp = make_op<BinaryOp, addOp2_struct>(my_vx, scalOp);
   auto assignOp = make_op<Assign>(my_vy, addBinaryOp);
-  ex.execute(assignOp);
+  ex.execute(assignOp, LOCALSIZE);
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
@@ -346,7 +388,7 @@ void _two_axpy_dotSng_Scal(Executor<ExecutorType> ex, int _N, double _alpha1,
   auto joinOp = make_op<Join>(assignOp41, assignOp42);
   auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(joinOp);
   auto assignOp43 = make_op<Assign>(my_to, sqrtOp);
-  ex.execute(assignOp43);
+  ex.execute(assignOp43, LOCALSIZE);
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
@@ -374,10 +416,10 @@ void prdTrdSP2_dot_Scal(Executor<ExecutorType> ex, int _N,
   //  Calculating: _rh = _be / _rh;
   auto divOp = make_op<BinaryOp, divOp2_struct>(my_be, my_rh);
   auto assignOp2 = make_op<Assign>(my_rh, divOp);
-#ifdef BLAS_EXPERIMENTAL
+//#ifdef BLAS_EXPERIMENTAL
   ex.execute(assignOp2, 1);
-#endif  // BLAS_EXPERIMENTAL
-  ex.execute(assignOp2);
+//#endif  // BLAS_EXPERIMENTAL
+//  ex.execute(assignOp2);
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
@@ -414,10 +456,15 @@ void prdTrdSP2_init_vectors_dotSng_Scal(
   // Calculating: _to = sqrt(be)
   auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(my_be);
   auto assignOp2 = make_op<Assign>(my_to, sqrtOp);
-  ex.execute(assignOp2);
+  ex.execute(assignOp2, LOCALSIZE);
 }
 
 void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+  // VARIABLES FOR TIMING
+#ifdef SHOW_TIMES
+  std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+  std::chrono::duration<double> comp_time;
+#endif
   // Variables definition
   std::vector<double> vX(dim);
   std::vector<double> vZ(dim);
@@ -524,13 +571,16 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
     _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
-    auto blqS = 256;  // size of each workgroups
-    auto nBlq = 512;  // number of workgorups
+    auto kernelPair = get_reduction_params(dim);
+    auto blqS = kernelPair.first;  // size of each workgroup
+    auto nBlq = kernelPair.second; // number of workgorups
+//    auto blqS = 256;  // size of each workgroup
+//    auto nBlq = 512;  // number of workgorups
 
     {
       auto initOp = make_op<UnaryOp, iniAddOp1_struct>(bvX);
       auto assignOp = make_op<Assign>(bvX, initOp);
-      ex.execute(assignOp);  // x = 0
+      ex.execute(assignOp, LOCALSIZE);  // x = 0
     }
 
     // Begin CG
@@ -551,6 +601,10 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     printf("tol = %e \n", tol);
 #endif
     while ((tol > thold) && (step < maxItr)) {
+#ifdef SHOW_TIMES
+      if (step == 1)
+        t_start = std::chrono::steady_clock::now();
+#endif
       prdTrdSP2_dot_Scal<SYCL>(ex, dim, bvTT + 0, 1,    // z = A * d
                                bvD + 0, 1, bvZ + 0, 1,  // alpha = d' * z
                                bvBe, bvRh,              // rho = beta / alpha
@@ -581,7 +635,14 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
 #endif  // VERBOSE
     }
     // End CG
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+    comp_time = t_stop - t_start;
+    printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
+            comp_time.count() / (step - 1));
+#else
     printf("tolF = %e , steps = %ld\n", tol, step);
+#endif
   }
 }
 
@@ -591,7 +652,7 @@ void _xpayF(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vAl,
   auto scalOp = make_op<ScalarOp, prdOp2_struct>(_vAl, _vy);
   auto addBinaryOp = make_op<BinaryOp, addOp2_struct>(_vx, scalOp);
   auto assignOp = make_op<Assign>(_vy, addBinaryOp);
-  ex.execute(assignOp);
+  ex.execute(assignOp, LOCALSIZE);
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
@@ -630,9 +691,9 @@ void _two_axpy_dotSng_ScalF(
   if (compSqrt) {
     auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(joinOp);
     auto assignOp43 = make_op<Assign>(_to, sqrtOp);
-    ex.execute(assignOp43);
+    ex.execute(assignOp43, LOCALSIZE);
   } else {
-    ex.execute(joinOp);
+    ex.execute(joinOp, LOCALSIZE);
   }
 }
 
@@ -660,7 +721,7 @@ void prdTrdSP2_dot_ScalF(Executor<ExecutorType> ex, int _N,
   auto assignOp2 = make_op<Assign>(_rh, divOp);
   auto negOp3 = make_op<UnaryOp, negOp1_struct>(assignOp2);
   auto assignOp3 = make_op<Assign>(_al, negOp3);
-  ex.execute(assignOp3);
+  ex.execute(assignOp3, LOCALSIZE);
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
@@ -688,10 +749,15 @@ void prdTrdSP2_init_vectors_dotSng_ScalF(
 
   auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(_be);
   auto assignOp2 = make_op<Assign>(_to, sqrtOp);
-  ex.execute(assignOp2);
+  ex.execute(assignOp2, LOCALSIZE);
 }
 
 void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+  // VARIABLES FOR TIMING
+#ifdef SHOW_TIMES
+  std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+  std::chrono::duration<double> comp_time;
+#endif
   // Variables definition
   std::vector<double> vX(dim);
   std::vector<double> vZ(dim);
@@ -799,16 +865,19 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
     _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
-    auto blqS = 256;  // size of each workgroups
-    auto nBlq = 512;  // number of workgorups
+    auto kernelPair = get_reduction_params(dim);
+    auto blqS = kernelPair.first;  // size of each workgroup
+    auto nBlq = kernelPair.second; // number of workgorups
+//    auto blqS = 256;  // size of each workgroups
+//    auto nBlq = 512;  // number of workgorups
 
     {
       auto initOp = make_op<UnaryOp, iniAddOp1_struct>(bvX);
       auto assignOp = make_op<Assign>(bvX, initOp);
-#ifdef BLAS_EXPERIMENTAL
-      ex.execute(assignOp, bvX.getSize());  // x = 0
-#endif                                      // BLAS_EXPERIMENTAL
-      ex.execute(assignOp);                 // x = 0
+//#ifdef BLAS_EXPERIMENTAL
+//      ex.execute(assignOp, bvX.getSize());  // x = 0
+//#endif                                      // BLAS_EXPERIMENTAL
+      ex.execute(assignOp, LOCALSIZE);        // x = 0
     }
 
     // Begin CG
@@ -828,6 +897,10 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     printf("tol = %e \n", tol);
 #endif  // VERBOSE
     while ((tol > thold) && (step < maxItr)) {
+#ifdef SHOW_TIMES
+      if (step == 1)
+        t_start = std::chrono::steady_clock::now();
+#endif
       prdTrdSP2_dot_ScalF<SYCL>(ex, dim, bvTT,   // z = A * d
                                 bvD, bvZ, bvBe,  // alpha = d' * z
                                 bvRh, bvAl,      // rho = beta / alpha
@@ -850,12 +923,24 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
 #endif  // VERBOSE
     }
     // End CG
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+    comp_time = t_stop - t_start;
+    printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
+            comp_time.count() / (step - 1));
+#else
     printf("tolF = %e , steps = %ld\n", tol, step);
+#endif
   }
 }
 
 void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
           cl::sycl::queue q) {
+  // VARIABLES FOR TIMING
+#ifdef SHOW_TIMES
+  std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+  std::chrono::duration<double> comp_time;
+#endif
   // Variables definition
   std::vector<double> vX(dim);
   std::vector<double> vZ(dim);
@@ -961,13 +1046,16 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
     _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
-    auto blqS = 256;  // size of each workgroups
-    auto nBlq = 512;  // number of workgorups
+    auto kernelPair = get_reduction_params(dim);
+    auto blqS = kernelPair.first;  // size of each workgroup
+    auto nBlq = kernelPair.second; // number of workgorups
+//    auto blqS = 256;  // size of each workgroups
+//    auto nBlq = 512;  // number of workgorups
 
     {
       auto initOp = make_op<UnaryOp, iniAddOp1_struct>(bvX);
       auto assignOp = make_op<Assign>(bvX, initOp);
-      ex.execute(assignOp);  // x = 0
+      ex.execute(assignOp, LOCALSIZE);  // x = 0
     }
 
     // Begin CG
@@ -987,6 +1075,10 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
     printf("tol = %e \n", tol);
 #endif  // RANDOM_DATA
     while ((tol > thold) && (step < maxItr)) {
+#ifdef SHOW_TIMES
+      if (step == itrLoop)
+        t_start = std::chrono::steady_clock::now();
+#endif
       for (size_t i = itrLoop; i > 0; i--) {
         prdTrdSP2_dot_ScalF<SYCL>(ex, dim, bvTT,   // z = A * d
                                   bvD, bvZ, bvBe,  // alpha = d' * z
@@ -1011,7 +1103,14 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
 #endif
     }
     // End CG
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+    comp_time = t_stop - t_start;
+    printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
+            comp_time.count() / (step - itrLoop));
+#else
     printf("tolF = %e , steps = %ld\n", tol, step);
+#endif
   }
 }
 
