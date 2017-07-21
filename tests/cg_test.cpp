@@ -15,6 +15,7 @@ using namespace blas;
 #define RANDOM_DATA 1
 
 #define LOCALSIZE 128
+#define NUM_JUMPS_INIT_BLOCK  16
 
 #define SHOW_TIMES 1
 
@@ -32,7 +33,8 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   unsigned localSize = LOCALSIZE;
   // unsigned nWg = (N + localSize - 1) / localSize;
   // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
+  // unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
+  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
 
   // unsigned nWg = LOCAL_REDUCTIONS * localSize;
   // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *

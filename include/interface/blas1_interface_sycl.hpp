@@ -205,7 +205,11 @@ void _dot(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
 #endif  //  VERBOSE
   auto prdOp = make_op<BinaryOp, prdOp2_struct>(my_vx, my_vy);
   auto localSize = 256;
-  auto nWG = 512;
+#ifdef TWO_LOCAL_ADDS
+  auto nWG = 2 * localSize;
+#else
+  auto nWG = localSize;
+#endif
   auto assignOp1 =
       make_addAssignReduction(my_rs, prdOp, localSize, localSize * nWG);
   ex.reduce(assignOp1);
@@ -266,7 +270,11 @@ void _nrm2(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
 
   auto prdOp = make_op<UnaryOp, prdOp1_struct>(my_vx);
   auto localSize = 256;
-  auto nWG = 512;
+#ifdef TWO_LOCAL_ADDS
+  auto nWG = 2 * localSize;
+#else
+  auto nWG = localSize;
+#endif
   auto assignOp1 =
       make_addAssignReduction(my_rs, prdOp, localSize, localSize * nWG);
   ex.reduce(assignOp1);
@@ -328,7 +336,11 @@ void _asum(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
   my_rs.printH("VR");
 #endif  //  VERBOSE
   auto localSize = 256;
-  auto nWG = 512;
+#ifdef TWO_LOCAL_ADDS
+  auto nWG = 2 * localSize;
+#else
+  auto nWG = localSize;
+#endif
   auto assignOp =
       make_addAbsAssignReduction(my_rs, my_vx, localSize, localSize * nWG);
   ex.reduce(assignOp);
@@ -351,7 +363,13 @@ void _iamax(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
 #ifdef VERBOSE
   my_vx.printH("VX");
 #endif  //  VERBOSE
-  size_t localSize = 256, nWG = 512;
+  size_t localSize = 256;
+#ifdef TWO_LOCAL_ADDS
+  size_t nWG = 2 * localSize;
+#else
+  size_t nWG = localSize;
+#endif
+
   auto tupOp = TupleOp<vector_view<T, ContainerT>>(my_vx);
   std::vector<IndVal<T>> valT1(nWG,
                                IndVal<T>(std::numeric_limits<size_t>::max(),
@@ -397,7 +415,12 @@ void _iamin(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
 #ifdef VERBOSE
   my_vx.printH("VX");
 #endif  //  VERBOSE
-  size_t localSize = 256, nWG = 512;
+  size_t localSize = 256;
+#ifdef TWO_LOCAL_ADDS
+  size_t nWG = 2 * localSize;
+#else
+  size_t nWG = localSize;
+#endif
   auto tupOp = TupleOp<vector_view<T, ContainerT>>(my_vx);
   std::vector<IndVal<T>> valT1(nWG,
                                IndVal<T>(std::numeric_limits<size_t>::max(),
