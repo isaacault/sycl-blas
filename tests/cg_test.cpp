@@ -14,6 +14,8 @@ using namespace blas;
 
 #define RANDOM_DATA 1
 
+#define BASETYPE float
+
 #define LOCALSIZE 256
 #define NUM_JUMPS_INIT_BLOCK  16
 
@@ -31,20 +33,23 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
     * nWG = (N + 2 * localsize - 1) / (2 * localsize)
   */
   unsigned localSize = LOCALSIZE;
-  // unsigned nWg = (N + localSize - 1) / localSize;
-  // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
-  // unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
-  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+// unsigned nWg = (N + localSize - 1) / localSize;
+// unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
+// unsigned nWg = (N < (2*localSize))? 1: 2 * localSize;
+// unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+// unsigned nWg = LOCAL_REDUCTIONS * localSize;
+// unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
+// localSize);
 
-  // unsigned nWg = LOCAL_REDUCTIONS * localSize;
-  // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
-  // localSize);
+//  unsigned nWg = (N + NUM_LOCAL_ADDS * localSize - 1) / (NUM_LOCAL_ADDS * localSize);
+  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+//  unsigned nWg = 1;
 
   return std::pair<unsigned, unsigned>(localSize, nWg);
 }
 
 // This routine assures the symmetric matrix defined by td ans ts is SPD
-void trdSP(std::vector<double> &td, std::vector<double> &ts) {
+void trdSP(std::vector<BASETYPE> &td, std::vector<BASETYPE> &ts) {
   int size = td.size();
 
   for (int i = 0; i < size; i++) {
@@ -73,17 +78,19 @@ void prdTrdSP(Executor<ExecutorType> ex, vector_view<T, ContainerT> &td,
   auto assignOp0 = make_op<Assign>(my_y0, prdVctOp0);
   ex.execute(assignOp0, LOCALSIZE);
 
-  // Computations related to the superdiagonal
-  auto prdVctOp1 = make_op<BinaryOp, prdOp2_struct>(my_x1, my_ts);
-  auto addVctOp1 = make_op<BinaryOp, addOp2_struct>(my_y1, prdVctOp1);
-  auto assignOp1 = make_op<Assign>(my_y1, addVctOp1);
-  ex.execute(assignOp1, LOCALSIZE);
+  if ( size > 1 ) {
+    // Computations related to the superdiagonal
+    auto prdVctOp1 = make_op<BinaryOp, prdOp2_struct>(my_x1, my_ts);
+    auto addVctOp1 = make_op<BinaryOp, addOp2_struct>(my_y1, prdVctOp1);
+    auto assignOp1 = make_op<Assign>(my_y1, addVctOp1);
+    ex.execute(assignOp1, LOCALSIZE);
 
-  // Computations related to the subdiagonal
-  auto prdVctOp2 = make_op<BinaryOp, prdOp2_struct>(my_x2, my_ts);
-  auto addVctOp2 = make_op<BinaryOp, addOp2_struct>(my_y2, prdVctOp2);
-  auto assignOp2 = make_op<Assign>(my_y2, addVctOp2);
-  ex.execute(assignOp2, LOCALSIZE);
+    // Computations related to the subdiagonal
+    auto prdVctOp2 = make_op<BinaryOp, prdOp2_struct>(my_x2, my_ts);
+    auto addVctOp2 = make_op<BinaryOp, addOp2_struct>(my_y2, prdVctOp2);
+    auto assignOp2 = make_op<Assign>(my_y2, addVctOp2);
+    ex.execute(assignOp2, LOCALSIZE);
+  }
 }
 
 template <class RHS1, class RHS2>
@@ -129,33 +136,33 @@ struct Evaluate<TrdMatVctPrd<RHS1, RHS2>> {
 };
 }  // namespace blas
 
-void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+void CG_1(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
   // VARIABLES FOR TIMING
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
-  std::chrono::duration<double> comp_time;
+  std::chrono::duration<BASETYPE> comp_time;
 #endif
   // Variables definition
-  std::vector<double> vX(dim);
-  std::vector<double> vZ(dim);
-  std::vector<double> vR(dim);
-  std::vector<double> vB(dim);
-  std::vector<double> vD(dim);
-  std::vector<double> vTD(dim);
-  std::vector<double> vTS(dim);
-  std::vector<double> vTT(dim * 3);
-  std::vector<double> vBe(1);
-  std::vector<double> vTo(1);
-  std::vector<double> vAl(1);
-  std::vector<double> vRh(1);
+  std::vector<BASETYPE> vX(dim);
+  std::vector<BASETYPE> vZ(dim);
+  std::vector<BASETYPE> vR(dim);
+  std::vector<BASETYPE> vB(dim);
+  std::vector<BASETYPE> vD(dim);
+  std::vector<BASETYPE> vTD(dim);
+  std::vector<BASETYPE> vTS(dim);
+  std::vector<BASETYPE> vTT(dim * 3);
+  std::vector<BASETYPE> vBe(1);
+  std::vector<BASETYPE> vTo(1);
+  std::vector<BASETYPE> vAl(1);
+  std::vector<BASETYPE> vRh(1);
 
   // Initializing the data
   size_t vSeed, gap;
-  double minV, maxV;
+  BASETYPE minV, maxV;
 
   minV = 1.00;
   maxV = 0.00;
-  std::for_each(std::begin(vX), std::end(vX), [&](double &elem) {
+  std::for_each(std::begin(vX), std::end(vX), [&](BASETYPE &elem) {
     elem = minV;
     minV += maxV;
   });
@@ -170,9 +177,9 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.15;
   maxV = 0.15;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTD), std::end(vTD), [&](double &elem) {
+  std::for_each(std::begin(vTD), std::end(vTD), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -188,9 +195,9 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.10;
   maxV = 0.10;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTS), std::end(vTS), [&](double &elem) {
+  std::for_each(std::begin(vTS), std::end(vTS), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -202,44 +209,47 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   Executor<SYCL> ex(q);
 
   // Scalars required in the method
-  double tol, alpha, rho;
+  BASETYPE tol, alpha, rho;
   size_t step = 0;
   {
     // Parameters creation
-    buffer<double, 1> bB(vB.data(), range<1>{vB.size()});
-    buffer<double, 1> bX(vX.data(), range<1>{vX.size()});
-    buffer<double, 1> bZ(vZ.data(), range<1>{vZ.size()});
-    buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<double, 1> bD(vD.data(), range<1>{vD.size()});
-    buffer<double, 1> bTD(vTD.data(), range<1>{vTD.size()});
-    buffer<double, 1> bTS(vTS.data(), range<1>{vTS.size()});
-    buffer<double, 1> bTT(vTT.data(), range<1>{vTT.size()});
-    buffer<double, 1> bBe(vBe.data(), range<1>{vBe.size()});
-    buffer<double, 1> bTo(vTo.data(), range<1>{vTo.size()});
-    buffer<double, 1> bAl(vAl.data(), range<1>{vAl.size()});
-    buffer<double, 1> bRh(vRh.data(), range<1>{vRh.size()});
+    buffer<BASETYPE, 1> bB(vB.data(), range<1>{vB.size()});
+    buffer<BASETYPE, 1> bX(vX.data(), range<1>{vX.size()});
+    buffer<BASETYPE, 1> bZ(vZ.data(), range<1>{vZ.size()});
+    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
+    buffer<BASETYPE, 1> bD(vD.data(), range<1>{vD.size()});
+    buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
+    buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
+    buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+    buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
+    buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
+    buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
+    buffer<BASETYPE, 1> bRh(vRh.data(), range<1>{vRh.size()});
 
     // Construct the view of the Buffers
-    BufferVectorView<double> bvB(bB);
-    BufferVectorView<double> bvX(bX);
-    BufferVectorView<double> bvZ(bZ);
-    BufferVectorView<double> bvR(bR);
-    BufferVectorView<double> bvD(bD);
-    BufferVectorView<double> bvTD(bTD);
-    BufferVectorView<double> bvTS(bTS);
-    BufferVectorView<double> bvTT(bTT);
-    BufferVectorView<double> bvBe(bBe);
-    BufferVectorView<double> bvTo(bTo);
-    BufferVectorView<double> bvAl(bAl);
-    BufferVectorView<double> bvRh(bRh);
+    BufferVectorView<BASETYPE> bvB(bB);
+    BufferVectorView<BASETYPE> bvX(bX);
+    BufferVectorView<BASETYPE> bvZ(bZ);
+    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvD(bD);
+    BufferVectorView<BASETYPE> bvTD(bTD);
+    BufferVectorView<BASETYPE> bvTS(bTS);
+    BufferVectorView<BASETYPE> bvTT(bTT);
+    BufferVectorView<BASETYPE> bvBe(bBe);
+    BufferVectorView<BASETYPE> bvTo(bTo);
+    BufferVectorView<BASETYPE> bvAl(bAl);
+    BufferVectorView<BASETYPE> bvRh(bRh);
 
+//    printf("CG_1 begins \n");
     // Computation of the RHS related to x=[1*];
     prdTrdSP<SYCL>(ex, bvTD, bvTS, bvX, bvB);  // b = A * x
 
     // Creating the tridiagonal matrix from the vectors
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
     {
       auto initOp = make_op<UnaryOp, iniAddOp1_struct>(bvX);
@@ -257,7 +267,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     }
 
     _copy<SYCL>(ex, dim, bvB + 0, 1, bvR + 0, 1);        // r = b
-    _axpy<SYCL>(ex, dim, -1.0, bvZ + 0, 1, bvR + 0, 1);  // r = r - z
+    _axpy<SYCL,BASETYPE>(ex, dim, -1.0, bvZ + 0, 1, bvR + 0, 1);  // r = r - z
     _copy<SYCL>(ex, dim, bvR + 0, 1, bvD + 0, 1);        // d = r
     _dot<SYCL>(ex, dim, bvR + 0, 1, bvR + 0, 1, bvBe);   // beta = r' * r
     {
@@ -269,6 +279,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
           bTo.get_access<access::mode::read, access::target::host_buffer>();
       tol = hostAcc[0];
     }
+//    step = maxItr;
 #ifdef VERBOSE
     printf("tol = %e \n", tol);
 #endif  // VERBOSE
@@ -292,8 +303,8 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
             bRh.get_access<access::mode::read, access::target::host_buffer>();
         rho = hostAcc[0];
       }
-      _axpy<SYCL>(ex, dim, rho, bvD + 0, 1, bvX + 0, 1);   // x = x + rho * d
-      _axpy<SYCL>(ex, dim, -rho, bvZ + 0, 1, bvR + 0, 1);  // r = r - rho * z
+      _axpy<SYCL,BASETYPE>(ex, dim, rho, bvD + 0, 1, bvX + 0, 1);   // x = x + rho * d
+      _axpy<SYCL,BASETYPE>(ex, dim, -rho, bvZ + 0, 1, bvR + 0, 1);  // r = r - rho * z
       {
         auto assignOp = make_op<Assign>(bvAl, bvBe);  // alpha = beta
         ex.execute(assignOp, LOCALSIZE);
@@ -309,7 +320,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
         alpha = hostAcc[0];
       }
       _scal<SYCL>(ex, dim, alpha, bvD + 0, 1);            // d = alpha * d
-      _axpy<SYCL>(ex, dim, 1.0, bvR + 0, 1, bvD + 0, 1);  // d = d + r
+      _axpy<SYCL,BASETYPE>(ex, dim, 1.0, bvR + 0, 1, bvD + 0, 1);  // d = d + r
       {
         auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(bvBe);
         auto assignOp = make_op<Assign>(bvTo, sqrtOp);  // tol = sqrt(beta)
@@ -325,7 +336,9 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
 #endif  // VERBOSE
     }
     // End CG
+//    printf("CG_1 ends \n");
 #ifdef SHOW_TIMES
+    q.wait_and_throw();
     t_stop = std::chrono::steady_clock::now();
     comp_time = t_stop - t_start;
     printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
@@ -337,7 +350,7 @@ void CG_1(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
-void _xpay(Executor<ExecutorType> ex, int _N, double _alpha,
+void _xpay(Executor<ExecutorType> ex, int _N, BASETYPE _alpha,
            vector_view<T, ContainerT> _vx, int _incx,
            vector_view<T, ContainerT> _vy, int _incy) {
   // Calculating: _vy = alpha * _vx + _vy
@@ -350,10 +363,10 @@ void _xpay(Executor<ExecutorType> ex, int _N, double _alpha,
 }
 
 template <typename ExecutorType, typename T, typename ContainerT>
-void _two_axpy_dotSng_Scal(Executor<ExecutorType> ex, int _N, double _alpha1,
+void _two_axpy_dotSng_Scal(Executor<ExecutorType> ex, int _N, BASETYPE _alpha1,
                            vector_view<T, ContainerT> _vx1, int _incx1,
                            vector_view<T, ContainerT> _vy1, int _incy1,
-                           double _alpha2, vector_view<T, ContainerT> _vx2,
+                           BASETYPE _alpha2, vector_view<T, ContainerT> _vx2,
                            int _incx2, vector_view<T, ContainerT> _vy2,
                            int _incy2, vector_view<T, ContainerT> _be,
                            vector_view<T, ContainerT> _al,
@@ -427,7 +440,7 @@ void prdTrdSP2_dot_Scal(Executor<ExecutorType> ex, int _N,
 template <typename ExecutorType, typename T, typename ContainerT>
 void prdTrdSP2_init_vectors_dotSng_Scal(
     Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _TT,
-    int _incTT, vector_view<T, ContainerT> _vx, int _incx, double _alpha,
+    int _incTT, vector_view<T, ContainerT> _vx, int _incx, BASETYPE _alpha,
     vector_view<T, ContainerT> _vb, int _incb, vector_view<T, ContainerT> _vr,
     int _incr, vector_view<T, ContainerT> _vz, int _incz,
     vector_view<T, ContainerT> _vd, int _incd, vector_view<T, ContainerT> _be,
@@ -461,33 +474,33 @@ void prdTrdSP2_init_vectors_dotSng_Scal(
   ex.execute(assignOp2, LOCALSIZE);
 }
 
-void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
   // VARIABLES FOR TIMING
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
-  std::chrono::duration<double> comp_time;
+  std::chrono::duration<BASETYPE> comp_time;
 #endif
   // Variables definition
-  std::vector<double> vX(dim);
-  std::vector<double> vZ(dim);
-  std::vector<double> vR(dim);
-  std::vector<double> vB(dim);
-  std::vector<double> vD(dim);
-  std::vector<double> vTD(dim);
-  std::vector<double> vTS(dim);
-  std::vector<double> vTT(dim * 3);
-  std::vector<double> vBe(1);
-  std::vector<double> vTo(1);
-  std::vector<double> vAl(1);
-  std::vector<double> vRh(1);
+  std::vector<BASETYPE> vX(dim);
+  std::vector<BASETYPE> vZ(dim);
+  std::vector<BASETYPE> vR(dim);
+  std::vector<BASETYPE> vB(dim);
+  std::vector<BASETYPE> vD(dim);
+  std::vector<BASETYPE> vTD(dim);
+  std::vector<BASETYPE> vTS(dim);
+  std::vector<BASETYPE> vTT(dim * 3);
+  std::vector<BASETYPE> vBe(1);
+  std::vector<BASETYPE> vTo(1);
+  std::vector<BASETYPE> vAl(1);
+  std::vector<BASETYPE> vRh(1);
 
   // Initializing the data
   size_t vSeed, gap;
-  double minV, maxV;
+  BASETYPE minV, maxV;
 
   minV = 1.00;
   maxV = 0.00;
-  std::for_each(std::begin(vX), std::end(vX), [&](double &elem) {
+  std::for_each(std::begin(vX), std::end(vX), [&](BASETYPE &elem) {
     elem = minV;
     minV += maxV;
   });
@@ -502,9 +515,9 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.15;
   maxV = 0.15;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTD), std::end(vTD), [&](double &elem) {
+  std::for_each(std::begin(vTD), std::end(vTD), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -520,9 +533,9 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.10;
   maxV = 0.10;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTS), std::end(vTS), [&](double &elem) {
+  std::for_each(std::begin(vTS), std::end(vTS), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -534,44 +547,47 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   Executor<SYCL> ex(q);
 
   // Scalars required in the method
-  double tol, alpha, rho;
+  BASETYPE tol, alpha, rho;
   size_t step = 0;
   {
     // Parameters creation
-    buffer<double, 1> bB(vB.data(), range<1>{vB.size()});
-    buffer<double, 1> bX(vX.data(), range<1>{vX.size()});
-    buffer<double, 1> bZ(vZ.data(), range<1>{vZ.size()});
-    buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<double, 1> bD(vD.data(), range<1>{vD.size()});
-    buffer<double, 1> bTD(vTD.data(), range<1>{vTD.size()});
-    buffer<double, 1> bTS(vTS.data(), range<1>{vTS.size()});
-    buffer<double, 1> bTT(vTT.data(), range<1>{vTT.size()});
-    buffer<double, 1> bBe(vBe.data(), range<1>{vBe.size()});
-    buffer<double, 1> bTo(vTo.data(), range<1>{vTo.size()});
-    buffer<double, 1> bAl(vAl.data(), range<1>{vAl.size()});
-    buffer<double, 1> bRh(vRh.data(), range<1>{vRh.size()});
+    buffer<BASETYPE, 1> bB(vB.data(), range<1>{vB.size()});
+    buffer<BASETYPE, 1> bX(vX.data(), range<1>{vX.size()});
+    buffer<BASETYPE, 1> bZ(vZ.data(), range<1>{vZ.size()});
+    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
+    buffer<BASETYPE, 1> bD(vD.data(), range<1>{vD.size()});
+    buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
+    buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
+    buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+    buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
+    buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
+    buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
+    buffer<BASETYPE, 1> bRh(vRh.data(), range<1>{vRh.size()});
 
     // Construct the view of the Buffers
-    BufferVectorView<double> bvB(bB);
-    BufferVectorView<double> bvX(bX);
-    BufferVectorView<double> bvZ(bZ);
-    BufferVectorView<double> bvR(bR);
-    BufferVectorView<double> bvD(bD);
-    BufferVectorView<double> bvTD(bTD);
-    BufferVectorView<double> bvTS(bTS);
-    BufferVectorView<double> bvTT(bTT);
-    BufferVectorView<double> bvBe(bBe);
-    BufferVectorView<double> bvTo(bTo);
-    BufferVectorView<double> bvAl(bAl);
-    BufferVectorView<double> bvRh(bRh);
+    BufferVectorView<BASETYPE> bvB(bB);
+    BufferVectorView<BASETYPE> bvX(bX);
+    BufferVectorView<BASETYPE> bvZ(bZ);
+    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvD(bD);
+    BufferVectorView<BASETYPE> bvTD(bTD);
+    BufferVectorView<BASETYPE> bvTS(bTS);
+    BufferVectorView<BASETYPE> bvTT(bTT);
+    BufferVectorView<BASETYPE> bvBe(bBe);
+    BufferVectorView<BASETYPE> bvTo(bTo);
+    BufferVectorView<BASETYPE> bvAl(bAl);
+    BufferVectorView<BASETYPE> bvRh(bRh);
 
+//    printf("CG_4 begins \n");
     // Computation of the RHS related to x=[1*];
     prdTrdSP<SYCL>(ex, bvTD, bvTS, bvX, bvB);  // b = A * x
 
     // Creating the tridiagonal matrix from the vectors
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
     auto kernelPair = get_reduction_params(dim);
     auto blqS = kernelPair.first;  // size of each workgroup
@@ -637,7 +653,9 @@ void CG_4(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
 #endif  // VERBOSE
     }
     // End CG
+//    printf("CG_4 ends \n");
 #ifdef SHOW_TIMES
+    q.wait_and_throw();
     t_stop = std::chrono::steady_clock::now();
     comp_time = t_stop - t_start;
     printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
@@ -729,7 +747,7 @@ void prdTrdSP2_dot_ScalF(Executor<ExecutorType> ex, int _N,
 template <typename ExecutorType, typename T, typename ContainerT>
 void prdTrdSP2_init_vectors_dotSng_ScalF(
     Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _TT,
-    vector_view<T, ContainerT> _vx, double _alpha,
+    vector_view<T, ContainerT> _vx, BASETYPE _alpha,
     vector_view<T, ContainerT> _vb, vector_view<T, ContainerT> _vr,
     vector_view<T, ContainerT> _vz, vector_view<T, ContainerT> _vd,
     vector_view<T, ContainerT> _be, vector_view<T, ContainerT> _to, int blqS,
@@ -754,33 +772,33 @@ void prdTrdSP2_init_vectors_dotSng_ScalF(
   ex.execute(assignOp2, LOCALSIZE);
 }
 
-void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
+void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
   // VARIABLES FOR TIMING
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
-  std::chrono::duration<double> comp_time;
+  std::chrono::duration<BASETYPE> comp_time;
 #endif
   // Variables definition
-  std::vector<double> vX(dim);
-  std::vector<double> vZ(dim);
-  std::vector<double> vR(dim);
-  std::vector<double> vB(dim);
-  std::vector<double> vD(dim);
-  std::vector<double> vTD(dim);
-  std::vector<double> vTS(dim);
-  std::vector<double> vTT(dim * 3);
-  std::vector<double> vBe(1);
-  std::vector<double> vTo(1);
-  std::vector<double> vAl(1);
-  std::vector<double> vRh(1);
+  std::vector<BASETYPE> vX(dim);
+  std::vector<BASETYPE> vZ(dim);
+  std::vector<BASETYPE> vR(dim);
+  std::vector<BASETYPE> vB(dim);
+  std::vector<BASETYPE> vD(dim);
+  std::vector<BASETYPE> vTD(dim);
+  std::vector<BASETYPE> vTS(dim);
+  std::vector<BASETYPE> vTT(dim * 3);
+  std::vector<BASETYPE> vBe(1);
+  std::vector<BASETYPE> vTo(1);
+  std::vector<BASETYPE> vAl(1);
+  std::vector<BASETYPE> vRh(1);
 
   // Initializing the data
   size_t vSeed, gap;
-  double minV, maxV;
+  BASETYPE minV, maxV;
 
   minV = 1.00;
   maxV = 0.00;
-  std::for_each(std::begin(vX), std::end(vX), [&](double &elem) {
+  std::for_each(std::begin(vX), std::end(vX), [&](BASETYPE &elem) {
     elem = minV;
     minV += maxV;
   });
@@ -795,9 +813,9 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.15;
   maxV = 0.15;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTD), std::end(vTD), [&](double &elem) {
+  std::for_each(std::begin(vTD), std::end(vTD), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -813,9 +831,9 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   minV = 0.10;
   maxV = 0.10;
 #endif  //  RANDOM_DATA
-  std::for_each(std::begin(vTS), std::end(vTS), [&](double &elem) {
+  std::for_each(std::begin(vTS), std::end(vTS), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   //  RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  //  RANDOM_DATA
@@ -827,45 +845,47 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   Executor<SYCL> ex(q);
 
   // Scalars required in the method
-  double tol;
+  BASETYPE tol;
   size_t step = 0;
   {
     // Parameters creation
-    buffer<double, 1> bB(vB.data(), range<1>{vB.size()});
-    buffer<double, 1> bX(vX.data(), range<1>{vX.size()});
-    buffer<double, 1> bZ(vZ.data(), range<1>{vZ.size()});
-    buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<double, 1> bD(vD.data(), range<1>{vD.size()});
-    buffer<double, 1> bTD(vTD.data(), range<1>{vTD.size()});
-    buffer<double, 1> bTS(vTS.data(), range<1>{vTS.size()});
-    buffer<double, 1> bTT(vTT.data(), range<1>{vTT.size()});
-    buffer<double, 1> bBe(vBe.data(), range<1>{vBe.size()});
-    buffer<double, 1> bTo(vTo.data(), range<1>{vTo.size()});
-    buffer<double, 1> bAl(vAl.data(), range<1>{vAl.size()});
-    buffer<double, 1> bRh(vRh.data(), range<1>{vRh.size()});
+    buffer<BASETYPE, 1> bB(vB.data(), range<1>{vB.size()});
+    buffer<BASETYPE, 1> bX(vX.data(), range<1>{vX.size()});
+    buffer<BASETYPE, 1> bZ(vZ.data(), range<1>{vZ.size()});
+    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
+    buffer<BASETYPE, 1> bD(vD.data(), range<1>{vD.size()});
+    buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
+    buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
+    buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+    buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
+    buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
+    buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
+    buffer<BASETYPE, 1> bRh(vRh.data(), range<1>{vRh.size()});
 
     // Construct the view of the Buffers
-    BufferVectorView<double> bvB(bB);
-    BufferVectorView<double> bvX(bX);
-    BufferVectorView<double> bvZ(bZ);
-    BufferVectorView<double> bvR(bR);
-    BufferVectorView<double> bvD(bD);
-    BufferVectorView<double> bvTD(bTD);
-    BufferVectorView<double> bvTS(bTS);
-    BufferVectorView<double> bvTT(bTT);
-    BufferVectorView<double> bvBe(bBe);
-    BufferVectorView<double> bvTo(bTo);
-    BufferVectorView<double> bvAl(bAl);
-    BufferVectorView<double> bvRh(bRh);
+    BufferVectorView<BASETYPE> bvB(bB);
+    BufferVectorView<BASETYPE> bvX(bX);
+    BufferVectorView<BASETYPE> bvZ(bZ);
+    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvD(bD);
+    BufferVectorView<BASETYPE> bvTD(bTD);
+    BufferVectorView<BASETYPE> bvTS(bTS);
+    BufferVectorView<BASETYPE> bvTT(bTT);
+    BufferVectorView<BASETYPE> bvBe(bBe);
+    BufferVectorView<BASETYPE> bvTo(bTo);
+    BufferVectorView<BASETYPE> bvAl(bAl);
+    BufferVectorView<BASETYPE> bvRh(bRh);
 
     //    bvTD.printH("TD"); bvTS.printH("TS");
     // Computation of the RHS related to x=[1*];
     prdTrdSP<SYCL>(ex, bvTD, bvTS, bvX, bvB);  // b = A * x
 
     // Creating the tridiagonal matrix from the vectors
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
     auto kernelPair = get_reduction_params(dim);
     auto blqS = kernelPair.first;  // size of each workgroup
@@ -926,6 +946,7 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
     }
     // End CG
 #ifdef SHOW_TIMES
+    q.wait_and_throw();
     t_stop = std::chrono::steady_clock::now();
     comp_time = t_stop - t_start;
     printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
@@ -936,34 +957,34 @@ void CG_5(size_t dim, double thold, size_t maxItr, cl::sycl::queue q) {
   }
 }
 
-void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
+void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
           cl::sycl::queue q) {
   // VARIABLES FOR TIMING
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
-  std::chrono::duration<double> comp_time;
+  std::chrono::duration<BASETYPE> comp_time;
 #endif
   // Variables definition
-  std::vector<double> vX(dim);
-  std::vector<double> vZ(dim);
-  std::vector<double> vR(dim);
-  std::vector<double> vB(dim);
-  std::vector<double> vD(dim);
-  std::vector<double> vTD(dim);
-  std::vector<double> vTS(dim);
-  std::vector<double> vTT(dim * 3);
-  std::vector<double> vBe(1);
-  std::vector<double> vTo(1);
-  std::vector<double> vAl(1);
-  std::vector<double> vRh(1);
+  std::vector<BASETYPE> vX(dim);
+  std::vector<BASETYPE> vZ(dim);
+  std::vector<BASETYPE> vR(dim);
+  std::vector<BASETYPE> vB(dim);
+  std::vector<BASETYPE> vD(dim);
+  std::vector<BASETYPE> vTD(dim);
+  std::vector<BASETYPE> vTS(dim);
+  std::vector<BASETYPE> vTT(dim * 3);
+  std::vector<BASETYPE> vBe(1);
+  std::vector<BASETYPE> vTo(1);
+  std::vector<BASETYPE> vAl(1);
+  std::vector<BASETYPE> vRh(1);
 
   // Initializing the data
   size_t vSeed, gap;
-  double minV, maxV;
+  BASETYPE minV, maxV;
 
   minV = 1.00;
   maxV = 0.00;
-  std::for_each(std::begin(vX), std::end(vX), [&](double &elem) {
+  std::for_each(std::begin(vX), std::end(vX), [&](BASETYPE &elem) {
     elem = minV;
     minV += maxV;
   });
@@ -978,9 +999,9 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
   minV = 0.15;
   maxV = 0.15;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vTD), std::end(vTD), [&](double &elem) {
+  std::for_each(std::begin(vTD), std::end(vTD), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -996,9 +1017,9 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
   minV = 0.10;
   maxV = 0.10;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vTS), std::end(vTS), [&](double &elem) {
+  std::for_each(std::begin(vTS), std::end(vTS), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -1010,43 +1031,45 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
   Executor<SYCL> ex(q);
 
   // Scalars required in the method
-  double tol;
+  BASETYPE tol;
   size_t step = 0;
   {
     // Parameters creation
-    buffer<double, 1> bB(vB.data(), range<1>{vB.size()});
-    buffer<double, 1> bX(vX.data(), range<1>{vX.size()});
-    buffer<double, 1> bZ(vZ.data(), range<1>{vZ.size()});
-    buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<double, 1> bD(vD.data(), range<1>{vD.size()});
-    buffer<double, 1> bTD(vTD.data(), range<1>{vTD.size()});
-    buffer<double, 1> bTS(vTS.data(), range<1>{vTS.size()});
-    buffer<double, 1> bTT(vTT.data(), range<1>{vTT.size()});
-    buffer<double, 1> bBe(vBe.data(), range<1>{vBe.size()});
-    buffer<double, 1> bTo(vTo.data(), range<1>{vTo.size()});
-    buffer<double, 1> bAl(vAl.data(), range<1>{vAl.size()});
-    buffer<double, 1> bRh(vRh.data(), range<1>{vRh.size()});
+    buffer<BASETYPE, 1> bB(vB.data(), range<1>{vB.size()});
+    buffer<BASETYPE, 1> bX(vX.data(), range<1>{vX.size()});
+    buffer<BASETYPE, 1> bZ(vZ.data(), range<1>{vZ.size()});
+    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
+    buffer<BASETYPE, 1> bD(vD.data(), range<1>{vD.size()});
+    buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
+    buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
+    buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+    buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
+    buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
+    buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
+    buffer<BASETYPE, 1> bRh(vRh.data(), range<1>{vRh.size()});
 
     // Construct the view of the Buffers
-    BufferVectorView<double> bvB(bB);
-    BufferVectorView<double> bvX(bX);
-    BufferVectorView<double> bvZ(bZ);
-    BufferVectorView<double> bvR(bR);
-    BufferVectorView<double> bvD(bD);
-    BufferVectorView<double> bvTD(bTD);
-    BufferVectorView<double> bvTS(bTS);
-    BufferVectorView<double> bvTT(bTT);
-    BufferVectorView<double> bvBe(bBe);
-    BufferVectorView<double> bvTo(bTo);
-    BufferVectorView<double> bvAl(bAl);
-    BufferVectorView<double> bvRh(bRh);
+    BufferVectorView<BASETYPE> bvB(bB);
+    BufferVectorView<BASETYPE> bvX(bX);
+    BufferVectorView<BASETYPE> bvZ(bZ);
+    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvD(bD);
+    BufferVectorView<BASETYPE> bvTD(bTD);
+    BufferVectorView<BASETYPE> bvTS(bTS);
+    BufferVectorView<BASETYPE> bvTT(bTT);
+    BufferVectorView<BASETYPE> bvBe(bBe);
+    BufferVectorView<BASETYPE> bvTo(bTo);
+    BufferVectorView<BASETYPE> bvAl(bAl);
+    BufferVectorView<BASETYPE> bvRh(bRh);
 
     prdTrdSP<SYCL>(ex, bvTD, bvTS, bvX, bvB);  // b = A * x
 
     // Creating the tridiagonal matrix from the vectors
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 1, 1);
     _copy<SYCL>(ex, bvTD.getSize(), bvTD, 1, bvTT + dim, 1);
-    _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
+    if (bvTD.getSize() > 1)
+      _copy<SYCL>(ex, bvTD.getSize() - 1, bvTS, 1, bvTT + 2 * dim, 1);
 
     auto kernelPair = get_reduction_params(dim);
     auto blqS = kernelPair.first;  // size of each workgroup
@@ -1106,6 +1129,7 @@ void CG_6(int dim, double thold, size_t maxItr, size_t itrLoop,
     }
     // End CG
 #ifdef SHOW_TIMES
+    q.wait_and_throw();
     t_stop = std::chrono::steady_clock::now();
     comp_time = t_stop - t_start;
     printf("tolF = %e , steps = %ld, time = %e\n", tol, step,
@@ -1143,7 +1167,7 @@ int main(int argc, char *argv[]) {
   });
 
   CG_1(sizeV, ERROR_ALLOWED, MAX_ITR_LOOP, q);  // Standard implementattion
-
+//  return 0;
   q.wait_and_throw();
 
   CG_4(sizeV, ERROR_ALLOWED, MAX_ITR_LOOP, q);  // Fused version, scalars on CPU

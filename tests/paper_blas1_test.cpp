@@ -22,7 +22,9 @@ using namespace blas;
 #define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
 
-#define LOCALSIZE 256
+#define BASETYPE double
+
+#define LOCALSIZE 4
 
 #define REDUCE_SCRATCH 1
 
@@ -51,16 +53,19 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
     * nWG = (N + 2 * localsize - 1) / (2 * localsize)
   */
   unsigned localSize = LOCALSIZE;
-  // unsigned nWg = (N + localSize - 1) / localSize;
-  // unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
+
+//  unsigned nWg = (N + localSize - 1) / localSize;
+//  unsigned nWg = (N + 2 * localSize - 1) / (2 * localSize);
 //  unsigned nWg = (N < (32*localSize))? 1: 2 * localSize;
 //  unsigned nWg = (N < (localSize))? 1: localSize;
 //  unsigned nWg = (N <= (NUM_LOCAL_ADDS * NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
-  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+// unsigned nWg = LOCAL_REDUCTIONS * localSize;
+// unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
+// localSize);
 
-  // unsigned nWg = LOCAL_REDUCTIONS * localSize;
-  // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
-  // localSize);
+//  unsigned nWg = (N + NUM_LOCAL_ADDS * localSize - 1) / (NUM_LOCAL_ADDS * localSize);
+  unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
+//  unsigned nWg = 1;
 
   return std::pair<unsigned, unsigned>(localSize, nWg);
 }
@@ -343,9 +348,9 @@ void _one_axpy(Executor<ExecutorType> ex, int _N, T _alpha,
 #endif
 }
 template <typename ExecutorType, typename T, typename ContainerT>
-void _two_axpy(Executor<ExecutorType> ex, int _N, double _alpha1,
+void _two_axpy(Executor<ExecutorType> ex, int _N, BASETYPE _alpha1,
                vector_view<T, ContainerT> _vx1, int _incx1,
-               vector_view<T, ContainerT> _vy1, int _incy1, double _alpha2,
+               vector_view<T, ContainerT> _vy1, int _incy1, BASETYPE _alpha2,
                vector_view<T, ContainerT> _vx2, int _incx2,
                vector_view<T, ContainerT> _vy2, int _incy2) {
   // _vy1 = _alpha1 * _vx1 + _vy1
@@ -370,13 +375,13 @@ void _two_axpy(Executor<ExecutorType> ex, int _N, double _alpha1,
   ex.execute(doubleAssignOp, LOCALSIZE);
 }
 template <typename ExecutorType, typename T, typename ContainerT>
-void _four_axpy(Executor<ExecutorType> ex, int _N, double _alpha1,
+void _four_axpy(Executor<ExecutorType> ex, int _N, BASETYPE _alpha1,
                 vector_view<T, ContainerT> _vx1, int _incx1,
-                vector_view<T, ContainerT> _vy1, int _incy1, double _alpha2,
+                vector_view<T, ContainerT> _vy1, int _incy1, BASETYPE _alpha2,
                 vector_view<T, ContainerT> _vx2, int _incx2,
-                vector_view<T, ContainerT> _vy2, int _incy2, double _alpha3,
+                vector_view<T, ContainerT> _vy2, int _incy2, BASETYPE _alpha3,
                 vector_view<T, ContainerT> _vx3, int _incx3,
-                vector_view<T, ContainerT> _vy3, int _incy3, double _alpha4,
+                vector_view<T, ContainerT> _vy3, int _incy3, BASETYPE _alpha4,
                 vector_view<T, ContainerT> _vx4, int _incx4,
                 vector_view<T, ContainerT> _vy4, int _incy4) {
   // _vy1 = _alpha1 * _vx1 + _vy1
@@ -521,101 +526,101 @@ int main(int argc, char *argv[]) {
 #ifdef SHOW_TIMES
     // VARIABLES FOR TIMING
     std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
-    std::chrono::duration<double> t0_copy, t0_axpy, t0_add;
-    std::chrono::duration<double> t1_copy, t1_axpy, t1_add;
-    std::chrono::duration<double> t2_copy, t2_axpy, t2_add;
-    std::chrono::duration<double> t3_copy, t3_axpy, t3_add;
-    std::vector<std::chrono::duration<double>> v0_copy(NUMBER_REPEATS), v0_axpy(NUMBER_REPEATS), v0_add(NUMBER_REPEATS);
-    std::vector<std::chrono::duration<double>> v1_copy(NUMBER_REPEATS), v1_axpy(NUMBER_REPEATS), v1_add(NUMBER_REPEATS);
-    std::vector<std::chrono::duration<double>> v2_copy(NUMBER_REPEATS), v2_axpy(NUMBER_REPEATS), v2_add(NUMBER_REPEATS);
-    std::vector<std::chrono::duration<double>> v3_copy(NUMBER_REPEATS), v3_axpy(NUMBER_REPEATS), v3_add(NUMBER_REPEATS);
+    std::chrono::duration<BASETYPE> t0_copy, t0_axpy, t0_add;
+    std::chrono::duration<BASETYPE> t1_copy, t1_axpy, t1_add;
+    std::chrono::duration<BASETYPE> t2_copy, t2_axpy, t2_add;
+    std::chrono::duration<BASETYPE> t3_copy, t3_axpy, t3_add;
+    std::vector<std::chrono::duration<BASETYPE>> v0_copy(NUMBER_REPEATS), v0_axpy(NUMBER_REPEATS), v0_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<BASETYPE>> v1_copy(NUMBER_REPEATS), v1_axpy(NUMBER_REPEATS), v1_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<BASETYPE>> v2_copy(NUMBER_REPEATS), v2_axpy(NUMBER_REPEATS), v2_add(NUMBER_REPEATS);
+    std::vector<std::chrono::duration<BASETYPE>> v3_copy(NUMBER_REPEATS), v3_axpy(NUMBER_REPEATS), v3_add(NUMBER_REPEATS);
 #endif
     // CREATING DATA
-    std::vector<double> vX1(sizeV);
-    std::vector<double> vY1(sizeV);
-    std::vector<double> vZ1(sizeV);
-    std::vector<double> vS1(4);
-    std::vector<double> vX2(sizeV);
-    std::vector<double> vY2(sizeV);
-    std::vector<double> vZ2(sizeV);
-    std::vector<double> vS2(4);
-    std::vector<double> vX3(sizeV);
-    std::vector<double> vY3(sizeV);
-    std::vector<double> vZ3(sizeV);
-    std::vector<double> vS3(4);
-    std::vector<double> vX4(sizeV);
-    std::vector<double> vY4(sizeV);
-    std::vector<double> vZ4(sizeV);
-    std::vector<double> vS4(4);
+    std::vector<BASETYPE> vX1(sizeV);
+    std::vector<BASETYPE> vY1(sizeV);
+    std::vector<BASETYPE> vZ1(sizeV);
+    std::vector<BASETYPE> vS1(4);
+    std::vector<BASETYPE> vX2(sizeV);
+    std::vector<BASETYPE> vY2(sizeV);
+    std::vector<BASETYPE> vZ2(sizeV);
+    std::vector<BASETYPE> vS2(4);
+    std::vector<BASETYPE> vX3(sizeV);
+    std::vector<BASETYPE> vY3(sizeV);
+    std::vector<BASETYPE> vZ3(sizeV);
+    std::vector<BASETYPE> vS3(4);
+    std::vector<BASETYPE> vX4(sizeV);
+    std::vector<BASETYPE> vY4(sizeV);
+    std::vector<BASETYPE> vZ4(sizeV);
+    std::vector<BASETYPE> vS4(4);
     // CREATING INTERMEDIATE DATA
 #ifdef ONE_SCRATCH
-    std::vector<double> vR (sizeV*4);
+    std::vector<BASETYPE> vR (sizeV*4);
 #else
-    std::vector<double> vR1(sizeV);
-    std::vector<double> vR2(sizeV);
-    std::vector<double> vR3(sizeV);
-    std::vector<double> vR4(sizeV);
+    std::vector<BASETYPE> vR1(sizeV);
+    std::vector<BASETYPE> vR2(sizeV);
+    std::vector<BASETYPE> vR3(sizeV);
+    std::vector<BASETYPE> vR4(sizeV);
 #endif
 
     // INITIALIZING DATA
     size_t vSeed, gap;
-    double minV, maxV;
+    BASETYPE minV, maxV;
     vSeed = 1;
     minV = -10.0;
     maxV = 10.0;
     gap = (size_t)(maxV - minV + 1);
     srand(vSeed);
     std::for_each(std::begin(vX1), std::end(vX1),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vX2), std::end(vX2),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vX3), std::end(vX3),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vX4), std::end(vX4),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     vSeed = 1;
     minV = -30.0;
     maxV = 10.0;
     gap = (size_t)(maxV - minV + 1);
     srand(vSeed);
     std::for_each(std::begin(vZ1), std::end(vZ1),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vZ2), std::end(vZ2),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vZ3), std::end(vZ3),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     std::for_each(std::begin(vZ4), std::end(vZ4),
-                  [&](double &elem) { elem = minV + (double)(rand() % gap); });
+                  [&](BASETYPE &elem) { elem = minV + (BASETYPE)(rand() % gap); });
     // COMPUTING THE RESULTS
     int i;
-    double sum1 = 0.0f, alpha1 = 1.1f;
-    double sum2 = 0.0f, alpha2 = 2.2f;
-    double sum3 = 0.0f, alpha3 = 3.3f;
-    double sum4 = 0.0f, alpha4 = 4.4f;
-    double ONE = 1.0f;
+    BASETYPE sum1 = 0.0f, alpha1 = 1.1f;
+    BASETYPE sum2 = 0.0f, alpha2 = 2.2f;
+    BASETYPE sum3 = 0.0f, alpha3 = 3.3f;
+    BASETYPE sum4 = 0.0f, alpha4 = 4.4f;
+    BASETYPE ONE = 1.0f;
     i = 0;
-    std::for_each(std::begin(vY1), std::end(vY1), [&](double &elem) {
+    std::for_each(std::begin(vY1), std::end(vY1), [&](BASETYPE &elem) {
       elem = vZ1[i] + alpha1 * vX1[i];
       if ((i % strd) == 0) sum1 += std::abs(elem);
       i++;
     });
     //    vS1[0] = sum1;
     i = 0;
-    std::for_each(std::begin(vY2), std::end(vY2), [&](double &elem) {
+    std::for_each(std::begin(vY2), std::end(vY2), [&](BASETYPE &elem) {
       elem = vZ2[i] + alpha2 * vX2[i];
       if ((i % strd) == 0) sum2 += std::abs(elem);
       i++;
     });
     //    vS2[0] = sum2;
     i = 0;
-    std::for_each(std::begin(vY3), std::end(vY3), [&](double &elem) {
+    std::for_each(std::begin(vY3), std::end(vY3), [&](BASETYPE &elem) {
       elem = vZ3[i] + alpha3 * vX3[i];
       if ((i % strd) == 0) sum3 += std::abs(elem);
       i++;
     });
     //    vS3[0] = sum3;
     i = 0;
-    std::for_each(std::begin(vY4), std::end(vY4), [&](double &elem) {
+    std::for_each(std::begin(vY4), std::end(vY4), [&](BASETYPE &elem) {
       elem = vZ4[i] + alpha4 * vX4[i];
       if ((i % strd) == 0) sum4 += std::abs(elem);
       i++;
@@ -640,69 +645,69 @@ int main(int argc, char *argv[]) {
     Executor<SYCL> ex(q);
     {
       // CREATION OF THE BUFFERS
-      buffer<double, 1> bX1(vX1.data(), range<1>{vX1.size()});
-      buffer<double, 1> bY1(vY1.data(), range<1>{vY1.size()});
-      buffer<double, 1> bZ1(vZ1.data(), range<1>{vZ1.size()});
-      buffer<double, 1> bS1(vS1.data(), range<1>{vS1.size()});
-      buffer<double, 1> bX2(vX2.data(), range<1>{vX2.size()});
-      buffer<double, 1> bY2(vY2.data(), range<1>{vY2.size()});
-      buffer<double, 1> bZ2(vZ2.data(), range<1>{vZ2.size()});
-      buffer<double, 1> bS2(vS2.data(), range<1>{vS2.size()});
-      buffer<double, 1> bX3(vX3.data(), range<1>{vX3.size()});
-      buffer<double, 1> bY3(vY3.data(), range<1>{vY3.size()});
-      buffer<double, 1> bZ3(vZ3.data(), range<1>{vZ3.size()});
-      buffer<double, 1> bS3(vS3.data(), range<1>{vS3.size()});
-      buffer<double, 1> bX4(vX4.data(), range<1>{vX4.size()});
-      buffer<double, 1> bY4(vY4.data(), range<1>{vY4.size()});
-      buffer<double, 1> bZ4(vZ4.data(), range<1>{vZ4.size()});
-      buffer<double, 1> bS4(vS4.data(), range<1>{vS4.size()});
+      buffer<BASETYPE, 1> bX1(vX1.data(), range<1>{vX1.size()});
+      buffer<BASETYPE, 1> bY1(vY1.data(), range<1>{vY1.size()});
+      buffer<BASETYPE, 1> bZ1(vZ1.data(), range<1>{vZ1.size()});
+      buffer<BASETYPE, 1> bS1(vS1.data(), range<1>{vS1.size()});
+      buffer<BASETYPE, 1> bX2(vX2.data(), range<1>{vX2.size()});
+      buffer<BASETYPE, 1> bY2(vY2.data(), range<1>{vY2.size()});
+      buffer<BASETYPE, 1> bZ2(vZ2.data(), range<1>{vZ2.size()});
+      buffer<BASETYPE, 1> bS2(vS2.data(), range<1>{vS2.size()});
+      buffer<BASETYPE, 1> bX3(vX3.data(), range<1>{vX3.size()});
+      buffer<BASETYPE, 1> bY3(vY3.data(), range<1>{vY3.size()});
+      buffer<BASETYPE, 1> bZ3(vZ3.data(), range<1>{vZ3.size()});
+      buffer<BASETYPE, 1> bS3(vS3.data(), range<1>{vS3.size()});
+      buffer<BASETYPE, 1> bX4(vX4.data(), range<1>{vX4.size()});
+      buffer<BASETYPE, 1> bY4(vY4.data(), range<1>{vY4.size()});
+      buffer<BASETYPE, 1> bZ4(vZ4.data(), range<1>{vZ4.size()});
+      buffer<BASETYPE, 1> bS4(vS4.data(), range<1>{vS4.size()});
       // CREATION OF THE SCRATCH
 #ifdef ONE_SCRATCH
-      buffer<double, 1> bR1(vR.data(), range<1>{vY1.size()});
-      buffer<double, 1> bR2(vR.data()+vY1.size(), range<1>{vY2.size()});
-      buffer<double, 1> bR3(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()});
-      buffer<double, 1> bR4(vR.data()+vY1.size()+vY2.size()+vY3.size(), range<1>{vY4.size()});
-      buffer<double, 1> bR12(vR.data(), range<1>{vY1.size()+vY2.size()});
-      buffer<double, 1> bR34(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()+vY4.size()});
-      buffer<double, 1> bR1234(vR.data(), range<1>{vY1.size()+vY2.size()+vY3.size()+vY4.size()});
+      buffer<BASETYPE, 1> bR1(vR.data(), range<1>{vY1.size()});
+      buffer<BASETYPE, 1> bR2(vR.data()+vY1.size(), range<1>{vY2.size()});
+      buffer<BASETYPE, 1> bR3(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()});
+      buffer<BASETYPE, 1> bR4(vR.data()+vY1.size()+vY2.size()+vY3.size(), range<1>{vY4.size()});
+      buffer<BASETYPE, 1> bR12(vR.data(), range<1>{vY1.size()+vY2.size()});
+      buffer<BASETYPE, 1> bR34(vR.data()+vY1.size()+vY2.size(), range<1>{vY3.size()+vY4.size()});
+      buffer<BASETYPE, 1> bR1234(vR.data(), range<1>{vY1.size()+vY2.size()+vY3.size()+vY4.size()});
 #else
-      buffer<double, 1> bR1(vR1.data(), range<1>{vR1.size()});
-      buffer<double, 1> bR2(vR2.data(), range<1>{vR2.size()});
-      buffer<double, 1> bR3(vR3.data(), range<1>{vR3.size()});
-      buffer<double, 1> bR4(vR4.data(), range<1>{vR4.size()});
+      buffer<BASETYPE, 1> bR1(vR1.data(), range<1>{vR1.size()});
+      buffer<BASETYPE, 1> bR2(vR2.data(), range<1>{vR2.size()});
+      buffer<BASETYPE, 1> bR3(vR3.data(), range<1>{vR3.size()});
+      buffer<BASETYPE, 1> bR4(vR4.data(), range<1>{vR4.size()});
 #endif
 
-//      buffer<double, 1> bR (vR .data(), range<1>{vR .size()});
+//      buffer<BASETYPE, 1> bR (vR .data(), range<1>{vR .size()});
       // BUILDING A SYCL VIEW OF THE BUFFERS
-      BufferVectorView<double> bvX1(bX1);
-      BufferVectorView<double> bvY1(bY1);
-      BufferVectorView<double> bvZ1(bZ1);
-      BufferVectorView<double> bvS1(bS1);
-      BufferVectorView<double> bvX2(bX2);
-      BufferVectorView<double> bvY2(bY2);
-      BufferVectorView<double> bvZ2(bZ2);
-      BufferVectorView<double> bvS2(bS2);
-      BufferVectorView<double> bvX3(bX3);
-      BufferVectorView<double> bvY3(bY3);
-      BufferVectorView<double> bvZ3(bZ3);
-      BufferVectorView<double> bvS3(bS3);
-      BufferVectorView<double> bvX4(bX4);
-      BufferVectorView<double> bvY4(bY4);
-      BufferVectorView<double> bvZ4(bZ4);
-      BufferVectorView<double> bvS4(bS4);
+      BufferVectorView<BASETYPE> bvX1(bX1);
+      BufferVectorView<BASETYPE> bvY1(bY1);
+      BufferVectorView<BASETYPE> bvZ1(bZ1);
+      BufferVectorView<BASETYPE> bvS1(bS1);
+      BufferVectorView<BASETYPE> bvX2(bX2);
+      BufferVectorView<BASETYPE> bvY2(bY2);
+      BufferVectorView<BASETYPE> bvZ2(bZ2);
+      BufferVectorView<BASETYPE> bvS2(bS2);
+      BufferVectorView<BASETYPE> bvX3(bX3);
+      BufferVectorView<BASETYPE> bvY3(bY3);
+      BufferVectorView<BASETYPE> bvZ3(bZ3);
+      BufferVectorView<BASETYPE> bvS3(bS3);
+      BufferVectorView<BASETYPE> bvX4(bX4);
+      BufferVectorView<BASETYPE> bvY4(bY4);
+      BufferVectorView<BASETYPE> bvZ4(bZ4);
+      BufferVectorView<BASETYPE> bvS4(bS4);
 #ifdef ONE_SCRATCH
-      BufferVectorView<double> bvR1(bR1);
-      BufferVectorView<double> bvR2(bR2);
-      BufferVectorView<double> bvR3(bR3);
-      BufferVectorView<double> bvR4(bR4);
-      BufferVectorView<double> bvR12(bR12);
-      BufferVectorView<double> bvR34(bR34);
-      BufferVectorView<double> bvR1234(bR1234);
+      BufferVectorView<BASETYPE> bvR1(bR1);
+      BufferVectorView<BASETYPE> bvR2(bR2);
+      BufferVectorView<BASETYPE> bvR3(bR3);
+      BufferVectorView<BASETYPE> bvR4(bR4);
+      BufferVectorView<BASETYPE> bvR12(bR12);
+      BufferVectorView<BASETYPE> bvR34(bR34);
+      BufferVectorView<BASETYPE> bvR1234(bR1234);
 #else
-      BufferVectorView<double> bvR1(bR1);
-      BufferVectorView<double> bvR2(bR2);
-      BufferVectorView<double> bvR3(bR3);
-      BufferVectorView<double> bvR4(bR4);
+      BufferVectorView<BASETYPE> bvR1(bR1);
+      BufferVectorView<BASETYPE> bvR2(bR2);
+      BufferVectorView<BASETYPE> bvR3(bR3);
+      BufferVectorView<BASETYPE> bvR4(bR4);
 #endif
 
       // Force update here to avoid including memory copies on the
@@ -1052,28 +1057,28 @@ int main(int argc, char *argv[]) {
     std::sort (v1_copy.begin()+1, v1_copy.end());
     std::sort (v2_copy.begin()+1, v2_copy.end());
     std::sort (v3_copy.begin()+1, v3_copy.end());
-    std::cout << "m_copy , " << v0_copy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v1_copy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v2_copy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v3_copy[(NUMBER_REPEATS+1)/2].count() 
+    std::cout << "m_copy , " << v0_copy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v1_copy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v2_copy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v3_copy[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v0_axpy.begin()+1, v0_axpy.end());
     std::sort (v1_axpy.begin()+1, v1_axpy.end());
     std::sort (v2_axpy.begin()+1, v2_axpy.end());
     std::sort (v3_axpy.begin()+1, v3_axpy.end());
-    std::cout << "m_axpy , " << v0_axpy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v1_axpy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v2_axpy[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v3_axpy[(NUMBER_REPEATS+1)/2].count() 
+    std::cout << "m_axpy , " << v0_axpy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v1_axpy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v2_axpy[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v3_axpy[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v0_add.begin()+1, v0_add.end());
     std::sort (v1_add.begin()+1, v1_add.end());
     std::sort (v2_add.begin()+1, v2_add.end());
     std::sort (v3_add.begin()+1, v3_add.end());
-    std::cout << "m_add  , " << v0_add[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v1_add[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v2_add[(NUMBER_REPEATS+1)/2].count() 
-              << ", "        << v3_add[(NUMBER_REPEATS+1)/2].count() 
+    std::cout << "m_add  , " << v0_add[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v1_add[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v2_add[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v3_add[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
 /*  ERROR
     for (const auto time:v0_copy) std::cout << time.count() << " ";
@@ -1084,7 +1089,7 @@ int main(int argc, char *argv[]) {
 */
 #endif
     // ANALYSIS OF THE RESULTS
-    double res;
+    BASETYPE res;
     for (i = 0; i < 4; i++) {
       res = vS1[i];
 #ifdef SHOW_VALUES

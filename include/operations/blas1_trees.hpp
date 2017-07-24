@@ -325,24 +325,32 @@ struct AssignReduction {
     size_t localid = ndItem.get_local(0);
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
+    size_t glbalSz = ndItem.get_num_groups(0) * localSz;
 
     size_t vecS = r.getSize();
     size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
+//    if (groupid == 0) printf ("blqS = %lu , localSz = %lu\n", blqS, localSz);
+//    if (groupid == 0) printf ("blqS = %lu , grdS = %lu , vecS = %lu\n", blqS, grdS, vecS);
 //    printf ("Hola %lu \n", localid);
     // Reduction across the grid
     value_type val = Operator::init(r);
-    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+//    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
+//      printf ("localid = %lu , k = %lu , num = %f\n", localid, k, r.eval(k));
       val = Operator::eval(val, r.eval(k));
 #ifdef TWO_LOCAL_ADDS
-      if ((k + blqS < vecS)) {
-        val = Operator::eval(val, r.eval(k + blqS));
+//    if ((k + blqS < vecS)) {
+    if ((k + localSz < vecS)) {
+//      val = Operator::eval(val, r.eval(k + blqS));
+      val = Operator::eval(val, r.eval(k + localSz));
       }
 #endif
     }
 #ifdef TRACE_ERROR
 //    if (blqS == grdS) printf ("Hola %lu -> %20.10f\n", localid, val);
-    if (groupid == 0) printf ("XXX %lu %lu %lu\n", groupid, blqS, grdS);
+//    if (groupid == 0) printf ("XXX %lu %lu %lu\n", groupid, blqS, grdS);
+    if (groupid == 0) printf ("XXX %lu %lu %lu\n", groupid, blqS, glbalSz);
 #endif
 
     scratch[localid] = val;
@@ -359,14 +367,16 @@ struct AssignReduction {
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
     }
 #ifdef TRACE_ERROR
-    if (groupid == 0) printf ("XYY %lu %lu %lu\n", groupid, blqS, grdS);
+//    if (groupid == 0) printf ("XYY %lu %lu %lu\n", groupid, blqS, grdS);
+    if (groupid == 0) printf ("XYY %lu %lu %lu\n", groupid, blqS, glbalSz);
 #endif
     if (localid == 0) {
       l.eval(groupid) = scratch[localid];
 //      if (blqS == grdS) printf ("Fin %lu -> %20.10f\n", groupid, scratch[localid]);
     }
 #ifdef TRACE_ERROR
-    if (groupid == 0) printf ("XYZ %lu %lu %lu\n", groupid, blqS, grdS);
+//    if (groupid == 0) printf ("XYZ %lu %lu %lu\n", groupid, blqS, grdS);
+    if (groupid == 0) printf ("XYZ %lu %lu %lu\n", groupid, blqS, glbalSz);
 #endif
     return l.eval(groupid);
   }
@@ -408,6 +418,30 @@ auto make_minIndAssignReduction(LHS &l, RHS &r, size_t blqS, size_t grdS)
     -> decltype(make_AssignReduction<minIndOp2_struct>(l, r, blqS, grdS)) {
   return make_AssignReduction<minIndOp2_struct>(l, r, blqS, grdS);
 }
+
+/*
+
+*/
+
+template <typename Operator, class LHS, class RHS>
+struct ReducOp {
+  using value_type = typename LHS::value_type;
+  LHS l;
+  RHS r;
+
+  ReducOp(LHS &_l, RHS &_r) : l(_l), r(_r) {}
+/*
+  size_t getSize() { return r.getSize(); }
+
+  auto applyOperator(LHS val1, LHS val2) { return Operator::eval(val1, val2); }
+
+  value_type eval(size_t i) { return value_type(i, r.eval(i)); }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+*/
+};
 
 /*! AssignReduction_2Ops.
  * @brief Implements the reduction operation for assignments (in the form y = x)
