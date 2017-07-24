@@ -14,7 +14,7 @@ using namespace blas;
 
 #define RANDOM_DATA 1
 
-#define LOCALSIZE 128
+#define LOCALSIZE 256
 #define NUM_JUMPS_INIT_BLOCK  16
 
 #define SHOW_TIMES 1
