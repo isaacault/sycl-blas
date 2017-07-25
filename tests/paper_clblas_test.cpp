@@ -26,6 +26,8 @@ using namespace cl::sycl;
 //using namespace blas;
 /* */
 
+// #define GPU 1
+
 #define DEF_NUM_ELEM 1200
 #define DEF_STRIDE 1
 #define ERROR_ALLOWED 1.0E-6
@@ -179,8 +181,12 @@ int main(int argc, char *argv[]) {
 #endif
 
     // CREATING THE SYCL QUEUE AND EXECUTOR
+#ifdef GPU
     cl::sycl::gpu_selector   s;
-    // cl::sycl::intel_selector s;
+#else
+    cl::sycl::intel_selector s;
+    // cl::sycl::cpu_selector s; NOOOOO
+#endif
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {

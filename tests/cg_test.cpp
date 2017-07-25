@@ -14,9 +14,16 @@ using namespace blas;
 
 #define RANDOM_DATA 1
 
-#define BASETYPE float
+#define BASETYPE double
 
+#define GPU 1
+
+#ifdef GPU
 #define LOCALSIZE 256
+#else
+#define LOCALSIZE 8
+#endif
+
 #define NUM_JUMPS_INIT_BLOCK  16
 
 #define SHOW_TIMES 1
@@ -41,9 +48,12 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
 // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
 // localSize);
 
+#ifdef GPU
 //  unsigned nWg = (N + NUM_LOCAL_ADDS * localSize - 1) / (NUM_LOCAL_ADDS * localSize);
   unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
-//  unsigned nWg = 1;
+#else
+  unsigned nWg = 1;
+#endif
 
   return std::pair<unsigned, unsigned>(localSize, nWg);
 }
@@ -1153,8 +1163,15 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+#ifdef GPU
+    cl::sycl::gpu_selector   s;
+#else
+    cl::sycl::intel_selector s;
+    // cl::sycl::cpu_selector s; NOOOOO
+#endif
   // Definition of the queue and the executor
-  cl::sycl::queue q([=](cl::sycl::exception_list eL) {
+  cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
+//  cl::sycl::queue q([=](cl::sycl::exception_list eL) {
     try {
       for (auto &e : eL) {
         std::rethrow_exception(e);

@@ -24,7 +24,13 @@ using namespace blas;
 
 #define BASETYPE double
 
-#define LOCALSIZE 4
+// #define GPU 1
+
+#ifdef GPU
+#define LOCALSIZE 256
+#else
+#define LOCALSIZE 8
+#endif
 
 #define REDUCE_SCRATCH 1
 
@@ -63,9 +69,12 @@ std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
 // unsigned nWg = (N + LOCAL_REDUCTIONS * localSize - 1) / (LOCAL_REDUCTIONS *
 // localSize);
 
+#ifdef GPU
 //  unsigned nWg = (N + NUM_LOCAL_ADDS * localSize - 1) / (NUM_LOCAL_ADDS * localSize);
   unsigned nWg = (N <= (NUM_JUMPS_INIT_BLOCK * localSize))? 1: NUM_LOCAL_ADDS * localSize;
-//  unsigned nWg = 1;
+#else
+  unsigned nWg = 1;
+#endif
 
   return std::pair<unsigned, unsigned>(localSize, nWg);
 }
@@ -627,9 +636,12 @@ int main(int argc, char *argv[]) {
     });
     //    vS4[0] = sum4;
     // CREATING THE SYCL QUEUE AND EXECUTOR
+#ifdef GPU
     cl::sycl::gpu_selector   s;
-    // cl::sycl::intel_selector s;
+#else
+    cl::sycl::intel_selector s;
     // cl::sycl::cpu_selector s; NOOOOO
+#endif
     cl::sycl::queue q(s,[=](cl::sycl::exception_list eL) {
 //    cl::sycl::queue q([=](cl::sycl::exception_list eL) {
       try {
