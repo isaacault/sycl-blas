@@ -456,7 +456,7 @@ struct ReducOp {
 */
 };
 
-#define ONE_LOOP 1
+//#define ONE_LOOP 1
 /*! AssignReduction_2Ops.
  * @brief Implements the reduction operation for assignments (in the form y = x)
  *  with y a scalar and x a subexpression tree.
@@ -528,6 +528,7 @@ struct AssignReduction_2Ops {
     value_type val2 = Operator::init(r2);
     if (interLoop == 1) {
       size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
+#ifdef ONE_LOOP
       for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
         val1 = Operator::eval(val1, r1.eval(k));
         val2 = Operator::eval(val2, r2.eval(k));
@@ -540,6 +541,15 @@ struct AssignReduction_2Ops {
         }
   #endif
       }
+#else
+//      printf ("YES(2)!!\n");
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
+        val1 = Operator::eval(val1, r1.eval(k));
+      }
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
+        val2 = Operator::eval(val2, r2.eval(k));
+      }
+#endif
     } else {
       size_t frs_thrd = interLoop * (groupid * localSz + localid);
 #ifdef ONE_LOOP
@@ -698,6 +708,7 @@ struct AssignReduction_4Ops {
     value_type val4 = Operator::init(r4);
     if (interLoop == 1) {
       size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
+#ifdef ONE_LOOP
       for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
         val1 = Operator::eval(val1, r1.eval(k));
         val2 = Operator::eval(val2, r2.eval(k));
@@ -716,6 +727,21 @@ struct AssignReduction_4Ops {
         }
   #endif
       }
+#else
+//      printf ("YES(4)!!\n");
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+        val1 = Operator::eval(val1, r1.eval(k));
+      }
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+        val2 = Operator::eval(val2, r2.eval(k));
+      }
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+        val3 = Operator::eval(val3, r3.eval(k));
+      }
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+        val4 = Operator::eval(val4, r4.eval(k));
+      }
+#endif
     } else {
       size_t frs_thrd = interLoop * (groupid * localSz + localid);
 #ifdef ONE_LOOP
