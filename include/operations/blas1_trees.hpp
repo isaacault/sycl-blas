@@ -460,7 +460,7 @@ struct ReducOp {
  * @brief Implements the reduction operation for assignments (in the form y = x)
  *  with y a scalar and x a subexpression tree.
  */
-template <typename Operator, class LHS1, class RHS1, class LHS2, class RHS2>
+template <typename Operator, unsigned int interLoop, class LHS1, class RHS1, class LHS2, class RHS2>
 struct AssignReduction_2Ops {
   using value_type = typename RHS1::value_type;
   LHS1 l1;
@@ -469,6 +469,7 @@ struct AssignReduction_2Ops {
   RHS2 r2;
   size_t blqS;  // block  size
   size_t grdS;  // grid  size
+  static const size_t intLoop = interLoop;
 
   AssignReduction_2Ops(LHS1 &_l1, RHS1 &_r1, LHS2 &_l2, RHS2 &_r2,
                           size_t _blqS, size_t _grdS)
@@ -512,9 +513,9 @@ struct AssignReduction_2Ops {
     size_t localid = ndItem.get_local(0);
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
+    size_t glbalSz = ndItem.get_num_groups(0) * localSz;
 
     size_t vecS = r1.getSize();
-    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    sharedT scratch1 = sharedT(scratch, 0, 1, localSz);
 //    sharedT scratch2 = sharedT(scratch, 0, 1, localSz);
@@ -524,15 +525,29 @@ struct AssignReduction_2Ops {
     // Reduction across the grid
     value_type val1 = Operator::init(r1);
     value_type val2 = Operator::init(r2);
-    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
-      val1 = Operator::eval(val1, r1.eval(k));
-      val2 = Operator::eval(val2, r2.eval(k));
-#ifdef TWO_LOCAL_ADDS
-      if ((k + blqS < vecS)) {
-        val1 = Operator::eval(val1, r1.eval(k + blqS));
-        val2 = Operator::eval(val2, r2.eval(k + blqS));
+    if (interLoop == 1) {
+      size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
+        val1 = Operator::eval(val1, r1.eval(k));
+        val2 = Operator::eval(val2, r2.eval(k));
+  #ifdef TWO_LOCAL_ADDS
+        if ((k + blqS < vecS)) {
+//          val1 = Operator::eval(val1, r1.eval(k + blqS));
+          val1 = Operator::eval(val1, r1.eval(k + localSz));
+//          val2 = Operator::eval(val2, r2.eval(k + blqS));
+          val2 = Operator::eval(val2, r2.eval(k + localSz));
+        }
+  #endif
       }
-#endif
+    } else {
+      size_t frs_thrd = interLoop * (groupid * localSz + localid);
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+//        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
+          val1 = Operator::eval(val1, r1.eval(k_int));
+          val2 = Operator::eval(val2, r2.eval(k_int));
+        }
+      }
     }
 
 //    scratch1[localid] = val1;
@@ -561,13 +576,14 @@ struct AssignReduction_2Ops {
   }
 };
 
-template <typename Operator, typename LHS1, typename RHS1,
+template <typename Operator, unsigned int interLoop=1,
+                             typename LHS1, typename RHS1,
                              typename LHS2, typename RHS2>
-AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>
+AssignReduction_2Ops<Operator, interLoop, LHS1, RHS1, LHS2, RHS2>
             make_AssignReduction_2Ops(LHS1 &l1, RHS1 &r1, LHS2 &l2, RHS2 &r2,
                                                              size_t blqS,
                                                              size_t grdS) {
-  return AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>
+  return AssignReduction_2Ops<Operator, interLoop, LHS1, RHS1, LHS2, RHS2>
                                                (l1, r1, l2, r2, blqS, grdS);
 }
 
@@ -575,7 +591,8 @@ AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>
  * @brief Implements the reduction operation for assignments (in the form y = x)
  *  with y a scalar and x a subexpression tree.
  */
-template <typename Operator, class LHS1, class RHS1, class LHS2, class RHS2,
+template <typename Operator, unsigned int interLoop,
+                             class LHS1, class RHS1, class LHS2, class RHS2,
                              class LHS3, class RHS3, class LHS4, class RHS4>
 struct AssignReduction_4Ops {
   using value_type = typename RHS1::value_type;
@@ -589,6 +606,7 @@ struct AssignReduction_4Ops {
   RHS2 r4;
   size_t blqS;  // block  size
   size_t grdS;  // grid  size
+  static const size_t intLoop = interLoop;
 
   AssignReduction_4Ops(LHS1 &_l1, RHS1 &_r1, LHS2 &_l2, RHS2 &_r2,
                        LHS3 &_l3, RHS3 &_r3, LHS4 &_l4, RHS4 &_r4,
@@ -646,9 +664,9 @@ struct AssignReduction_4Ops {
     size_t localid = ndItem.get_local(0);
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
+    size_t glbalSz = ndItem.get_num_groups(0) * localSz;
 
     size_t vecS = r1.getSize();
-    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    sharedT scratch1 = sharedT(scratch, 0, 1, localSz);
 //    sharedT scratch2 = sharedT(scratch, 0, 1, localSz);
@@ -662,19 +680,37 @@ struct AssignReduction_4Ops {
     value_type val2 = Operator::init(r2);
     value_type val3 = Operator::init(r3);
     value_type val4 = Operator::init(r4);
-    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
-      val1 = Operator::eval(val1, r1.eval(k));
-      val2 = Operator::eval(val2, r2.eval(k));
-      val3 = Operator::eval(val3, r3.eval(k));
-      val4 = Operator::eval(val4, r4.eval(k));
-#ifdef TWO_LOCAL_ADDS
-      if ((k + blqS < vecS)) {
-        val1 = Operator::eval(val1, r1.eval(k + blqS));
-        val2 = Operator::eval(val2, r2.eval(k + blqS));
-        val3 = Operator::eval(val3, r3.eval(k + blqS));
-        val4 = Operator::eval(val4, r4.eval(k + blqS));
+    if (interLoop == 1) {
+      size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
+        val1 = Operator::eval(val1, r1.eval(k));
+        val2 = Operator::eval(val2, r2.eval(k));
+        val3 = Operator::eval(val3, r3.eval(k));
+        val4 = Operator::eval(val4, r4.eval(k));
+  #ifdef TWO_LOCAL_ADDS
+        if ((k + blqS < vecS)) {
+//          val1 = Operator::eval(val1, r1.eval(k + blqS));
+          val1 = Operator::eval(val1, r1.eval(k + localSz));
+//          val2 = Operator::eval(val2, r2.eval(k + blqS));
+          val2 = Operator::eval(val2, r2.eval(k + localSz));
+//          val3 = Operator::eval(val3, r3.eval(k + blqS));
+          val3 = Operator::eval(val3, r3.eval(k + localSz));
+//          val4 = Operator::eval(val4, r4.eval(k + blqS));
+          val4 = Operator::eval(val4, r4.eval(k + localSz));
+        }
+  #endif
       }
-#endif
+    } else {
+      size_t frs_thrd = interLoop * (groupid * localSz + localid);
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+//        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
+          val1 = Operator::eval(val1, r1.eval(k_int));
+          val2 = Operator::eval(val2, r2.eval(k_int));
+          val3 = Operator::eval(val3, r3.eval(k_int));
+          val4 = Operator::eval(val4, r4.eval(k_int));
+        }
+      }
     }
 
 //    scratch1[localid] = val1;
@@ -711,16 +747,18 @@ struct AssignReduction_4Ops {
   }
 };
 
-template <typename Operator, typename LHS1, typename RHS1,
+template <typename Operator, unsigned int interLoop=1,
+                             typename LHS1, typename RHS1,
                              typename LHS2, typename RHS2,
                              typename LHS3, typename RHS3,
                              typename LHS4, typename RHS4>
-AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2, LHS3, RHS3, LHS4, RHS4>
+AssignReduction_4Ops<Operator, interLoop, LHS1, RHS1, LHS2, RHS2, LHS3, RHS3, LHS4, RHS4>
             make_AssignReduction_4Ops(LHS1 &l1, RHS1 &r1, LHS2 &l2, RHS2 &r2,
                                       LHS3 &l3, RHS3 &r3, LHS4 &l4, RHS4 &r4,
                                                              size_t blqS,
                                                              size_t grdS) {
-  return AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+  return AssignReduction_4Ops<Operator, interLoop,
+                                        LHS1, RHS1, LHS2, RHS2,
                                         LHS3, RHS3, LHS4, RHS4>
                                                (l1, r1, l2, r2,
                                                 l3, r3, l4, r4, blqS, grdS);

@@ -439,6 +439,7 @@ class Executor<SYCL> {
     auto rhs1 = t.r1;
     auto lhs2 = t.l2;
     auto rhs2 = t.r2;
+    static const unsigned int interLoop = t.intLoop;
 
     // Two accessors to local memory
     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
@@ -469,7 +470,7 @@ class Executor<SYCL> {
         auto opShMem1 = LHS1_type(scr, ((even)?0:1)*sharedSize, 1, _N);
         auto opShMem2 = LHS2_type(scr, ((even)?2:3)*sharedSize, 1, _N);
         auto localTree = blas::AssignReduction_2Ops
-                      <oper_type, LHS1_type, LHS1_type, LHS2_type, LHS2_type>(
+                      <oper_type, interLoop, LHS1_type, LHS1_type, LHS2_type, LHS2_type>(
                         ((nWG == 1) ? lhs1 : (even ? opShMemB1 : opShMemA1)),
                                               opShMem1,
 //                                              (even ? opShMemA1 : opShMemB1),
@@ -531,6 +532,7 @@ class Executor<SYCL> {
     auto rhs3 = t.r3;
     auto lhs4 = t.l4;
     auto rhs4 = t.r4;
+    static const unsigned int interLoop = t.intLoop;
 
     // Two accessors to local memory
     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
@@ -570,7 +572,8 @@ class Executor<SYCL> {
         auto opShMem3 = LHS3_type(scr, ((even)?4:5)*sharedSize, 1, _N);
         auto opShMem4 = LHS4_type(scr, ((even)?6:7)*sharedSize, 1, _N);
         auto localTree = blas::AssignReduction_4Ops
-                      <oper_type, LHS1_type, LHS1_type, LHS2_type, LHS2_type,
+                      <oper_type, interLoop,
+                                  LHS1_type, LHS1_type, LHS2_type, LHS2_type,
                                   LHS3_type, LHS3_type, LHS4_type, LHS4_type>(
                         ((nWG == 1) ? lhs1 : (even ? opShMemB1 : opShMemA1)),
 //                                              (even ? opShMemA1 : opShMemB1),

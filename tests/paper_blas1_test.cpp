@@ -171,7 +171,8 @@ void _two_addB(Executor<ExecutorType> ex, int _N,
 
   // concatenate both operations
   //  auto doubleAssignOp = make_op<Join>(assignOp1, assignOp2);
-  auto assignOp12 = make_AssignReduction_2Ops<addAbsOp2_struct>
+//  auto assignOp12 = make_AssignReduction_2Ops<addAbsOp2_struct>
+  auto assignOp12 = make_AssignReduction_2Ops<addAbsOp2_struct,INTERLOOP>
                           (my_rs1, my_vx1, my_rs2, my_vx2,
                               localSize, localSize * nWG);
   // execute concatenated operations
@@ -325,7 +326,7 @@ void _four_addB(Executor<ExecutorType> ex, int _N,
 //  ex.reduce(assignOp4);
 //#endif
   // concatenate operations
-  auto assignOp1234 = make_AssignReduction_4Ops<addAbsOp2_struct>
+  auto assignOp1234 = make_AssignReduction_4Ops<addAbsOp2_struct,INTERLOOP>
                           (my_rs1, my_vx1, my_rs2, my_vx2,
                            my_rs3, my_vx3, my_rs4, my_vx4,
                               localSize, localSize * nWG);

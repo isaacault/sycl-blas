@@ -207,8 +207,8 @@ struct Evaluate<AssignReduction<Operator, interLoop, LHS, RHS>> {
 /*! Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>>
  * @brief See Evaluate.
  */
-template <typename Operator, typename LHS1, typename RHS1, typename LHS2, typename RHS2>
-struct Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>> {
+template <typename Operator, unsigned int interLoop, typename LHS1, typename RHS1, typename LHS2, typename RHS2>
+struct Evaluate<AssignReduction_2Ops<Operator, interLoop, LHS1, RHS1, LHS2, RHS2>> {
   using value_type = typename LHS1::value_type;
   using oper_type = Operator;
   using LHS1_type = LHS1;
@@ -218,8 +218,8 @@ struct Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>> {
   using rhs1_type = typename Evaluate<RHS1>::type;
   using lhs2_type = typename Evaluate<LHS2>::type;
   using rhs2_type = typename Evaluate<RHS2>::type;
-  using input_type = AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>;
-  using type = AssignReduction_2Ops<Operator, lhs1_type, rhs1_type, lhs2_type, rhs2_type>;
+  using input_type = AssignReduction_2Ops<Operator, interLoop, LHS1, RHS1, LHS2, RHS2>;
+  using type = AssignReduction_2Ops<Operator, interLoop, lhs1_type, rhs1_type, lhs2_type, rhs2_type>;
 
   static type convert_to(input_type v, cl::sycl::handler &h) {
     auto lhs1 = Evaluate<LHS1>::convert_to(v.l1, h);
@@ -234,11 +234,13 @@ struct Evaluate<AssignReduction_2Ops<Operator, LHS1, RHS1, LHS2, RHS2>> {
                                             LHS3, RHS3, LHS4, RHS4>>
  * @brief See Evaluate.
  */
-template <typename Operator, typename LHS1, typename RHS1,
+template <typename Operator, unsigned int interLoop,
+                             typename LHS1, typename RHS1,
                              typename LHS2, typename RHS2,
                              typename LHS3, typename RHS3,
                              typename LHS4, typename RHS4>
-struct Evaluate<AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+struct Evaluate<AssignReduction_4Ops<Operator, interLoop,
+                                               LHS1, RHS1, LHS2, RHS2,
                                                LHS3, RHS3, LHS4, RHS4>> {
   using value_type = typename LHS1::value_type;
   using oper_type = Operator;
@@ -255,9 +257,11 @@ struct Evaluate<AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
   using rhs3_type = typename Evaluate<RHS3>::type;
   using lhs4_type = typename Evaluate<LHS4>::type;
   using rhs4_type = typename Evaluate<RHS4>::type;
-  using input_type = AssignReduction_4Ops<Operator, LHS1, RHS1, LHS2, RHS2,
+  using input_type = AssignReduction_4Ops<Operator, interLoop,
+                                                    LHS1, RHS1, LHS2, RHS2,
                                                     LHS3, RHS3, LHS4, RHS4>;
-  using type = AssignReduction_4Ops<Operator, lhs1_type, rhs1_type,
+  using type = AssignReduction_4Ops<Operator, interLoop,
+                                              lhs1_type, rhs1_type,
                                               lhs2_type, rhs2_type,
                                               lhs3_type, rhs3_type,
                                               lhs4_type, rhs4_type>;
