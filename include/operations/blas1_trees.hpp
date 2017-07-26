@@ -276,13 +276,14 @@ struct TupleOp {
 #else
   #define NUM_LOCAL_ADDS 1
 #endif
-template <typename Operator, class LHS, class RHS>
+template <typename Operator, unsigned int interLoop, class LHS, class RHS>
 struct AssignReduction {
   using value_type = typename RHS::value_type;
   LHS l;
   RHS r;
   size_t blqS;  // block  size
   size_t grdS;  // grid  size
+  static const size_t intLoop = interLoop;
 
   AssignReduction(LHS &_l, RHS &_r, size_t _blqS, size_t _grdS)
 #ifdef TRACE_ERROR
@@ -328,7 +329,6 @@ struct AssignReduction {
     size_t glbalSz = ndItem.get_num_groups(0) * localSz;
 
     size_t vecS = r.getSize();
-    size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
 
 //    if (groupid == 0) printf ("blqS = %lu , localSz = %lu\n", blqS, localSz);
 //    if (groupid == 0) printf ("blqS = %lu , grdS = %lu , vecS = %lu\n", blqS, grdS, vecS);
@@ -336,16 +336,29 @@ struct AssignReduction {
     // Reduction across the grid
     value_type val = Operator::init(r);
 //    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * grdS) {
-    for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
-//      printf ("localid = %lu , k = %lu , num = %f\n", localid, k, r.eval(k));
-      val = Operator::eval(val, r.eval(k));
-#ifdef TWO_LOCAL_ADDS
-//    if ((k + blqS < vecS)) {
-    if ((k + localSz < vecS)) {
-//      val = Operator::eval(val, r.eval(k + blqS));
-      val = Operator::eval(val, r.eval(k + localSz));
+    if (interLoop == 1) {
+      size_t frs_thrd = NUM_LOCAL_ADDS * groupid * localSz + localid;
+      for (size_t k = frs_thrd; k < vecS; k += NUM_LOCAL_ADDS * glbalSz) {
+  //      printf ("localid = %lu , k = %lu , num = %f\n", localid, k, r.eval(k));
+  //        printf ("YES!!!!\n");
+        val = Operator::eval(val, r.eval(k));
+  #ifdef TWO_LOCAL_ADDS
+  //    if ((k + blqS < vecS)) {
+      if ((k + localSz < vecS)) {
+  //      val = Operator::eval(val, r.eval(k + blqS));
+        val = Operator::eval(val, r.eval(k + localSz));
+        }
+  #endif
       }
-#endif
+    } else {
+//      printf ("YES!!!!\n");
+      size_t frs_thrd = interLoop * (groupid * localSz + localid);
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+//        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
+          val = Operator::eval(val, r.eval(k_int));
+        }
+      }
     }
 #ifdef TRACE_ERROR
 //    if (blqS == grdS) printf ("Hola %lu -> %20.10f\n", localid, val);
@@ -382,11 +395,11 @@ struct AssignReduction {
   }
 };
 
-template <typename Operator, typename LHS, typename RHS>
-AssignReduction<Operator, LHS, RHS> make_AssignReduction(LHS &l, RHS &r,
+template <typename Operator, unsigned int interLoop=1, typename LHS, typename RHS>
+AssignReduction<Operator, interLoop, LHS, RHS> make_AssignReduction(LHS &l, RHS &r,
                                                              size_t blqS,
                                                              size_t grdS) {
-  return AssignReduction<Operator, LHS, RHS>(l, r, blqS, grdS);
+  return AssignReduction<Operator, interLoop, LHS, RHS>(l, r, blqS, grdS);
 }
 
 template <typename LHS, typename RHS>

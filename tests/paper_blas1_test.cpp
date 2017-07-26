@@ -28,8 +28,10 @@ using namespace blas;
 
 #ifdef GPU
 #define LOCALSIZE 256
+#define INTERLOOP 1
 #else
 #define LOCALSIZE 8
+#define INTERLOOP 32
 #endif
 
 #define REDUCE_SCRATCH 1
@@ -97,7 +99,9 @@ void _one_add(Executor<ExecutorType> ex, int _N, vector_view<T, ContainerT> _vx,
   auto localSize = kernelPair.first;
   auto nWG = kernelPair.second;
   auto assignOp =
-      make_addAbsAssignReduction(my_rs, my_vx, localSize, localSize * nWG);
+      make_AssignReduction<addAbsOp2_struct,INTERLOOP>(my_rs, my_vx, localSize, localSize * nWG);
+//      make_addAbsAssignReduction<INTERLOOP>(my_rs, my_vx, localSize, localSize * nWG);
+//      make_addAbsAssignReduction(my_rs, my_vx, localSize, localSize * nWG);
 #ifdef REDUCE_SCRATCH
   ex.reduce(assignOp, my_sc);
 #else

@@ -314,54 +314,13 @@ class Executor<SYCL> {
    */
   template <typename Tree>
   void reduce(Tree t) {
-    using oper_type = typename blas::Evaluate<Tree>::oper_type;
-    using input_type = typename blas::Evaluate<Tree>::input_type;
-    using cont_type = typename blas::Evaluate<Tree>::cont_type;
-    using LHS_type = typename blas::Evaluate<Tree>::LHS_type;
-    auto _N = t.getSize();
+//    printf ("FUNCIONA\n");
     auto localSize = t.blqS;
-    // IF THERE ARE ENOUGH ELEMENTS, EACH BLOCK PROCESS TWO BLOCKS OF ELEMENTS
-    // THEREFORE, 2*GLOBALSIZE ELEMENTS ARE PROCESSED IN A STEP
-    // MOREOVER, A LOOP ALLOWS TO REPEAT THE PROCESS UNTIL
-    // ALL THE ELEMENTS ARE PROCESSED
-//    auto nWG = (t.grdS + (2 * localSize) - 1) / (2 * localSize);
     auto nWG = (t.grdS + (localSize) - 1) / (localSize);
-    auto lhs = t.l;
-    auto rhs = t.r;
-
-    // Two accessors to local memory
     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
-    cont_type shMem1(sharedSize);
-    auto opShMemA = LHS_type(shMem1, 0, 1, sharedSize);
-    cont_type shMem2(sharedSize);
-    auto opShMemB = LHS_type(shMem2, 0, 1, sharedSize);
-
-    bool frst = true;
-    bool even = false;
-    do {
-      auto globalSize = nWG * localSize;
-      if (frst) {
-        // THE FIRST CASE USES THE ORIGINAL BINARY/TERNARY FUNCTION
-        auto localTree = input_type(((nWG == 1) ? lhs : opShMemA), rhs,
-                                    localSize, globalSize);
-        execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
-                                                globalSize, sharedSize);
-      } else {
-        // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
-        auto opShMem = LHS_type(((even)?shMem1:shMem2), 0, 1, _N);
-        auto localTree = blas::AssignReduction<oper_type, LHS_type, LHS_type>(
-            ((nWG == 1) ? lhs : (even ? opShMemB : opShMemA)),
-            opShMem, localSize, globalSize);
-//            (even ? opShMemA : opShMemB), localSize, globalSize);
-        execute_tree<using_shared_mem::enabled>(q_, localTree, localSize,
-                                                globalSize, sharedSize);
-      }
-      _N = nWG;
-//      nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
-      nWG = (_N + (NUM_LOCAL_ADDS * localSize) - 1) / (NUM_LOCAL_ADDS * localSize);
-      frst = false;
-      even = !even;
-    } while (_N > 1);
+    using cont_type = typename blas::Evaluate<Tree>::cont_type;
+    cont_type scratch(2*sharedSize);
+    reduce(t, scratch);
   };
 
   /*!
@@ -383,6 +342,7 @@ class Executor<SYCL> {
     auto nWG = (t.grdS + (localSize) - 1) / (localSize);
     auto lhs = t.l;
     auto rhs = t.r;
+    static const unsigned int interLoop = t.intLoop;
 
     // Two accessors to local memory
     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
@@ -425,7 +385,7 @@ class Executor<SYCL> {
 */
         // THE OTHER CASES ALWAYS USE THE BINARY FUNCTION
         auto opShMem = LHS_type(scr, ((even)?0:sharedSize), 1, _N);
-        auto localTree = blas::AssignReduction<oper_type, LHS_type, LHS_type>(
+        auto localTree = blas::AssignReduction<oper_type, interLoop, LHS_type, LHS_type>(
             ((nWG == 1) ? lhs : (even ? opShMemB : opShMemA)),
             opShMem, localSize, globalSize);
 //            (even ? opShMemA : opShMemB), localSize, globalSize);
@@ -448,6 +408,17 @@ class Executor<SYCL> {
    * @brief Applies a reduction to a two trees, receiving a scratch buffer.
    //   * @brief Applies a reduction to a two trees, receiving two scratch buffers.
    */
+   template <typename Tree>
+   void reduce_2Ops(Tree t) {
+//     printf ("FUNCIONA_2Ops\n");
+     auto localSize = t.blqS;
+     auto nWG = (t.grdS + (localSize) - 1) / (localSize);
+     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
+     using cont_type = typename blas::Evaluate<Tree>::cont_type;
+     cont_type scratch(4*sharedSize);
+     reduce_2Ops(t, scratch);
+   };
+
   template <typename Tree, typename Scratch>
   void reduce_2Ops(Tree t, Scratch scr) {
 //  void reduce_2Ops(Tree t, Scratch scr1, Scratch scr2) {
@@ -523,6 +494,17 @@ class Executor<SYCL> {
    * @brief Applies a reduction to a two trees, receiving a scratch buffer.
    //   * @brief Applies a reduction to a four trees, receiving four scratch buffers.
    */
+   template <typename Tree>
+   void reduce_4Ops(Tree t) {
+//     printf ("FUNCIONA_4Ops\n");
+     auto localSize = t.blqS;
+     auto nWG = (t.grdS + (localSize) - 1) / (localSize);
+     auto sharedSize = ((nWG <= localSize) ? localSize : nWG);
+     using cont_type = typename blas::Evaluate<Tree>::cont_type;
+     cont_type scratch(8*sharedSize);
+     reduce_4Ops(t, scratch);
+   };
+
   template <typename Tree, typename Scratch>
   void reduce_4Ops(Tree t, Scratch scr) {
 //  void reduce_4Ops(Tree t, Scratch scr1, Scratch scr2) {

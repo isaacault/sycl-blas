@@ -186,16 +186,16 @@ struct Evaluate<BinaryOp<Operator, LHS, RHS>> {
 /*! Evaluate<AssignReduction<Operator, LHS, RHS>>
  * @brief See Evaluate.
  */
-template <typename Operator, typename LHS, typename RHS>
-struct Evaluate<AssignReduction<Operator, LHS, RHS>> {
+template <typename Operator, unsigned int interLoop, typename LHS, typename RHS>
+struct Evaluate<AssignReduction<Operator, interLoop, LHS, RHS>> {
   using value_type = typename LHS::value_type;
   using oper_type = Operator;
   using LHS_type = LHS;
   using cont_type = typename LHS::ContainerT;
   using lhs_type = typename Evaluate<LHS>::type;
   using rhs_type = typename Evaluate<RHS>::type;
-  using input_type = AssignReduction<Operator, LHS, RHS>;
-  using type = AssignReduction<Operator, lhs_type, rhs_type>;
+  using input_type = AssignReduction<Operator, interLoop, LHS, RHS>;
+  using type = AssignReduction<Operator, interLoop, lhs_type, rhs_type>;
 
   static type convert_to(input_type v, cl::sycl::handler &h) {
     auto lhs = Evaluate<LHS>::convert_to(v.l, h);
