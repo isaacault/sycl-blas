@@ -16,7 +16,7 @@ using namespace blas;
 
 #define BASETYPE double
 
-#define GPU 1
+// #define GPU 1
 
 #ifdef GPU
 #define LOCALSIZE 256
@@ -27,6 +27,8 @@ using namespace blas;
 #define NUM_JUMPS_INIT_BLOCK  16
 
 #define SHOW_TIMES 1
+
+#define USE_SCRATCH 1
 
 std::pair<unsigned, unsigned> get_reduction_params(size_t N) {
   /*
@@ -380,7 +382,12 @@ void _two_axpy_dotSng_Scal(Executor<ExecutorType> ex, int _N, BASETYPE _alpha1,
                            int _incx2, vector_view<T, ContainerT> _vy2,
                            int _incy2, vector_view<T, ContainerT> _be,
                            vector_view<T, ContainerT> _al,
+#ifdef USE_SCRATCH 
+                           vector_view<T, ContainerT> _to, int blqS, int nBlq,
+                           vector_view<T, ContainerT> _sc) {
+#else
                            vector_view<T, ContainerT> _to, int blqS, int nBlq) {
+#endif
   //  Calculating: _vy1 = _alpha1 * _vx1 + _vy1
   auto my_vx1 = vector_view<T, ContainerT>(_vx1, _vx1.getDisp(), _incx1, _N);
   auto my_vy1 = vector_view<T, ContainerT>(_vy1, _vy1.getDisp(), _incy1, _N);
@@ -404,7 +411,12 @@ void _two_axpy_dotSng_Scal(Executor<ExecutorType> ex, int _N, BASETYPE _alpha1,
   auto my_al = vector_view<T, ContainerT>(_al, _al.getDisp(), 1, 1);
   auto my_to = vector_view<T, ContainerT>(_to, _to.getDisp(), 1, 1);
   auto assignOp3 = make_addAssignReduction(my_to, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp3, my_sc);
+#else
   ex.reduce(assignOp3);
+#endif
 
   // Calculating: _al = _to / _be; _be = _to; _to = sqrt(_to);
   auto divOp = make_op<BinaryOp, divOp2_struct>(my_to, my_be);
@@ -422,7 +434,12 @@ void prdTrdSP2_dot_Scal(Executor<ExecutorType> ex, int _N,
                         vector_view<T, ContainerT> _vx, int _incx,
                         vector_view<T, ContainerT> _vy, int _incy,
                         vector_view<T, ContainerT> _be,
+#ifdef USE_SCRATCH 
+                        vector_view<T, ContainerT> _rh, int blqS, int nBlq,
+                        vector_view<T, ContainerT> _sc) {
+#else
                         vector_view<T, ContainerT> _rh, int blqS, int nBlq) {
+#endif
   auto my_TT = vector_view<T, ContainerT>(_TT, _TT.getDisp(), _incTT, _N);
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, _N);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, _N);
@@ -436,13 +453,19 @@ void prdTrdSP2_dot_Scal(Executor<ExecutorType> ex, int _N,
   //  Calculating: _vx .* _vy
   auto prodOp = make_op<BinaryOp, prdOp2_struct>(my_vx, assignOp);
   auto assignOp1 = make_addAssignReduction(my_rh, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp1, my_sc);
+#else
   ex.reduce(assignOp1);
+#endif
 
   //  Calculating: _rh = _be / _rh;
   auto divOp = make_op<BinaryOp, divOp2_struct>(my_be, my_rh);
   auto assignOp2 = make_op<Assign>(my_rh, divOp);
 //#ifdef BLAS_EXPERIMENTAL
-  ex.execute(assignOp2, 1);
+//  ex.execute(assignOp2, 1);
+  ex.execute(assignOp2, LOCALSIZE);
 //#endif  // BLAS_EXPERIMENTAL
 //  ex.execute(assignOp2);
 }
@@ -454,7 +477,12 @@ void prdTrdSP2_init_vectors_dotSng_Scal(
     vector_view<T, ContainerT> _vb, int _incb, vector_view<T, ContainerT> _vr,
     int _incr, vector_view<T, ContainerT> _vz, int _incz,
     vector_view<T, ContainerT> _vd, int _incd, vector_view<T, ContainerT> _be,
+#ifdef USE_SCRATCH 
+    vector_view<T, ContainerT> _to, int blqS, int nBlq,
+    vector_view<T, ContainerT> _sc) {
+#else
     vector_view<T, ContainerT> _to, int blqS, int nBlq) {
+#endif
   auto my_TT = vector_view<T, ContainerT>(_TT, _TT.getDisp(), _incTT, _N);
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, _N);
   auto my_vb = vector_view<T, ContainerT>(_vb, _vb.getDisp(), _incb, _N);
@@ -476,7 +504,12 @@ void prdTrdSP2_init_vectors_dotSng_Scal(
   // Calculating: _vd .* _vd
   auto prodOp = make_op<UnaryOp, prdOp1_struct>(assignOp12);
   auto assignOp1 = make_addAssignReduction(my_be, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp1, my_sc);
+#else
   ex.reduce(assignOp1);
+#endif
 
   // Calculating: _to = sqrt(be)
   auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(my_be);
@@ -499,6 +532,9 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
   std::vector<BASETYPE> vTD(dim);
   std::vector<BASETYPE> vTS(dim);
   std::vector<BASETYPE> vTT(dim * 3);
+#ifdef USE_SCRATCH 
+  std::vector<BASETYPE> vSc(dim);
+#endif
   std::vector<BASETYPE> vBe(1);
   std::vector<BASETYPE> vTo(1);
   std::vector<BASETYPE> vAl(1);
@@ -569,6 +605,9 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
     buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
     buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
     buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+#ifdef USE_SCRATCH 
+    buffer<BASETYPE, 1> bSc(vSc.data(), range<1>{vSc.size()});
+#endif
     buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
     buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
     buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
@@ -583,6 +622,9 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
     BufferVectorView<BASETYPE> bvTD(bTD);
     BufferVectorView<BASETYPE> bvTS(bTS);
     BufferVectorView<BASETYPE> bvTT(bTT);
+#ifdef USE_SCRATCH 
+    BufferVectorView<BASETYPE> bvSc(bSc);
+#endif
     BufferVectorView<BASETYPE> bvBe(bBe);
     BufferVectorView<BASETYPE> bvTo(bTo);
     BufferVectorView<BASETYPE> bvAl(bAl);
@@ -619,7 +661,11 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
                                              bvB, 1, bvR, 1,  // beta = r' * r
                                              bvZ, 1, bvD,
                                              1,  // tol = sqrt(beta)
+#ifdef USE_SCRATCH 
+                                             bvBe, bvTo, blqS, nBlq, bvSc);
+#else
                                              bvBe, bvTo, blqS, nBlq);
+#endif
     {
       auto hostAccT =
           bTo.get_access<access::mode::read, access::target::host_buffer>();
@@ -636,7 +682,11 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
       prdTrdSP2_dot_Scal<SYCL>(ex, dim, bvTT + 0, 1,    // z = A * d
                                bvD + 0, 1, bvZ + 0, 1,  // alpha = d' * z
                                bvBe, bvRh,              // rho = beta / alpha
-                               blqS, nBlq);
+#ifdef USE_SCRATCH 
+                               blqS, nBlq, bvSc); 
+#else
+                               blqS, nBlq); 
+#endif
       {
         auto hostAccR =
             bRh.get_access<access::mode::read, access::target::host_buffer>();
@@ -647,7 +697,11 @@ void CG_4(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
           bvD + 0, 1, bvX + 0, 1, -rho,  // r = r - rho * z
           bvZ + 0, 1, bvR + 0, 1,        // alpha = beta
           bvBe, bvAl, bvTo,              // beta = r' * r; alpha = beta / alpha
+#ifdef USE_SCRATCH 
+          blqS, nBlq, bvSc);             // tol = sqrt (tol)
+#else
           blqS, nBlq);                   // tol = sqrt (tol)
+#endif
       {
         auto hostAccA =
             bAl.get_access<access::mode::read, access::target::host_buffer>();
@@ -692,7 +746,11 @@ void _two_axpy_dotSng_ScalF(
     vector_view<T, ContainerT> _vAl2, vector_view<T, ContainerT> _vx2,
     vector_view<T, ContainerT> _vy2, vector_view<T, ContainerT> _be,
     vector_view<T, ContainerT> _al, vector_view<T, ContainerT> _to,
+#ifdef USE_SCRATCH 
+    bool compSqrt, int blqS, int nBlq, vector_view<T, ContainerT> _sc) {
+#else
     bool compSqrt, int blqS, int nBlq) {
+#endif
   // _vy1 = _vAl * _vx1 + _vy1
   auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_vAl1, _vx1);
   auto addBinaryOp1 = make_op<BinaryOp, addOp2_struct>(_vy1, scalOp1);
@@ -711,7 +769,12 @@ void _two_axpy_dotSng_ScalF(
 
   // _to = reduction(_vy2 .* _vy2)
   auto assignOp3 = make_addAssignReduction(_to, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp3, my_sc);
+#else
   ex.reduce(assignOp3);
+#endif
 
   //	_al = _to / _be; _be = _to; _to = sqrt(_to);
   auto divOp = make_op<BinaryOp, divOp2_struct>(_to, _be);
@@ -734,7 +797,12 @@ void prdTrdSP2_dot_ScalF(Executor<ExecutorType> ex, int _N,
                          vector_view<T, ContainerT> _vy,
                          vector_view<T, ContainerT> _be,
                          vector_view<T, ContainerT> _rh,
+#ifdef USE_SCRATCH 
+                         vector_view<T, ContainerT> _al, int blqS, int nBlq,
+                         vector_view<T, ContainerT> _sc) {
+#else
                          vector_view<T, ContainerT> _al, int blqS, int nBlq) {
+#endif
   // _vy = _TT * _vx
   auto prdMtrVctOp = make_trdMatVctPrd(_TT, _vx);
   auto assignOp = make_op<Assign>(_vy, prdMtrVctOp);
@@ -744,7 +812,12 @@ void prdTrdSP2_dot_ScalF(Executor<ExecutorType> ex, int _N,
 
   // _rh = reduction( _vx .* _vy)
   auto assignOp1 = make_addAssignReduction(_rh, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp1, my_sc);
+#else
   ex.reduce(assignOp1);
+#endif
 
   //	_rh = _be / _rh; _al = -rh
   auto divOp = make_op<BinaryOp, divOp2_struct>(_be, _rh);
@@ -761,7 +834,11 @@ void prdTrdSP2_init_vectors_dotSng_ScalF(
     vector_view<T, ContainerT> _vb, vector_view<T, ContainerT> _vr,
     vector_view<T, ContainerT> _vz, vector_view<T, ContainerT> _vd,
     vector_view<T, ContainerT> _be, vector_view<T, ContainerT> _to, int blqS,
+#ifdef USE_SCRATCH 
+    int nBlq, vector_view<T, ContainerT> _sc) {
+#else
     int nBlq) {
+#endif
   // _vz = TT * _vx
   auto prdMtrVctOp = make_trdMatVctPrd(_TT, _vx);
   auto assignOp = make_op<Assign>(_vz, prdMtrVctOp);
@@ -775,7 +852,12 @@ void prdTrdSP2_init_vectors_dotSng_ScalF(
   auto prodOp = make_op<UnaryOp, prdOp1_struct>(assignOp12);
   // _be = reduction( _vd .* _vd)
   auto assignOp1 = make_addAssignReduction(_be, prodOp, blqS, blqS * nBlq);
+#ifdef USE_SCRATCH 
+  auto my_sc = vector_view<T, ContainerT>(_sc, _sc.getDisp(), 1, _N);
+  ex.reduce(assignOp1, my_sc);
+#else
   ex.reduce(assignOp1);
+#endif
 
   auto sqrtOp = make_op<UnaryOp, sqtOp1_struct>(_be);
   auto assignOp2 = make_op<Assign>(_to, sqrtOp);
@@ -797,6 +879,9 @@ void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
   std::vector<BASETYPE> vTD(dim);
   std::vector<BASETYPE> vTS(dim);
   std::vector<BASETYPE> vTT(dim * 3);
+#ifdef USE_SCRATCH 
+  std::vector<BASETYPE> vSc(dim);
+#endif
   std::vector<BASETYPE> vBe(1);
   std::vector<BASETYPE> vTo(1);
   std::vector<BASETYPE> vAl(1);
@@ -867,6 +952,9 @@ void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
     buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
     buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
     buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+#ifdef USE_SCRATCH 
+    buffer<BASETYPE, 1> bSc(vSc.data(), range<1>{vSc.size()});
+#endif
     buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
     buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
     buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
@@ -881,6 +969,9 @@ void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
     BufferVectorView<BASETYPE> bvTD(bTD);
     BufferVectorView<BASETYPE> bvTS(bTS);
     BufferVectorView<BASETYPE> bvTT(bTT);
+#ifdef USE_SCRATCH 
+    BufferVectorView<BASETYPE> bvSc(bSc);
+#endif
     BufferVectorView<BASETYPE> bvBe(bBe);
     BufferVectorView<BASETYPE> bvTo(bTo);
     BufferVectorView<BASETYPE> bvAl(bAl);
@@ -919,7 +1010,11 @@ void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
                                               -1.0,      // r = b - z: d = r
                                               bvB, bvR,  // beta = r' * r
                                               bvZ, bvD,  // tol = sqrt(beta)
+#ifdef USE_SCRATCH 
+                                              bvBe, bvTo, blqS, nBlq, bvSc);
+#else
                                               bvBe, bvTo, blqS, nBlq);
+#endif
     {
       auto hostAcc =
           bTo.get_access<access::mode::read, access::target::host_buffer>();
@@ -936,13 +1031,21 @@ void CG_5(size_t dim, BASETYPE thold, size_t maxItr, cl::sycl::queue q) {
       prdTrdSP2_dot_ScalF<SYCL>(ex, dim, bvTT,   // z = A * d
                                 bvD, bvZ, bvBe,  // alpha = d' * z
                                 bvRh, bvAl,      // rho = beta / alpha
+#ifdef USE_SCRATCH 
+                                blqS, nBlq,bvSc);// alpha = -rho 
+#else
                                 blqS, nBlq);     // alpha = -rho
+#endif
       _two_axpy_dotSng_ScalF<SYCL>(              // x = x + rho * d
           ex, dim, bvRh,                         // r = r - rho * z
           bvD, bvX, bvAl,                        // alpha = beta
           bvZ, bvR,                              // beta = r' * r
           bvBe, bvAl, bvTo, true,                // alpha = beta / alpha
+#ifdef USE_SCRATCH 
+          blqS, nBlq, bvSc);                     // tol = sqrt (tol)
+#else
           blqS, nBlq);                           // tol = sqrt (tol)
+#endif
       _xpayF<SYCL>(ex, dim, bvAl, bvR, bvD);     // d = alpha * d + r
       step++;
       {
@@ -983,6 +1086,9 @@ void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
   std::vector<BASETYPE> vTD(dim);
   std::vector<BASETYPE> vTS(dim);
   std::vector<BASETYPE> vTT(dim * 3);
+#ifdef USE_SCRATCH 
+  std::vector<BASETYPE> vSc(dim);
+#endif
   std::vector<BASETYPE> vBe(1);
   std::vector<BASETYPE> vTo(1);
   std::vector<BASETYPE> vAl(1);
@@ -1053,6 +1159,9 @@ void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
     buffer<BASETYPE, 1> bTD(vTD.data(), range<1>{vTD.size()});
     buffer<BASETYPE, 1> bTS(vTS.data(), range<1>{vTS.size()});
     buffer<BASETYPE, 1> bTT(vTT.data(), range<1>{vTT.size()});
+#ifdef USE_SCRATCH 
+    buffer<BASETYPE, 1> bSc(vSc.data(), range<1>{vSc.size()});
+#endif
     buffer<BASETYPE, 1> bBe(vBe.data(), range<1>{vBe.size()});
     buffer<BASETYPE, 1> bTo(vTo.data(), range<1>{vTo.size()});
     buffer<BASETYPE, 1> bAl(vAl.data(), range<1>{vAl.size()});
@@ -1067,6 +1176,9 @@ void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
     BufferVectorView<BASETYPE> bvTD(bTD);
     BufferVectorView<BASETYPE> bvTS(bTS);
     BufferVectorView<BASETYPE> bvTT(bTT);
+#ifdef USE_SCRATCH 
+    BufferVectorView<BASETYPE> bvSc(bSc);
+#endif
     BufferVectorView<BASETYPE> bvBe(bBe);
     BufferVectorView<BASETYPE> bvTo(bTo);
     BufferVectorView<BASETYPE> bvAl(bAl);
@@ -1100,7 +1212,11 @@ void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
                                               -1.0,      // r = b - z: d = r
                                               bvB, bvR,  // beta = r' * r
                                               bvZ, bvD,  // tol = sqrt(beta)
+#ifdef USE_SCRATCH 
+                                              bvBe, bvTo, blqS, nBlq, bvSc);
+#else
                                               bvBe, bvTo, blqS, nBlq);
+#endif
     {
       auto hostAcc =
           bTo.get_access<access::mode::read, access::target::host_buffer>();
@@ -1118,13 +1234,21 @@ void CG_6(int dim, BASETYPE thold, size_t maxItr, size_t itrLoop,
         prdTrdSP2_dot_ScalF<SYCL>(ex, dim, bvTT,   // z = A * d
                                   bvD, bvZ, bvBe,  // alpha = d' * z
                                   bvRh, bvAl,      // rho = beta / alpha
+#ifdef USE_SCRATCH 
+                                  blqS, nBlq,bvSc);// alpha = -rho 
+#else
                                   blqS, nBlq);     // alpha = -rho
+#endif
         _two_axpy_dotSng_ScalF<SYCL>(              // x = x + rho * d
             ex, dim, bvRh,                         // r = r - rho * z
             bvD, bvX, bvAl,                        // alpha = beta
             bvZ, bvR,                              // beta = r' * r
             bvBe, bvAl, bvTo, (i == 1),            // alpha = beta / alpha
+#ifdef USE_SCRATCH 
+            blqS, nBlq, bvSc);                     // tol = sqrt (tol)
+#else
             blqS, nBlq);                           // tol = sqrt (tol)
+#endif
         _xpayF<SYCL>(ex, dim, bvAl, bvR, bvD);     // d = alpha * d + r
         step++;
       }
