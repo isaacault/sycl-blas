@@ -456,6 +456,7 @@ struct ReducOp {
 */
 };
 
+#define ONE_LOOP 1
 /*! AssignReduction_2Ops.
  * @brief Implements the reduction operation for assignments (in the form y = x)
  *  with y a scalar and x a subexpression tree.
@@ -541,6 +542,7 @@ struct AssignReduction_2Ops {
       }
     } else {
       size_t frs_thrd = interLoop * (groupid * localSz + localid);
+#ifdef ONE_LOOP
       for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
         for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
 //        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
@@ -548,6 +550,20 @@ struct AssignReduction_2Ops {
           val2 = Operator::eval(val2, r2.eval(k_int));
         }
       }
+#else
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+//        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
+          val1 = Operator::eval(val1, r1.eval(k_int));
+        }
+      }
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+//        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
+          val2 = Operator::eval(val2, r2.eval(k_int));
+        }
+      }
+#endif
     }
 
 //    scratch1[localid] = val1;
@@ -702,6 +718,7 @@ struct AssignReduction_4Ops {
       }
     } else {
       size_t frs_thrd = interLoop * (groupid * localSz + localid);
+#ifdef ONE_LOOP
       for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
         for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
 //        printf ("localid = %lu , k = %lu , num = %f\n", localid, k_int, r.eval(k));
@@ -711,6 +728,28 @@ struct AssignReduction_4Ops {
           val4 = Operator::eval(val4, r4.eval(k_int));
         }
       }
+#else
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val1 = Operator::eval(val1, r1.eval(k_int));
+        }
+      }
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val2 = Operator::eval(val2, r2.eval(k_int));
+        }
+      }
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val3 = Operator::eval(val3, r3.eval(k_int));
+        }
+      }
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val4 = Operator::eval(val4, r4.eval(k_int));
+        }
+      }
+#endif
     }
 
 //    scratch1[localid] = val1;
