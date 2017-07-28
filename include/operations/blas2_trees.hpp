@@ -107,7 +107,7 @@ struct PrdRowMatVctMult {
     size_t localid = ndItem.get_local(0);
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
-    size_t numGrps = ndItem.get_num_groups(0);
+    size_t groupSz = ndItem.get_num_groups(0);
 
     size_t dimR = r1.getSizeR();
     size_t dimC = r1.getSizeC();
@@ -119,8 +119,8 @@ struct PrdRowMatVctMult {
 
     // Local computations
 //    if ((localid == 0) && (groupid == 0))
-//      printf ("nThr = %lu, localSz = %lu , numGrps = %lu\n",
-//                nThr, localSz, numGrps);
+//      printf ("nThr = %lu, localSz = %lu , groupSz = %lu\n",
+//                nThr, localSz, groupSz);
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     if (rowid < dimR) {
       for (size_t j = colid; j < dimC; j += nThr) {
@@ -212,18 +212,11 @@ struct PrdRowMatVctMultShm {
 
 //    printf ("(%3.3lu,%3.3lu)->(%3.3lu,%3.3lu)\n", groupid, localid, rowid, colid);
     // Copying  to the scratch
-
-//    if (rowid < dimR) {
       k = localid;
-//      for (size_t j = colid + localid; j < colid + colSz; j += rowSz) {
       for (size_t j = colid + localid; j < std::min(colid+colSz,dimC); j += rowSz) {
-//        if ((rowid < dimR) && (j < dimC)) scratch[k] = r2.eval(j);
-//        if (j < dimC) scratch[k] = r2.eval(j);
         scratch[k] = r2.eval(j);
-//        else scratch[k] = iniAddOp1_struct::eval(r2.eval(0));
         k += rowSz;
       }
-//    }
     // This barrier is mandatory to be sure the data are on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
@@ -231,21 +224,13 @@ struct PrdRowMatVctMultShm {
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     if (rowid < dimR) {
       k = 0;
-//      for (size_t j = colid; j < colid + colSz; j++) {
       for (size_t j = colid; j < std::min(colid+colSz,dimC); j++) {
-//        if ((rowid < dimR) && (j < dimC)) val += r1.eval(rowid, j) * scratch[k++];
-//        if (j < dimC) val += r1.eval(rowid, j) * scratch[k++];
         val += r1.eval(rowid, j) * scratch[k++];
       }
       // The result is stored in lhs
-//      if (rowid < dimR) l.eval(rowid, blqidC) = val;
       l.eval(rowid, blqidC) = val;
     }
-/*
-    THIS BARRIER DOESN'T SOLVE THE PROBLEM
-    // This barrier is mandatory to be sure the data are on the shared memory
-    ndItem.barrier(cl::sycl::access::fence_space::local_space);
-*/
+
     return val;
   }
 

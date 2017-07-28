@@ -15,6 +15,11 @@ using namespace blas;
 #define EXECUTED_ON_GPU 1
 #define SHOW_VALUES   1
 
+#define BASETYPE double
+
+#define SHOW_TIMES 1  // If it exists, the code prints the execution time
+                      // The ... should be changed by the corresponding routine
+
 #ifdef EXECUTED_ON_GPU
 #define DEFAULT_ACCESS false
 #else
@@ -150,18 +155,24 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   // CREATING DATA
   size_t dimR = dim / divSz;
   size_t dimC = dim * divSz;
-  std::vector<double> vM(dimR * dimC);
-  std::vector<double> vX(dimC);
-  std::vector<double> vY(dimR);
-  std::vector<double> vX2(dimC);
-  std::vector<double> vY2(dimR);
-  std::vector<double> vR(1);
-  std::vector<double> vS(1);
-  std::vector<double> vT(1);
+  std::vector<BASETYPE> vM(dimR * dimC);
+  std::vector<BASETYPE> vX(dimC);
+  std::vector<BASETYPE> vY(dimR);
+  std::vector<BASETYPE> vX2(dimC);
+  std::vector<BASETYPE> vY2(dimR);
+  std::vector<BASETYPE> vR(3);
+  std::vector<BASETYPE> vS(3);
+  std::vector<BASETYPE> vT(3);
+#ifdef SHOW_TIMES
+  std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+  std::chrono::duration<BASETYPE> t1_gemvR, t1_gemvC, t1_ger;
+  std::chrono::duration<BASETYPE> t2_gemvR, t2_gemvC, t2_ger;
+  std::chrono::duration<BASETYPE> t3_gemvR, t3_gemvC, t3_ger;
+#endif
 
   // INITIALIZING DATA
   size_t vSeed, gap;
-  double minV, maxV;
+  BASETYPE minV, maxV;
 #ifdef RANDOM_DATA
   vSeed = 1;
   minV = -10.0;
@@ -172,9 +183,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   minV = 1.00;
   maxV = 1.00;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vM), std::end(vM), [&](double &elem) {
+  std::for_each(std::begin(vM), std::end(vM), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -191,9 +202,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   minV = 1.00;
   maxV = 1.00;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vX), std::end(vX), [&](double &elem) {
+  std::for_each(std::begin(vX), std::end(vX), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -209,9 +220,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   minV = 1.00;
   maxV = 1.00;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vX2), std::end(vX2), [&](double &elem) {
+  std::for_each(std::begin(vX2), std::end(vX2), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -227,9 +238,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   minV = 1.00;
   maxV = 1.00;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vY), std::end(vY), [&](double &elem) {
+  std::for_each(std::begin(vY), std::end(vY), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
@@ -245,31 +256,33 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   minV = 1.00;
   maxV = 1.00;
 #endif  // RANDOM_DATA
-  std::for_each(std::begin(vY2), std::end(vY2), [&](double &elem) {
+  std::for_each(std::begin(vY2), std::end(vY2), [&](BASETYPE &elem) {
 #ifdef RANDOM_DATA
-    elem = minV + (double)(rand() % gap);
+    elem = minV + (BASETYPE)(rand() % gap);
 #else   // RANDOM_DATA
     elem = minV; minV += maxV;
 #endif  // RANDOM_DATA
   });
 
-  vR[0] = 0.0;
-  vS[0] = 0.0;
-  vT[0] = 0.0;
+  for (int i=0; i<3; i++) {
+    vR[i] = 0.0;
+    vS[i] = 0.0;
+    vT[i] = 0.0;
+  }
 
   // CREATING HOST STRUCTURES
   size_t dimL = ((accessDev) ? dimC : dimR);
-  matrix_view<double, std::vector<double>> v_M0(vM, accessDev, dimR, dimC, true,
+  matrix_view<BASETYPE, std::vector<BASETYPE>> v_M0(vM, accessDev, dimR, dimC, true,
                                                 dimL, 0);
-  vector_view<double, std::vector<double>> v_X0(vX, 0, 1, dimC);
-  vector_view<double, std::vector<double>> v_Y0(vY, 0, 1, dimR);
-  vector_view<double, std::vector<double>> v_R(vR, 0, 1, 1);
+  vector_view<BASETYPE, std::vector<BASETYPE>> v_X0(vX, 0, 1, dimC);
+  vector_view<BASETYPE, std::vector<BASETYPE>> v_Y0(vY, 0, 1, dimR);
+  vector_view<BASETYPE, std::vector<BASETYPE>> v_R(vR, 0, 1, 1);
 
   // COMPUTING THE RESULTS
   size_t returnVal = 0;
-  double res;
+  BASETYPE res;
 
-  double addY = 0.0, auxY;
+  BASETYPE addY = 0.0, auxY;
   for (size_t i = shftR; i < dimR; i++) {
 //    vY2[i - shftR] = 1.5 * vY[i - shftR];
     auxY = 1.5 * vY2[i - shftR];
@@ -296,7 +309,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     addY += vY2[i];
   }
 
-  double addX = 0.0, auxX;
+  BASETYPE addX = 0.0, auxX;
   for (size_t j = shftC; j < dimC; j++) {
 //    vX2[j - shftC] = 0.5 * vX2[j - shftC];
     auxX = 0.5 * vX2[j - shftC];
@@ -317,7 +330,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     addX += vX2[j];
   }
 
-  double addRng1 = 0.0;
+  BASETYPE addRng1 = 0.0;
   for (size_t i = 0; i < dimR; i++) {
     for (size_t j = 0; j < dimC; j++) {
       addRng1 += (accessDev) ? vM[dimC * i + j] : vM[dimR * j + i];
@@ -343,45 +356,115 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
   {
     // CREATION OF THE BUFFERS
-    buffer<double, 1> bM0(vM.data(), range<1>{vM.size()});
-    buffer<double, 1> bX0(vX.data(), range<1>{vX.size()});
-    buffer<double, 1> bY0(vY.data(), range<1>{vY.size()});
-    buffer<double, 1> bX2(vX2.data(), range<1>{vX2.size()});
-    buffer<double, 1> bY2(vY2.data(), range<1>{vY2.size()});
-    buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<double, 1> bS(vS.data(), range<1>{vS.size()});
-    buffer<double, 1> bT(vT.data(), range<1>{vT.size()});
+    buffer<BASETYPE, 1> bM0(vM.data(), range<1>{vM.size()});
+    buffer<BASETYPE, 1> bX0(vX.data(), range<1>{vX.size()});
+    buffer<BASETYPE, 1> bY0(vY.data(), range<1>{vY.size()});
+    buffer<BASETYPE, 1> bX2(vX2.data(), range<1>{vX2.size()});
+    buffer<BASETYPE, 1> bY2(vY2.data(), range<1>{vY2.size()});
+    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
+    buffer<BASETYPE, 1> bS(vS.data(), range<1>{vS.size()});
+    buffer<BASETYPE, 1> bT(vT.data(), range<1>{vT.size()});
 
     // BUILDING A SYCL VIEW OF THE BUFFERS
-    BufferMatrixView<double> bmM0(bM0, accessDev, dimR, dimC);
-    BufferVectorView<double> bvV0(bM0);
-    BufferVectorView<double> bvX0(bX0);
-    BufferVectorView<double> bvY0(bY0);
-    BufferVectorView<double> bvX2(bX2);
-    BufferVectorView<double> bvY2(bY2);
-    BufferVectorView<double> bvR(bR);
-    BufferVectorView<double> bvS(bS);
-    BufferVectorView<double> bvT(bT);
+    BufferMatrixView<BASETYPE> bmM0(bM0, accessDev, dimR, dimC);
+    BufferVectorView<BASETYPE> bvV0(bM0);
+    BufferVectorView<BASETYPE> bvX0(bX0);
+    BufferVectorView<BASETYPE> bvY0(bY0);
+    BufferVectorView<BASETYPE> bvX2(bX2);
+    BufferVectorView<BASETYPE> bvY2(bY2);
+    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvS1(bS,0);
+    BufferVectorView<BASETYPE> bvS2(bS,1);
+    BufferVectorView<BASETYPE> bvS3(bS,2);
+    BufferVectorView<BASETYPE> bvT(bT);
 
     // EXECUTION OF THE ROUTINES
-    _gemv<3, SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
+    /*****************************************/
+#ifdef SHOW_TIMES
+    t_start = std::chrono::steady_clock::now();
+#endif
+    _gemv<1, SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
                 dimL, bvX0, 1, 0.5, bvX2, 1);
+    q.wait_and_throw();
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+#endif
+    t1_gemvR = t_stop - t_start;
+    auto reducOpX = make_addAssignReduction(bvR, bvX2, 256, 256);
+    ex.reduce(reducOpX); q.wait_and_throw();
+    /*****************************************/
+    auto assign1_Seg = make_op<Assign>(bvX2, bvY2);
+    ex.execute(assign1_Seg); q.wait_and_throw();
+#ifdef SHOW_TIMES
+    t_start = std::chrono::steady_clock::now();
+#endif
+    _gemv<1, SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
+                dimL, bvY0, 1, 1.5, bvY2, 1);
+    q.wait_and_throw();
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+#endif
+    t1_gemvC = t_stop - t_start;
+    auto reducOpY1 = make_addAssignReduction(bvS1, bvY2, 256, 256);
+    ex.reduce(reducOpY1); q.wait_and_throw();
+    auto assign1_Rec = make_op<Assign>(bvY2, bvX2);
+    ex.execute(assign1_Rec); q.wait_and_throw();
+    /*****************************************/
+#ifdef SHOW_TIMES
+    t_start = std::chrono::steady_clock::now();
+#endif
+    _gemv<2, SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
+                dimL, bvY0, 1, 1.5, bvY2, 1);
+    q.wait_and_throw();
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+#endif
+    t2_gemvC = t_stop - t_start;
+    auto reducOpY2 = make_addAssignReduction(bvS2, bvY2, 256, 256);
+    ex.reduce(reducOpY2); q.wait_and_throw();
+    auto assign2_Rec = make_op<Assign>(bvY2, bvX2);
+    ex.execute(assign2_Rec); q.wait_and_throw();
+    /*****************************************/
+#ifdef SHOW_TIMES
+    t_start = std::chrono::steady_clock::now();
+#endif
     _gemv<3, SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
                 dimL, bvY0, 1, 1.5, bvY2, 1);
+    q.wait_and_throw();
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+#endif
+    t3_gemvC = t_stop - t_start;
+    auto reducOpY3 = make_addAssignReduction(bvS3, bvY2, 256, 256);
+    ex.reduce(reducOpY3); q.wait_and_throw();
+    /*****************************************/
+#ifdef SHOW_TIMES
+    t_start = std::chrono::steady_clock::now();
+#endif
     _ger<SYCL>(ex, dimR - shftR, dimC - shftC, 3.0, bvY0, 1, bvX0, 1,
                bmM0(shftR, shftC), dimL);
-
     q.wait_and_throw();
-
-    auto reducOpX = make_addAssignReduction(bvR, bvX2, 256, 256);
-    ex.reduce(reducOpX);
-    auto reducOpY = make_addAssignReduction(bvS, bvY2, 256, 256);
-    ex.reduce(reducOpY);
+#ifdef SHOW_TIMES
+    t_stop = std::chrono::steady_clock::now();
+#endif
+    t1_ger = t_stop - t_start;
     auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
     ex.reduce(reducOpV);
 
     q.wait_and_throw();
   }
+
+#ifdef SHOW_TIMES
+//    int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
+    int div = 1;
+    // COMPUTATIONAL TIMES
+    std::cout << "t_gemvR , " << t1_gemvR.count()/div << std::endl;
+    std::cout << "t_gemvC , " << t1_gemvC.count()/div
+              << ", " << t2_gemvC.count()/div
+              << ", " << t3_gemvC.count()/div
+              << std::endl;
+    std::cout << "t_ger   , " << t1_ger.count()/div << std::endl;
+#endif
 
   // ANALYSIS OF THE RESULTS
   res = vR[0];
@@ -395,15 +478,17 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     returnVal += 1;
   }
 
-  res = vS[0];
-#ifdef SHOW_VALUES
-  std::cout << "VALUES!! --> res = " << res << " , addY = " << addY
-            << " , err = " << addY - res << std::endl;
-#endif  // VERBOSE
-  if (std::abs((res - addY) / res) > ERROR_ALLOWED) {
-    std::cout << "ERROR!! --> res = " << res << " , addY = " << addY
+  for (int i=0; i<3; i++) {
+    res = vS[i];
+  #ifdef SHOW_VALUES
+    std::cout << "VALUES!! --> res = " << res << " , addY = " << addY
               << " , err = " << addY - res << std::endl;
-    returnVal += 2;
+  #endif  // VERBOSE
+    if (std::abs((res - addY) / res) > ERROR_ALLOWED) {
+      std::cout << "ERROR!! --> res = " << res << " , addY = " << addY
+                << " , err = " << addY - res << std::endl;
+      returnVal += 2;
+    }
   }
 
   res = vT[0];

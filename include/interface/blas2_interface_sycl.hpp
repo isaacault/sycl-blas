@@ -103,7 +103,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto localSize = 32;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize * nThr * nWG;
-    ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
+//    ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
+    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
   } else if (OPT == 3) {  // Unstable implementation
 #ifdef VERBOSE
     std::cout << "COLS_3" << std::endl;
