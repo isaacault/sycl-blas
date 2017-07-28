@@ -31,7 +31,7 @@ using namespace blas;
 #define INTERLOOP 1
 #else
 #define LOCALSIZE 8
-#define INTERLOOP 32
+#define INTERLOOP 1
 #endif
 
 #define REDUCE_SCRATCH 1

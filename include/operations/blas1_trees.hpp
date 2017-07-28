@@ -441,8 +441,11 @@ struct ReducOp {
   using value_type = typename LHS::value_type;
   LHS l;
   RHS r;
+  size_t blqS;  // block  size
+  size_t grdS;  // grid  size
 
-  ReducOp(LHS &_l, RHS &_r) : l(_l), r(_r) {}
+  ReducOp(LHS &_l, RHS &_r, size_t _blqS, size_t _grdS)
+    : l(_l), r(_r), blqS(_blqS), grdS(_grdS) {}
 /*
   size_t getSize() { return r.getSize(); }
 

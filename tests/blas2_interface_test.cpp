@@ -13,7 +13,7 @@ using namespace blas;
 #define ERROR_ALLOWED 1.0E-8
 #define RANDOM_DATA 1
 #define EXECUTED_ON_GPU 1
-// #define SHOW_VALUES   1
+#define SHOW_VALUES   1
 
 #ifdef EXECUTED_ON_GPU
 #define DEFAULT_ACCESS false
@@ -200,7 +200,25 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   });
 
 #ifdef RANDOM_DATA
-  vSeed = 1;
+  vSeed = 2;
+  minV = -10.0;
+  maxV = 10.0;
+  gap = (size_t)(maxV - minV + 1);
+  srand(vSeed);
+#else   // RANDOM_DATA
+  minV = 1.00;
+  maxV = 1.00;
+#endif  // RANDOM_DATA
+  std::for_each(std::begin(vX2), std::end(vX2), [&](double &elem) {
+#ifdef RANDOM_DATA
+    elem = minV + (double)(rand() % gap);
+#else   // RANDOM_DATA
+    elem = minV; minV += maxV;
+#endif  // RANDOM_DATA
+  });
+
+#ifdef RANDOM_DATA
+  vSeed = 3;
   minV = -10.0;
   maxV = 10.0;
   gap = (size_t)(maxV - minV + 1);
@@ -217,6 +235,28 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 #endif  // RANDOM_DATA
   });
 
+#ifdef RANDOM_DATA
+  vSeed = 4;
+  minV = -10.0;
+  maxV = 10.0;
+  gap = (size_t)(maxV - minV + 1);
+  srand(vSeed);
+#else   // RANDOM_DATA
+  minV = 1.00;
+  maxV = 1.00;
+#endif  // RANDOM_DATA
+  std::for_each(std::begin(vY2), std::end(vY2), [&](double &elem) {
+#ifdef RANDOM_DATA
+    elem = minV + (double)(rand() % gap);
+#else   // RANDOM_DATA
+    elem = minV; minV += maxV;
+#endif  // RANDOM_DATA
+  });
+
+  vR[0] = 0.0;
+  vS[0] = 0.0;
+  vT[0] = 0.0;
+
   // CREATING HOST STRUCTURES
   size_t dimL = ((accessDev) ? dimC : dimR);
   matrix_view<double, std::vector<double>> v_M0(vM, accessDev, dimR, dimC, true,
@@ -229,39 +269,52 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   size_t returnVal = 0;
   double res;
 
-  double addY = 0.0;
+  double addY = 0.0, auxY;
   for (size_t i = shftR; i < dimR; i++) {
-    vY2[i - shftR] = 1.5 * vY[i - shftR];
+//    vY2[i - shftR] = 1.5 * vY[i - shftR];
+    auxY = 1.5 * vY2[i - shftR];
+//    printf ("(AB) %f = 1.5 * %f\n", auxY, vY2[i - shftC]);
     for (size_t j = shftC; j < dimC; j++) {
       if (accessDev) {
-        vY2[i - shftR] += 2.0 * vM[dimC * i + j] * vX[j - shftC];
+//        vY2[i - shftR] += 2.0 * vM[dimC * i + j] * vY[j - shftC];
+//        printf ("(A) %f += 2.0 * %f * %f\n", auxY, vM[dimC * i + j], vY[j - shftC]);
+        auxY += 2.0 * vM[dimC * i + j] * vY[j - shftC];
       } else {
-        vY2[i - shftR] += 2.0 * vM[dimR * j + i] * vX[j - shftC];
+//        vY2[i - shftR] += 2.0 * vM[dimR * j + i] * vY[j - shftC];
+//        printf ("(B) %f += 2.0 * %f * %f\n", auxY, vM[dimR * j + i], vY[j - shftC]);
+        auxY += 2.0 * vM[dimR * j + i] * vY[j - shftC];
       }
     }
-    addY += vY2[i - shftR];
+//    addY += vY2[i - shftR];
+    addY += auxY;
+//    printf("VY2(%lu) = %f\n", i, auxY);
   }
   for (size_t i = dimR - shftR; i < dimR; i++) {
 #ifdef VERBOSE
     std::cout << "+" << vY[i] << std::endl;
 #endif  // VERBOSE
-    addY += vY[i];
+    addY += vY2[i];
   }
 
-  double addX = 0.0;
+  double addX = 0.0, auxX;
   for (size_t j = shftC; j < dimC; j++) {
-    vX2[j - shftC] = 0.5 * vX[j - shftC];
+//    vX2[j - shftC] = 0.5 * vX2[j - shftC];
+    auxX = 0.5 * vX2[j - shftC];
     for (size_t i = shftR; i < dimR; i++) {
       if (accessDev) {
-        vX2[j - shftC] += 2.5 * vM[dimC * i + j] * vY2[i - shftR];
+//        vX2[j - shftC] += 2.5 * vM[dimC * i + j] * vX[i - shftR];
+        auxX += 2.5 * vM[dimC * i + j] * vX[i - shftR];
       } else {
-        vX2[j - shftC] += 2.5 * vM[dimR * j + i] * vY2[i - shftR];
+//        vX2[j - shftC] += 2.5 * vM[dimR * j + i] * vX[i - shftR];
+        auxX += 2.5 * vM[dimR * j + i] * vX[i - shftR];
       }
     }
-    addX += vX2[j - shftC];
+//    addX += vX2[j - shftC];
+//    printf("VX2(%lu) = %f\n", j, auxX);
+    addX += auxX;
   }
   for (size_t j = dimC - shftC; j < dimC; j++) {
-    addX += vX[j];
+    addX += vX2[j];
   }
 
   double addRng1 = 0.0;
@@ -269,7 +322,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     for (size_t j = 0; j < dimC; j++) {
       addRng1 += (accessDev) ? vM[dimC * i + j] : vM[dimR * j + i];
       if ((i >= shftR) && (j >= shftC)) {
-        addRng1 += 3.0 * vY2[i - shftR] * vX2[j - shftC];
+        addRng1 += 3.0 * vY[i - shftR] * vX[j - shftC];
       }
     }
   }
@@ -293,6 +346,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     buffer<double, 1> bM0(vM.data(), range<1>{vM.size()});
     buffer<double, 1> bX0(vX.data(), range<1>{vX.size()});
     buffer<double, 1> bY0(vY.data(), range<1>{vY.size()});
+    buffer<double, 1> bX2(vX2.data(), range<1>{vX2.size()});
+    buffer<double, 1> bY2(vY2.data(), range<1>{vY2.size()});
     buffer<double, 1> bR(vR.data(), range<1>{vR.size()});
     buffer<double, 1> bS(vS.data(), range<1>{vS.size()});
     buffer<double, 1> bT(vT.data(), range<1>{vT.size()});
@@ -302,24 +357,30 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<double> bvV0(bM0);
     BufferVectorView<double> bvX0(bX0);
     BufferVectorView<double> bvY0(bY0);
+    BufferVectorView<double> bvX2(bX2);
+    BufferVectorView<double> bvY2(bY2);
     BufferVectorView<double> bvR(bR);
     BufferVectorView<double> bvS(bS);
     BufferVectorView<double> bvT(bT);
 
     // EXECUTION OF THE ROUTINES
-    _gemv<SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
-                dimL, bvX0, 1, 1.5, bvY0, 1);
-    _gemv<SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
-                dimL, bvY0, 1, 0.5, bvX0, 1);
-
+    _gemv<3, SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
+                dimL, bvX0, 1, 0.5, bvX2, 1);
+    _gemv<3, SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
+                dimL, bvY0, 1, 1.5, bvY2, 1);
     _ger<SYCL>(ex, dimR - shftR, dimC - shftC, 3.0, bvY0, 1, bvX0, 1,
                bmM0(shftR, shftC), dimL);
-    auto reducOpX = make_addAssignReduction(bvR, bvX0, 256, 512 * 256);
+
+    q.wait_and_throw();
+
+    auto reducOpX = make_addAssignReduction(bvR, bvX2, 256, 256);
     ex.reduce(reducOpX);
-    auto reducOpY = make_addAssignReduction(bvS, bvY0, 256, 512 * 256);
+    auto reducOpY = make_addAssignReduction(bvS, bvY2, 256, 256);
     ex.reduce(reducOpY);
-    auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 512 * 256);
+    auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
     ex.reduce(reducOpV);
+
+    q.wait_and_throw();
   }
 
   // ANALYSIS OF THE RESULTS

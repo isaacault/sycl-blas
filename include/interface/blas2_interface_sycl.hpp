@@ -38,12 +38,12 @@ namespace blas {
 
 /**** MATRIX VECTOR PRODUCT ****/
 
-#define OPT 2  // ACTIVE CASE FOR THE COLUMN ACCESS
+//#define OPT 3  // ACTIVE CASE FOR THE COLUMN ACCESS
 
 /*! _gemv.
  * @brief Implementation of the General Matrix Vector product.
  */
-template <typename ExecutorType, typename T, typename ContainerT>
+template <unsigned int OPT, typename ExecutorType, typename T, typename ContainerT>
 void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
            T _alpha, matrix_view<T, ContainerT> _mA, size_t _lda,
            vector_view<T, ContainerT> _vx, size_t _incx, T _beta,
@@ -66,7 +66,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #endif  // VERBOSE
   if (my_mA.getAccess()) {
 #ifdef VERBOSE
-    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+//    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+    std::cout << "ROWS_2" << "M = " << _M
               << " N = " << _N << std::endl;
 #endif  // VERBOSE
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
@@ -80,7 +81,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     ex.execute(assignOp);
   } else if (OPT == 1) {  // Sure solution
 #ifdef VERBOSE
-    std::cout << "COLS_2" << std::endl;
+    std::cout << "COLS_1" << std::endl;
 #endif  // VERBOSE
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
     auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -95,7 +96,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #ifdef VERBOSE
     std::cout << "COLS_2" << std::endl;
 #endif  // VERBOSE
-    auto nThr = 2;
+    auto nThr = 8;
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
     auto prdRowMatVectOp =
         make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
@@ -105,11 +106,11 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
   } else if (OPT == 3) {  // Unstable implementation
 #ifdef VERBOSE
-    std::cout << "COLS_2" << std::endl;
+    std::cout << "COLS_3" << std::endl;
 #endif  // VERBOSE
-    auto nThr = 2;
+    auto nThr = 12;
     ContainerT valT1(nThr * M);
-    auto mat1 = matrix_view<T, ContainerT>(valT1, M, nThr);
+    auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
 #ifdef BLAS_EXPERIMENTAL
     auto val1 = vector_view<T, ContainerT>(valT1, 0, 1, nThr * M);
@@ -121,21 +122,22 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto localSize = 32;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize * nThr * nWG;
+//    ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
     ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
+#ifdef VERBOSE
+    my_vy.printH("VY");
+#endif
 #ifdef VERBOSE
     mat1.printH("MAT1");
 #endif  // VERBOSE
     auto addPrdOp = make_addPrdRowMatVctMultShm(my_vy, _alpha, mat1, scalOp1);
 #ifdef BLAS_EXPERIMENTAL
-    ex.execute(addPrdOp, M);
+    ex.execute(addPrdOp, localSize, localSize);
 #endif  // BLAS_EXPERIMENTAL
     ex.execute(addPrdOp);
-#ifdef VERBOSE
-    val1.printH("VAL1");
-#endif  // VERBOSE
   }
 #ifdef VERBOSE
-  my_vy.printH("VY");
+  my_vy.printH("RES");
 #endif
 }
 
