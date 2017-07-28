@@ -211,12 +211,16 @@ struct PrdRowMatVctMultShm {
     size_t k;
 
 //    printf ("(%3.3lu,%3.3lu)->(%3.3lu,%3.3lu)\n", groupid, localid, rowid, colid);
+//    if ((blqidC == 0) && (blqidR == 0) && (localid == 0))
+//      printf ("rowSz = %lu\n", rowSz);
     // Copying  to the scratch
-      k = localid;
-      for (size_t j = colid + localid; j < std::min(colid+colSz,dimC); j += rowSz) {
-        scratch[k] = r2.eval(j);
-        k += rowSz;
-      }
+    k = localid;
+    for (size_t j = colid + localid; j < std::min(colid+colSz,dimC); j += rowSz) {
+      scratch[k] = r2.eval(j);
+      k += rowSz; 
+    }
+//    if ((blqidC == 0) && (blqidR == 0) && (localid == 0))
+//      printf ("kk = %lu\n", kk);
     // This barrier is mandatory to be sure the data are on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 

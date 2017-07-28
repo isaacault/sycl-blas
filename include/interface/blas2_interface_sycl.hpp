@@ -78,7 +78,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #ifdef BLAS_EXPERIMENTAL
     ex.execute(assignOp, M);
 #endif  // BLAS_EXPERIMENTAL
-    ex.execute(assignOp);
+    ex.execute(assignOp, 256);
   } else if (OPT == 1) {  // Sure solution
 #ifdef VERBOSE
     std::cout << "COLS_1" << std::endl;
@@ -100,16 +100,17 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
     auto prdRowMatVectOp =
         make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
-    auto localSize = 32;  // NOT FINAL VALUE
+//    auto localSize = 32;  // NOT FINAL VALUE
+    auto localSize = 256;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize * nThr * nWG;
-//    ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
-    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
+    ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
+//    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
   } else if (OPT == 3) {  // Unstable implementation
 #ifdef VERBOSE
     std::cout << "COLS_3" << std::endl;
 #endif  // VERBOSE
-    auto nThr = 12;
+    auto nThr = 16;
     ContainerT valT1(nThr * M);
     auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
@@ -120,11 +121,12 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto prdRowMatVectOp = make_prdRowMatVctMultShm(val1, my_mA, my_vx, nThr);
 #endif  // BLAS_EXPERIMENTAL
     auto prdRowMatVectOp = make_prdRowMatVctMultShm(mat1, my_mA, my_vx, nThr);
-    auto localSize = 32;  // NOT FINAL VALUE
+//    auto localSize = 32;  // NOT FINAL VALUE
+    auto localSize = 256;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize * nThr * nWG;
-//    ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
     ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
+//    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
 #ifdef VERBOSE
     my_vy.printH("VY");
 #endif
@@ -135,7 +137,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #ifdef BLAS_EXPERIMENTAL
     ex.execute(addPrdOp, localSize, localSize);
 #endif  // BLAS_EXPERIMENTAL
-    ex.execute(addPrdOp);
+//    ex.execute(addPrdOp, localSize, nWG*localSize, 0);
+    ex.execute(addPrdOp, localSize);
   }
 #ifdef VERBOSE
   my_vy.printH("RES");
