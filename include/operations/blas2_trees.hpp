@@ -35,6 +35,193 @@
 
 namespace blas {
 
+/**** ADD A SET OF COLUMNS, 1 ROW PER THREAD ****/
+template <class RHS>
+struct AddSetColumns {
+  using value_type = typename RHS::value_type;
+
+  RHS r;
+
+  AddSetColumns(RHS &_r) : r(_r){};
+
+  size_t getSize() { return r.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dimC = r.getSizeC();
+
+//    if (i==0) printf ("dimC = %lu\n", dimC);
+    auto val = iniAddOp1_struct::eval(r.eval(0));
+    for (size_t j = 0; j < dimC; j++) {
+      val += r.eval(i, j);
+    }
+    return val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+
+};
+
+template <class RHS> AddSetColumns<RHS> make_addSetColumns(RHS &r) {
+  return AddSetColumns<RHS>(r);
+}
+
+/**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
+template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
+struct GemvR_1Row_1WG {
+  LHS  l;
+  RHS1 r1;
+  RHS2 r2;
+
+  using value_type = typename RHS2::value_type;
+
+  GemvR_1Row_1WG(LHS &_l,RHS1 &_r1, RHS2 &_r2)
+    : l(_l), r1(_r1), r2(_r2) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+//    printf ("YES1");
+    for (size_t j = 0; j < dim; j++) {
+      val += r1.eval(i, j) * r2.eval(j);
+    }
+    return l.eval(i) = val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t glbalSz = ndItem.get_num_groups(0) * localSz;
+
+    size_t vecS = r2.getSize();
+
+    value_type val = addOp2_struct::init(r2);
+
+    if (interLoop == 1) {
+//      printf ("YES2");
+//        size_t frs_thrd = groupid * localSz + localid;
+      size_t frs_thrd = localid;
+//      for (size_t k = frs_thrd; k < vecS; k += glbalSz) {
+      for (size_t k = frs_thrd; k < vecS; k += localSz) {
+        auto prod = prdOp2_struct::eval(r1.eval(groupid,k),r2.eval(k));
+        val = addOp2_struct::eval(val, prod);
+      }
+    } else {
+      size_t frs_thrd = interLoop * (groupid * localSz + localid);
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val = addOp2_struct::eval(val, r1.eval(groupid,k_int));
+        }
+      }
+    }
+
+//    if (groupid == 0) printf ("%lu -> %f\n", localid, val);
+    scratch[localid] = val;
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    // Reduction inside the block
+    for (size_t offset = localSz >> 1; offset > 0; offset >>= 1) {
+      if (localid < offset) {
+        scratch[localid] =
+            addOp2_struct::eval(scratch[localid], scratch[localid + offset]);
+      }
+      // This barrier is mandatory to be sure the data are on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+    }
+    if (localid == 0) {
+      l.eval(groupid) = scratch[localid];
+    }
+
+    return l.eval(groupid);
+  }
+};
+
+template <unsigned int interLoop=1, typename LHS, typename RHS1, typename RHS2>
+GemvR_1Row_1WG<interLoop, LHS, RHS1, RHS2> make_GemvR_1Row_1WG(LHS &l, RHS1 &r1,
+                                                              RHS2 &r2) {
+  return GemvR_1Row_1WG<interLoop, LHS, RHS1, RHS2>(l, r1, r2);
+}
+
+/**** GEMV BY ROWS 1 ROW x 1 BLOCK, WITHOUT LOCAL ADDITION ****/
+template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
+struct GemvR_1Row_1WG_Shm {
+  LHS  l;
+  RHS1 r1;
+  RHS2 r2;
+
+  using value_type = typename RHS2::value_type;
+
+  GemvR_1Row_1WG_Shm(LHS &_l,RHS1 &_r1, RHS2 &_r2)
+    : l(_l), r1(_r1), r2(_r2) {};
+
+  size_t getSize() { return l.getSize(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+//    printf ("YES1");
+    for (size_t j = 0; j < dim; j++) {
+      val += r1.eval(i, j) * r2.eval(j);
+    }
+    return l.eval(i) = val;
+  }
+/*
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+*/
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t glbalSz = ndItem.get_num_groups(0) * localSz;
+
+    size_t vecS = r2.getSize();
+
+    value_type val = addOp2_struct::init(r2);
+
+    if (interLoop == 1) {
+//      printf ("YES2");
+//        size_t frs_thrd = groupid * localSz + localid;
+      size_t frs_thrd = localid;
+//      for (size_t k = frs_thrd; k < vecS; k += glbalSz) {
+      for (size_t k = frs_thrd; k < vecS; k += localSz) {
+        auto prod = prdOp2_struct::eval(r1.eval(groupid,k),r2.eval(k));
+        val = addOp2_struct::eval(val, prod);
+      }
+    } else {
+      size_t frs_thrd = interLoop * (groupid * localSz + localid);
+      for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
+        for (size_t k_int=k; k_int<std::min(k+interLoop,vecS);k_int++) {
+          val = addOp2_struct::eval(val, r1.eval(groupid,k_int));
+        }
+      }
+    }
+
+//    if (localid < vecS) printf ("%lu-%lu %f\n", groupid, localid, val);
+    return l.eval(groupid,localid) = val;
+  }
+};
+
+template <unsigned int interLoop=1, typename LHS, typename RHS1, typename RHS2>
+GemvR_1Row_1WG_Shm<interLoop, LHS, RHS1, RHS2>
+            make_GemvR_1Row_1WG_Shm(LHS &l, RHS1 &r1, RHS2 &r2) {
+  return GemvR_1Row_1WG_Shm<interLoop, LHS, RHS1, RHS2>(l, r1, r2);
+}
+
+
 /*! PrdRowMatVct.
  * @brief CLASSICAL DOT PRODUCT GEMV
  * Each thread computes a dot product, If
@@ -217,7 +404,7 @@ struct PrdRowMatVctMultShm {
     k = localid;
     for (size_t j = colid + localid; j < std::min(colid+colSz,dimC); j += rowSz) {
       scratch[k] = r2.eval(j);
-      k += rowSz; 
+      k += rowSz;
     }
 //    if ((blqidC == 0) && (blqidR == 0) && (localid == 0))
 //      printf ("kk = %lu\n", kk);

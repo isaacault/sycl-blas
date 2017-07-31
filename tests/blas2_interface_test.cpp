@@ -388,7 +388,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvY1(bY1);
     BufferVectorView<BASETYPE> bvX2(bX2);
     BufferVectorView<BASETYPE> bvY2(bY2);
-    BufferVectorView<BASETYPE> bvR(bR);
+    BufferVectorView<BASETYPE> bvR1(bR,0);
+    BufferVectorView<BASETYPE> bvR2(bR,1);
     BufferVectorView<BASETYPE> bvS1(bS,0);
     BufferVectorView<BASETYPE> bvS2(bS,1);
     BufferVectorView<BASETYPE> bvS3(bS,2);
@@ -399,8 +400,10 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       /*****************************************/
       auto assign_M0 = make_op<Assign>(bmM0, bmM1);
       ex.execute(assign_M0); q.wait_and_throw();
-      auto assign_X2 = make_op<Assign>(bvX2, bvX1);
-      ex.execute(assign_X2); q.wait_and_throw();
+
+      /*****************************************/
+      auto assign_X2_1 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_X2_1); q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
@@ -418,8 +421,30 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_gmvR[i] = t_stop - t_start;
   #endif
-      auto reducOpX = make_addAssignReduction(bvR, bvX2, 256, 256);
-      ex.reduce(reducOpX); q.wait_and_throw();
+      auto reducOpX1 = make_addAssignReduction(bvR1, bvX2, 256, 256);
+      ex.reduce(reducOpX1); q.wait_and_throw();
+      /*****************************************/
+      auto assign_X2_2 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_X2_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _gemv<2, SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
+                  dimL, bvX0, 1, 0.5, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_gmvR = t_stop - t_start;
+      } else if (i > 0) {
+        t2_gmvR += t_stop - t_start;
+      } else {
+        t2_gmvR = t_start - t_start;
+      }
+      v2_gmvR[i] = t_stop - t_start;
+  #endif
+      auto reducOpX2 = make_addAssignReduction(bvR2, bvX2, 256, 256);
+      ex.reduce(reducOpX2); q.wait_and_throw();
       /*****************************************/
 //      auto assign1_Seg = make_op<Assign>(bvX2, bvY2);
 //      ex.execute(assign1_Seg); q.wait_and_throw();
@@ -521,7 +546,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
 //    int div = 1;
     // COMPUTATIONAL TIMES
-    std::cout << "t_gemvR , " << t1_gmvR.count()/div << std::endl;
+    std::cout << "t_gemvR , " << t1_gmvR.count()/div
+              << ", " << t2_gmvR.count()/div
+              << std::endl;
     std::cout << "t_gemvC , " << t1_gmvC.count()/div
               << ", " << t2_gmvC.count()/div
               << ", " << t3_gmvC.count()/div
@@ -544,15 +571,17 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 #endif
 
   // ANALYSIS OF THE RESULTS
-  res = vR[0];
+  for (int i=0; i<2; i++) {
+    res = vR[i];
 #ifdef SHOW_VALUES
-  std::cout << "VALUES!! --> res = " << res << " , addX = " << addX
-            << " , err = " << addX - res << std::endl;
-#endif  // VERBOSE
-  if (std::abs((res - addX) / res) > ERROR_ALLOWED) {
-    std::cout << "ERROR!! --> res = " << res << " , addX = " << addX
+    std::cout << "VALUES!! --> res = " << res << " , addX = " << addX
               << " , err = " << addX - res << std::endl;
-    returnVal += 1;
+#endif  // VERBOSE
+    if (std::abs((res - addX) / res) > ERROR_ALLOWED) {
+      std::cout << "ERROR!! --> res = " << res << " , addX = " << addX
+                << " , err = " << addX - res << std::endl;
+      returnVal += 1;
+    }
   }
 
   for (int i=0; i<3; i++) {

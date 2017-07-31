@@ -155,9 +155,6 @@ struct tree {
   */
   static void eval(treeT &tree, shared_mem<sharedMemT, usingSharedMem> scratch,
                    cl::sycl::nd_item<1> index) {
-   #ifdef TRACE_ERROR
-         printf ("(E)\n");
-   #endif
     tree.eval(scratch, index);
   }
 };
@@ -204,9 +201,6 @@ struct ExecTreeFunctor {
   ExecTreeFunctor(SharedMem scratch_, Evaluator evaluator_)
       : scratch(scratch_), evaluator(evaluator_) {}
   void operator()(cl::sycl::nd_item<1> i) {
-    #ifdef TRACE_ERROR
-          printf ("(D)\n");
-    #endif
     tree<usingSharedMem, Evaluator, value_type>::eval(evaluator, scratch, i);
   }
 };
@@ -237,9 +231,6 @@ static void execute_tree(cl::sycl::queue &q_, Tree t, size_t _localSize,
 
     cl::sycl::nd_range<1> gridConfiguration = cl::sycl::nd_range<1>{
         cl::sycl::range<1>{globalSize}, cl::sycl::range<1>{localSize}};
-        #ifdef TRACE_ERROR
-              printf ("(C) %ld\n", localSize);
-        #endif
     h.parallel_for(
         gridConfiguration,
         ExecTreeFunctor<usingSharedMem, decltype(nTree), decltype(scratch),
@@ -294,6 +285,20 @@ class Executor<SYCL> {
     auto globalSize = nWG * localSize;
 
     execute_tree<using_shared_mem::disabled>(q_, t, localSize, globalSize, 0);
+  };
+
+  /*!
+   * @brief Executes the tree fixing the localSize but without defining required
+   * shared memory.
+   */
+  template <typename Tree>
+  void execute(Tree t, size_t localSize, size_t globalSize) {
+    auto device = q_.get_device();
+    auto nWG = (globalSize + localSize - 1) / localSize;
+    auto globalSizeF = nWG * localSize;
+//    printf ("%lu * %lu = %lu\n", localSize, nWG, globalSizeF);
+
+    execute_tree<using_shared_mem::disabled>(q_, t, localSize, globalSizeF, 0);
   };
 
   /*!
