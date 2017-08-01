@@ -87,20 +87,64 @@ struct Evaluate<GemvR_1Row_1WG<interLoop, LHS, RHS1, RHS2>> {
  * @brief See Evaluate.
  */
 template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
-struct Evaluate<GemvR_1Row_1WG_Shm<interLoop, LHS, RHS1, RHS2>> {
+struct Evaluate<GemvR_1Row_1WG_NoRed<interLoop, LHS, RHS1, RHS2>> {
  using value_type = typename RHS2::value_type;
  using lhs_type = typename Evaluate<LHS>::type;
  using rhs1_type = typename Evaluate<RHS1>::type;
  using rhs2_type = typename Evaluate<RHS2>::type;
  using cont_type = typename Evaluate<LHS>::cont_type;
- using input_type = GemvR_1Row_1WG_Shm<interLoop, LHS, RHS1, RHS2>;
- using type = GemvR_1Row_1WG_Shm<interLoop, lhs_type, rhs1_type, rhs2_type>;
+ using input_type = GemvR_1Row_1WG_NoRed<interLoop, LHS, RHS1, RHS2>;
+ using type = GemvR_1Row_1WG_NoRed<interLoop, lhs_type, rhs1_type, rhs2_type>;
 
  static type convert_to(input_type v, cl::sycl::handler &h) {
    auto lhs = Evaluate<LHS>::convert_to(v.l, h);
    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
    return type(lhs, rhs1, rhs2);
+ }
+};
+
+/**** GEMV BY ROWS 1 ROW x N BLOCK ****/
+/*! Evaluate<PrdRowMatVct>.
+ * @brief See Evaluate.
+ */
+template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>> {
+ using value_type = typename RHS2::value_type;
+ using lhs_type = typename Evaluate<LHS>::type;
+ using rhs1_type = typename Evaluate<RHS1>::type;
+ using rhs2_type = typename Evaluate<RHS2>::type;
+ using cont_type = typename Evaluate<LHS>::cont_type;
+ using input_type = GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>;
+ using type = GemvR_1Row_NWG<interLoop, lhs_type, rhs1_type, rhs2_type>;
+
+ static type convert_to(input_type v, cl::sycl::handler &h) {
+   auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+   auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+   auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+   return type(lhs, rhs1, rhs2, v.nWG_col);
+ }
+};
+
+/**** GEMV BY ROWS M ROW x N BLOCK ****/
+/*! Evaluate<PrdRowMatVct>.
+ * @brief See Evaluate.
+ */
+template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<GemvR_MRow_NWG<interLoop, LHS, RHS1, RHS2>> {
+ using value_type = typename RHS2::value_type;
+ using lhs_type = typename Evaluate<LHS>::type;
+ using rhs1_type = typename Evaluate<RHS1>::type;
+ using rhs2_type = typename Evaluate<RHS2>::type;
+ using cont_type = typename Evaluate<LHS>::cont_type;
+ using input_type = GemvR_MRow_NWG<interLoop, LHS, RHS1, RHS2>;
+ using type = GemvR_MRow_NWG<interLoop, lhs_type, rhs1_type, rhs2_type>;
+
+ static type convert_to(input_type v, cl::sycl::handler &h) {
+   auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+   auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+   auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+   return type(lhs, rhs1, rhs2, v.n_rows, v.nWG_col);
  }
 };
 

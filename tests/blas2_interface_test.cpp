@@ -390,6 +390,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvY2(bY2);
     BufferVectorView<BASETYPE> bvR1(bR,0);
     BufferVectorView<BASETYPE> bvR2(bR,1);
+    BufferVectorView<BASETYPE> bvR3(bR,2);
     BufferVectorView<BASETYPE> bvS1(bS,0);
     BufferVectorView<BASETYPE> bvS2(bS,1);
     BufferVectorView<BASETYPE> bvS3(bS,2);
@@ -445,6 +446,28 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpX2 = make_addAssignReduction(bvR2, bvX2, 256, 256);
       ex.reduce(reducOpX2); q.wait_and_throw();
+      /*****************************************/
+      auto assign_X2_3 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_X2_3); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _gemv<3, SYCL>(ex, "Tr", dimC - shftC, dimR - shftR, 2.5, bmM0(shftR, shftC),
+                  dimL, bvX0, 1, 0.5, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t3_gmvR = t_stop - t_start;
+      } else if (i > 0) {
+        t3_gmvR += t_stop - t_start;
+      } else {
+        t3_gmvR = t_start - t_start;
+      }
+      v3_gmvR[i] = t_stop - t_start;
+  #endif
+      auto reducOpX3 = make_addAssignReduction(bvR3, bvX2, 256, 256);
+      ex.reduce(reducOpX3); q.wait_and_throw();
       /*****************************************/
 //      auto assign1_Seg = make_op<Assign>(bvX2, bvY2);
 //      ex.execute(assign1_Seg); q.wait_and_throw();
@@ -548,6 +571,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     // COMPUTATIONAL TIMES
     std::cout << "t_gemvR , " << t1_gmvR.count()/div
               << ", " << t2_gmvR.count()/div
+              << ", " << t3_gmvR.count()/div
               << std::endl;
     std::cout << "t_gemvC , " << t1_gmvC.count()/div
               << ", " << t2_gmvC.count()/div
@@ -556,8 +580,10 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::cout << "t_ger   , " << t1_ger.count()/div << std::endl;
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
     std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
+    std::sort (v3_gmvR.begin()+1, v3_gmvR.end());
     std::cout << "m_gmvC , " << v1_gmvR[(NUMBER_REPEATS+1)/2].count()
               << ", "        << v2_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v3_gmvR[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v1_gmvC.begin()+1, v1_gmvC.end());
     std::sort (v2_gmvC.begin()+1, v2_gmvC.end());
@@ -573,7 +599,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 #endif
 
   // ANALYSIS OF THE RESULTS
-  for (int i=0; i<2; i++) {
+  for (int i=0; i<3; i++) {
     res = vR[i];
 #ifdef SHOW_VALUES
     std::cout << "VALUES!! --> res = " << res << " , addX = " << addX

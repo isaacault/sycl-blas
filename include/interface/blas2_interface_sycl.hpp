@@ -65,20 +65,20 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   my_vy.printH("VY");
 #endif  // VERBOSE
   if (my_mA.getAccess()) {
-    if (OPT == 1) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
+    if (OPT == -1) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_1" << "M = " << _M
+      std::cout << "ROWS_-1" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
 //      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
 //      my_mA.printH("MA");
 //      my_vx.printH("VX");
 //      my_vy.printH("VY");
-      size_t nWG_row = 1;
+      size_t nWG_col = 1;
       size_t localSize = 256;
-      ContainerT valT1(nWG_row * M);
-      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_row);
+      ContainerT valT1(nWG_col * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
 
       auto gemvR = make_GemvR_1Row_1WG (mat1, my_mA, my_vx);
       ex.execute(gemvR, localSize, M*localSize, localSize);
@@ -99,16 +99,67 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 //      my_mA.printH("MA");
 //      my_vx.printH("VX");
 //      my_vy.printH("VY");
-      size_t nWG_row = 1;
+      size_t nWG_col = 1;
       size_t localSize = (M < 256)?M:256;
-      ContainerT valT1(localSize * nWG_row * M);
-      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_row*localSize);
+      ContainerT valT1(localSize * nWG_col * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col*localSize);
       auto mat2 = matrix_view<T, ContainerT>(valT1, 0, M, M);
 
-      auto gemvR = make_GemvR_1Row_1WG_Shm (mat1, my_mA, my_vx);
+      auto gemvR = make_GemvR_1Row_1WG_NoRed (mat1, my_mA, my_vx);
       ex.execute(gemvR, localSize, localSize*M);
 //      mat1.printH("MAT1");
 //      mat2.printH("MAT2");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
+    } else if (OPT == 1) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
+#ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_1" << "M = " << _M
+                << " N = " << _N << std::endl;
+#endif  // VERBOSE
+//      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
+//      my_mA.printH("MA");
+//      my_vx.printH("VX");
+//      my_vy.printH("VY");
+      size_t nWG_col = 4;
+      size_t localSize = 256;
+      ContainerT valT1(nWG_col * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
+
+      auto gemvR = make_GemvR_1Row_NWG (mat1, my_mA, my_vx, nWG_col);
+      ex.execute(gemvR, localSize, M*nWG_col*localSize, localSize);
+//      mat1.printH("MAT1");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
+    } else if (OPT == 3) {  // GEMV BY ROWS M ROW x nWG_col BLOCK
+#ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_3" << "M = " << _M
+                << " N = " << _N << std::endl;
+#endif  // VERBOSE
+//      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
+//      my_mA.printH("MA");
+//      my_vx.printH("VX");
+//      my_vy.printH("VY");
+      size_t nWG_col = 4;
+      size_t n_rows = 4;
+      size_t localSize = 256;
+      ContainerT valT1(nWG_col * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
+
+      auto gemvR = make_GemvR_MRow_NWG (mat1, my_mA, my_vx, n_rows, nWG_col);
+      ex.execute(gemvR, localSize, M*nWG_col*localSize/n_rows, localSize*n_rows);
+//      mat1.printH("MAT1");
 
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto addMOp = make_addSetColumns(mat1);
