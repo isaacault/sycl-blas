@@ -371,7 +371,10 @@ struct GemvR_MRow_NWG {
     size_t vecS = r2.getSize();
 
     value_type val = addOp2_struct::init(r2);
-    for (size_t row=0; row<n_rows; row++) {
+    size_t num_rows = 0;
+//    for (size_t row=0; row<n_rows; row++) {
+    for (size_t row=0, id_row=blqidR*n_rows;
+          (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
       shrMem[row*localSz+localid] = val;
     }
 
@@ -383,7 +386,8 @@ struct GemvR_MRow_NWG {
       for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
         auto elm = r2.eval(k);
         for (size_t row=0, id_row=blqidR*n_rows;
-              (row<n_rows) && (id_row<dimR); row++, id_row++) {
+              (row<num_rows); row++, id_row++) {
+//              (row<n_rows) && (id_row<dimR); row++, id_row++) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),elm);
           shrMem[row*localSz+localid] =
                   addOp2_struct::eval(shrMem[row*localSz+localid], prod);
@@ -406,7 +410,8 @@ struct GemvR_MRow_NWG {
     // Reduction inside the block
     for (size_t offset = localSz >> 1; offset > 0; offset >>= 1) {
       if (localid < offset) {
-        for (size_t row=0; row<n_rows; row++) {
+//        for (size_t row=0; row<n_rows; row++) {
+        for (size_t row=0; row<num_rows; row++) {
           shrMem[row*localSz+localid] =
               addOp2_struct::eval(shrMem[row*localSz+localid],
                                   shrMem[row*localSz+localid+offset]);
@@ -417,7 +422,8 @@ struct GemvR_MRow_NWG {
     }
     if (localid == 0) {
       for (size_t row=0, id_row=blqidR*n_rows;
-            (row<n_rows) && (id_row<dimR); row++, id_row++) {
+            (row<num_rows); row++, id_row++) {
+//            (row<n_rows) && (id_row<dimR); row++, id_row++) {
         l.eval(id_row,blqidC) = shrMem[row*localSz];
       }
     }
