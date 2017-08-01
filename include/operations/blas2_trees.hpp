@@ -320,6 +320,7 @@ GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>
 }
 
 /**** GEMV BY ROWS M ROWS x N BLOCK ****/
+// #define GROUP_ROWS 1
 template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
 struct GemvR_MRow_NWG {
   LHS  l;
@@ -372,27 +373,38 @@ struct GemvR_MRow_NWG {
 
     value_type val = addOp2_struct::init(r2);
     size_t num_rows = 0;
-//    for (size_t row=0; row<n_rows; row++) {
+#ifdef GROUP_ROWS
     for (size_t row=0, id_row=blqidR*n_rows;
           (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
       shrMem[row*localSz+localid] = val;
     }
+#endif
 
     if (interLoop == 1) {
 //      printf ("YES2");
       size_t frs_thrd = blqidC * localSz + localid;
 //      size_t frs_thrd = localid;
 //      for (size_t k = frs_thrd; k < vecS; k += glbalSz) {
+#ifdef GROUP_ROWS
       for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
         auto elm = r2.eval(k);
         for (size_t row=0, id_row=blqidR*n_rows;
               (row<num_rows); row++, id_row++) {
-//              (row<n_rows) && (id_row<dimR); row++, id_row++) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),elm);
           shrMem[row*localSz+localid] =
                   addOp2_struct::eval(shrMem[row*localSz+localid], prod);
         }
       }
+#else
+      for (size_t row=0, id_row=blqidR*n_rows; (row<num_rows); row++, id_row++) {
+        val = addOp2_struct::init(r2);
+        for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
+          auto prod = prdOp2_struct::eval(r1.eval(id_row,k),r2.eval(k));
+          val = addOp2_struct::eval(val, prod);
+        }
+        shrMem[row*localSz+localid] = val;
+      }
+#endif
     } else { // NOT VERIFIED
       size_t frs_thrd = interLoop * (groupid * localSz + localid);
       for (size_t k = frs_thrd; k < vecS; k += interLoop * glbalSz) {
@@ -428,7 +440,7 @@ struct GemvR_MRow_NWG {
       }
     }
 
-    return l.eval(blqidR,blqidC);
+    return l.eval(blqidR*n_rows,blqidC);
   }
 };
 
