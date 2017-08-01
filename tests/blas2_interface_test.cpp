@@ -555,7 +555,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << std::endl;
     std::cout << "t_ger   , " << t1_ger.count()/div << std::endl;
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
+    std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
     std::cout << "m_gmvC , " << v1_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v2_gmvR[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v1_gmvC.begin()+1, v1_gmvC.end());
     std::sort (v2_gmvC.begin()+1, v2_gmvC.end());
