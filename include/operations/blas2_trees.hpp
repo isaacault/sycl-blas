@@ -378,8 +378,13 @@ struct GemvR_MRow_NWG {
           (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
       shrMem[row*localSz+localid] = val;
     }
+#else
+    for (size_t row=0, id_row=blqidR*n_rows;
+          (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
+      ;
+    }
 #endif
-
+    if ((blqidR == 0) && (localid == 0)) printf ("num_rows = %lu\n", num_rows);
     if (interLoop == 1) {
 //      printf ("YES2");
       size_t frs_thrd = blqidC * localSz + localid;
