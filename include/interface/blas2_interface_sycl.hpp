@@ -210,7 +210,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize *  nWG;
     ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-  } else if (OPT == 3) {  // Sure solution
+  } else if (OPT == -2) {  // Sure solution
 #ifdef VERBOSE
     std::cout << "COLS_1" << std::endl;
 #endif  // VERBOSE
@@ -221,7 +221,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto localSize = 256;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize *  nWG;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, M);
+    ex.execute(prdRowMatVectOp, localSize , gridSize, N);
   } else if (OPT == 2) {  // First improvement
 #ifdef VERBOSE
     std::cout << "COLS_2" << std::endl;
