@@ -44,7 +44,7 @@ template <typename Tree>
 struct Evaluate;
 
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
-/*! Evaluate<PrdRowMatVct>.
+/*! Evaluate<AddSetColumns>.
  * @brief See Evaluate.
  */
 template <typename RHS>
@@ -61,7 +61,7 @@ struct Evaluate<AddSetColumns<RHS>> {
 };
 
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
-/*! Evaluate<PrdRowMatVct>.
+/*! Evaluate<GemvR_1Row_1WG>.
  * @brief See Evaluate.
  */
 template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
@@ -83,7 +83,7 @@ struct Evaluate<GemvR_1Row_1WG<interLoop, LHS, RHS1, RHS2>> {
 };
 
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK, WITHOUT LOCAL ADDITION ****/
-/*! Evaluate<PrdRowMatVct>.
+/*! Evaluate<GemvR_1Row_1WG_NoRed>.
  * @brief See Evaluate.
  */
 template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
@@ -105,7 +105,7 @@ struct Evaluate<GemvR_1Row_1WG_NoRed<interLoop, LHS, RHS1, RHS2>> {
 };
 
 /**** GEMV BY ROWS 1 ROW x N BLOCK ****/
-/*! Evaluate<PrdRowMatVct>.
+/*! Evaluate<GemvR_1Row_NWG>.
  * @brief See Evaluate.
  */
 template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
@@ -127,7 +127,7 @@ struct Evaluate<GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>> {
 };
 
 /**** GEMV BY ROWS M ROW x N BLOCK ****/
-/*! Evaluate<PrdRowMatVct>.
+/*! Evaluate<GemvR_MRow_NWG>.
  * @brief See Evaluate.
  */
 template <unsigned int interLoop, typename LHS, typename RHS1, typename RHS2>
@@ -146,6 +146,44 @@ struct Evaluate<GemvR_MRow_NWG<interLoop, LHS, RHS1, RHS2>> {
    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
    return type(lhs, rhs1, rhs2, v.n_rows, v.nWG_col);
  }
+};
+
+/**** GEMV BY COLUMNS 1 ROW x 1 THREAD ****/
+/*! Evaluate<GemvC_1Row_1Thread>.
+ * @brief See Evaluate.
+ */
+template <typename RHS1, typename RHS2>
+struct Evaluate<GemvC_1Row_1Thread<RHS1, RHS2>> {
+  using value_type = typename RHS2::value_type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using input_type = GemvC_1Row_1Thread<RHS1, RHS2>;
+  using type = GemvC_1Row_1Thread<rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(rhs1, rhs2);
+  }
+};
+
+/**** GEMV BY COLUMNS 1 ROW x 1 THREAD USING SHARED MEMORY ****/
+/*! Evaluate<GemvC_1Row_1Thread_ShMem>.
+ * @brief See Evaluate.
+ */
+template <typename RHS1, typename RHS2>
+struct Evaluate<GemvC_1Row_1Thread_ShMem<RHS1, RHS2>> {
+  using value_type = typename RHS2::value_type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using input_type = GemvC_1Row_1Thread_ShMem<RHS1, RHS2>;
+  using type = GemvC_1Row_1Thread_ShMem<rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(rhs1, rhs2);
+  }
 };
 
 /**** CLASSICAL DOT PRODUCT GEMV ****/

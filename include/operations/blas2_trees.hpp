@@ -320,7 +320,7 @@ GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>
 }
 
 /**** GEMV BY ROWS M ROWS x N BLOCK ****/
-// #define GROUP_ROWS 1
+// #define GROUP_ROWS 1 // Not useful for GEMV by rows
 template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
 struct GemvR_MRow_NWG {
   LHS  l;
@@ -455,6 +455,98 @@ GemvR_MRow_NWG<interLoop, LHS, RHS1, RHS2>
   return GemvR_MRow_NWG<interLoop, LHS, RHS1, RHS2>(l, r1, r2, n_rows, nWG_col);
 }
 
+/**** GEMV BY COLUMNS 1 ROW x 1 THREAD ****/
+template <class RHS1, class RHS2>
+struct GemvC_1Row_1Thread {
+  RHS1 r1;
+  RHS2 r2;
+  size_t mult;
+
+  using value_type = typename RHS2::value_type;
+
+  GemvC_1Row_1Thread(RHS1 &_r1, RHS2 &_r2) : r1(_r1), r2(_r2){};
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+  size_t getSize() { return r1.getSizeR(); }
+};
+
+template <class RHS1, class RHS2>
+GemvC_1Row_1Thread<RHS1, RHS2> make_GemvC_1Row_1Thread(RHS1 &r1, RHS2 &r2) {
+  return GemvC_1Row_1Thread<RHS1, RHS2>(r1, r2);
+}
+
+/**** GEMV BY COLUMNS 1 ROW x 1 THREAD USING SHARED MEMORY ****/
+template <class RHS1, class RHS2>
+struct GemvC_1Row_1Thread_ShMem {
+  RHS1 r1;
+  RHS2 r2;
+  size_t mult;
+
+  using value_type = typename RHS2::value_type;
+
+  GemvC_1Row_1Thread_ShMem(RHS1 &_r1, RHS2 &_r2) : r1(_r1), r2(_r2){};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    return eval(ndItem.get_global(0));
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t k=0; k<dimC; k+=localSz) {
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      scratch[localid] = r2.eval(k+localid);
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      for (size_t j=k; k<j+localSz; j++) {
+        auto prod = prdOp2_struct::eval(r1.eval(glbalid,j),r2.eval(j));
+        val = addOp2_struct::eval(val, prod);
+      }
+    }
+    return val;
+  }
+};
+
+template <class RHS1, class RHS2>
+GemvC_1Row_1Thread_ShMem<RHS1, RHS2> make_GemvC_1Row_1Thread_ShMem(RHS1 &r1, RHS2 &r2) {
+  return GemvC_1Row_1Thread_ShMem<RHS1, RHS2>(r1, r2);
+}
 
 /*! PrdRowMatVct.
  * @brief CLASSICAL DOT PRODUCT GEMV

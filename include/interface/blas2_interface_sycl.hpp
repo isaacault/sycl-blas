@@ -188,7 +188,22 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     std::cout << "COLS_1" << std::endl;
 #endif  // VERBOSE
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+    auto prdRowMatVectOp = make_GemvC_1Row_1Thread(my_mA, my_vx);
+    auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, prdRowMatVectOp);
+    auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+    auto assignOp = make_op<Assign>(my_vy, addOp);
+#ifdef BLAS_EXPERIMENTAL
+    ex.execute(assignOp, M);
+#endif  // BLAS_EXPERIMENTAL
+    ex.execute(assignOp);
+  } else if (OPT == 2) {  // Sure solution
+#ifdef VERBOSE
+    std::cout << "COLS_1" << std::endl;
+#endif  // VERBOSE
+    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+    auto prdRowMatVectOp = make_GemvC_1Row_1Thread_ShMem(my_mA, my_vx);
     auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, prdRowMatVectOp);
     auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
     auto assignOp = make_op<Assign>(my_vy, addOp);
