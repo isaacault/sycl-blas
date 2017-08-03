@@ -210,6 +210,18 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize *  nWG;
     ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+  } else if (OPT == 3) {  // Sure solution
+#ifdef VERBOSE
+    std::cout << "COLS_1" << std::endl;
+#endif  // VERBOSE
+    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+    auto prdRowMatVectOp =
+          make_GemvC_1Row_1Thread_ShMem_Full(my_vy, _alpha, my_mA, my_vx, scalOp1);
+    auto localSize = 256;  // NOT FINAL VALUE
+    auto nWG = (M + localSize - 1) / localSize;
+    auto gridSize = localSize *  nWG;
+    ex.execute(prdRowMatVectOp, localSize , gridSize, M);
   } else if (OPT == 2) {  // First improvement
 #ifdef VERBOSE
     std::cout << "COLS_2" << std::endl;
