@@ -12,15 +12,16 @@ using namespace blas;
 #define DEF_SIZE_VECT 1200
 #define ERROR_ALLOWED 1.0E-8
 #define RANDOM_DATA 1
-#define EXECUTED_ON_GPU 1
 #define SHOW_VALUES   1
 
+#define EXECUTED_ON_GPU 1
 #define BASETYPE double
 
 #define SHOW_TIMES 1  // If it exists, the code prints the execution time
                       // The ... should be changed by the corresponding routine
 #define NUMBER_REPEATS 6  // Number of times the computations are made
 // If it is greater than 1, the compile time is not considered
+
 
 #ifdef EXECUTED_ON_GPU
 #define DEFAULT_ACCESS false
@@ -157,6 +158,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   // CREATING DATA
   size_t dimR = dim / divSz;
   size_t dimC = dim * divSz;
+  size_t dimL = ((accessDev) ? dimC : dimR);
   std::vector<BASETYPE> vM0(dimR * dimC);
   std::vector<BASETYPE> vM1(dimR * dimC);
   std::vector<BASETYPE> vX0(dimC);
@@ -277,9 +279,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     vS[i] = 0.0;
     vT[i] = 0.0;
   }
-
+/*
   // CREATING HOST STRUCTURES
-  size_t dimL = ((accessDev) ? dimC : dimR);
   matrix_view<BASETYPE, std::vector<BASETYPE>> v_M0(vM0, accessDev, dimR, dimC, true,
                                                 dimL, 0);
   matrix_view<BASETYPE, std::vector<BASETYPE>> v_M1(vM1, accessDev, dimR, dimC, true,
@@ -287,7 +288,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   vector_view<BASETYPE, std::vector<BASETYPE>> v_X0(vX0, 0, 1, dimC);
   vector_view<BASETYPE, std::vector<BASETYPE>> v_Y0(vY0, 0, 1, dimR);
   vector_view<BASETYPE, std::vector<BASETYPE>> v_R(vR, 0, 1, 1);
-
+*/
   // COMPUTING THE RESULTS
   size_t returnVal = 0;
   BASETYPE res;
@@ -351,6 +352,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
   // CREATING THE SYCL QUEUE AND EXECUTOR
+  #ifdef EXECUTED_ON_GPU
+      cl::sycl::gpu_selector   s;
+  #else
+      cl::sycl::intel_selector s;
+      // cl::sycl::cpu_selector s; NOOOOO
+  #endif
   cl::sycl::queue q([=](cl::sycl::exception_list eL) {
     try {
       for (auto &e : eL) {

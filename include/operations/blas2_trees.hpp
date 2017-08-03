@@ -384,7 +384,7 @@ struct GemvR_MRow_NWG {
       ;
     }
 #endif
-    if ((blqidR == 0) && (localid == 0)) printf ("num_rows = %lu\n", num_rows);
+//    if ((blqidR == 0) && (localid == 0)) printf ("num_rows = %lu\n", num_rows);
     if (interLoop == 1) {
 //      printf ("YES2");
       size_t frs_thrd = blqidC * localSz + localid;
