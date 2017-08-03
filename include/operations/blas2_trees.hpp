@@ -460,7 +460,7 @@ template <class RHS1, class RHS2>
 struct GemvC_1Row_1Thread {
   RHS1 r1;
   RHS2 r2;
-  size_t mult;
+//  size_t mult;
 
   using value_type = typename RHS2::value_type;
 
@@ -490,15 +490,18 @@ GemvC_1Row_1Thread<RHS1, RHS2> make_GemvC_1Row_1Thread(RHS1 &r1, RHS2 &r2) {
 }
 
 /**** GEMV BY COLUMNS 1 ROW x 1 THREAD USING SHARED MEMORY ****/
-template <class RHS1, class RHS2>
+template <class LHS, class RHS1, class RHS2, class RHS3>
 struct GemvC_1Row_1Thread_ShMem {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
   RHS1 r1;
   RHS2 r2;
-  size_t mult;
+  RHS3 r3;
 
-  using value_type = typename RHS2::value_type;
-
-  GemvC_1Row_1Thread_ShMem(RHS1 &_r1, RHS2 &_r2) : r1(_r1), r2(_r2){};
+  GemvC_1Row_1Thread_ShMem(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2, RHS3 &_r3)
+      : l(_l), scl(_scl), r1(_r1), r2(_r2), r3(_r3) {};
 
   size_t getSize() { return r1.getSizeR(); }
 
@@ -511,7 +514,8 @@ struct GemvC_1Row_1Thread_ShMem {
       auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
       val = addOp2_struct::eval(val, prod);
     }
-    return val;
+    auto prod = prdOp2_struct::eval(scl, val);
+    return l.eval(i) = addOp2_struct::eval(prod, r3.eval(i));
   }
 
   value_type eval(cl::sycl::nd_item<1> ndItem) {
@@ -534,18 +538,20 @@ struct GemvC_1Row_1Thread_ShMem {
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
       scratch[localid] = r2.eval(k+localid);
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
-      for (size_t j=k; k<j+localSz; j++) {
-        auto prod = prdOp2_struct::eval(r1.eval(glbalid,j),r2.eval(j));
+      for (size_t j=k; j<k+localSz; j++) {
+        auto prod = prdOp2_struct::eval(r1.eval(glbalid,j),scratch[j-k]);
         val = addOp2_struct::eval(val, prod);
       }
     }
-    return val;
+    auto prod = prdOp2_struct::eval(scl, val);
+    return l.eval(glbalid) = addOp2_struct::eval(prod, r3.eval(glbalid));
   }
 };
 
-template <class RHS1, class RHS2>
-GemvC_1Row_1Thread_ShMem<RHS1, RHS2> make_GemvC_1Row_1Thread_ShMem(RHS1 &r1, RHS2 &r2) {
-  return GemvC_1Row_1Thread_ShMem<RHS1, RHS2>(r1, r2);
+template <class LHS, class RHS1, class RHS2, class RHS3>
+GemvC_1Row_1Thread_ShMem<LHS, RHS1, RHS2, RHS3> make_GemvC_1Row_1Thread_ShMem(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, RHS3 &r3) {
+  return GemvC_1Row_1Thread_ShMem<LHS, RHS1, RHS2, RHS3>(l, scl, r1, r2, r3);
 }
 
 /*! PrdRowMatVct.
@@ -611,7 +617,7 @@ struct PrdRowMatVctMult {
     for (size_t j = 0; j < dim; j++) {
       val += r1.eval(i, j) * r2.eval(j);
     }
-    l.eval(i) += scl * val;
+    l.eval(i) = scl * val + r3.eval(i);
     return val;
   }
 
