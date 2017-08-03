@@ -196,17 +196,17 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #ifdef BLAS_EXPERIMENTAL
     ex.execute(assignOp, M);
 #endif  // BLAS_EXPERIMENTAL
-    auto localSize = 32;  // NOT FINAL VALUE
+    auto localSize = 256;  // NOT FINAL VALUE
     ex.execute(assignOp, localSize);
   } else if (OPT == 2) {  // Sure solution
-//#ifdef VERBOSE
+#ifdef VERBOSE
     std::cout << "COLS_1" << std::endl;
-//#endif  // VERBOSE
+#endif  // VERBOSE
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
 //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
     auto prdRowMatVectOp =
           make_GemvC_1Row_1Thread_ShMem(my_vy, _alpha, my_mA, my_vx, scalOp1);
-    auto localSize = 32;  // NOT FINAL VALUE
+    auto localSize = 256;  // NOT FINAL VALUE
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize *  nWG;
     ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);

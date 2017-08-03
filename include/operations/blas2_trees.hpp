@@ -535,11 +535,11 @@ struct GemvC_1Row_1Thread_ShMem {
 
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     for (size_t k=0; k<dimC; k+=localSz) {
-      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+//      ndItem.barrier(cl::sycl::access::fence_space::local_space);
       scratch[localid] = r2.eval(k+localid);
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
-      for (size_t j=k; j<k+localSz; j++) {
-        auto prod = prdOp2_struct::eval(r1.eval(glbalid,j),scratch[j-k]);
+      for (size_t j=0; j<localSz; j++) {
+        auto prod = prdOp2_struct::eval(r1.eval(glbalid,k+j),scratch[j]);
         val = addOp2_struct::eval(val, prod);
       }
     }
