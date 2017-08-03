@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
 #ifdef SHOW_TIMES
         t_start = std::chrono::steady_clock::now();
 #endif
-        /* */
+
         // One axpy
         {
           cl_event events[4];
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
             std::cout << " ERROR " << err << std::endl;
           }
         }
-/* */
+
 #ifdef SHOW_TIMES
         t_stop = std::chrono::steady_clock::now();
         if (NUMBER_REPEATS == 1) {
@@ -1036,7 +1036,6 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                        vY0.size() * sizeof(BASETYPE), nullptr, &err);
 
-
     // BUILDING A SYCL VIEW OF THE BUFFERS
 /*
     BufferMatrixView<BASETYPE> bmM0(bM0, accessDev, dimR, dimC);
@@ -1187,9 +1186,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         cl_event events[1];
 
         err = clblasDasum(dimC,
-                          bR_cl, 0, bX2_cl, 0, strd, scratchX_cl, 1, &clQueue,
+                          bR_cl, 0, bX2_cl, 0, 1, scratchX_cl, 1, &clQueue,
                           0, NULL, &events[0]);
-        err |= clWaitForEvents(4, events);
+        err |= clWaitForEvents(1, events);
 
         if (err != CL_SUCCESS) {
           std::cout << __LINE__ << ": ERROR " << err << std::endl;
@@ -1242,9 +1241,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         cl_event events[1];
 
         err = clblasDasum(dimR,
-                          bS_cl, 0, bY2_cl, 0, strd, scratchY_cl, 1, &clQueue,
+                          bS_cl, 0, bY2_cl, 0, 1, scratchY_cl, 1, &clQueue,
                           0, NULL, &events[0]);
-        err |= clWaitForEvents(4, events);
+        err |= clWaitForEvents(1, events);
 
         if (err != CL_SUCCESS) {
           std::cout << __LINE__ << ": ERROR " << err << std::endl;
@@ -1283,15 +1282,16 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         cl_event events[1];
 
         err = clblasDasum(dimR*dimC,
-                          bT_cl, 0, bM0_cl, 0, strd, scratchY_cl, 1, &clQueue,
+                          bT_cl, 0, bM0_cl, 0, 1, scratchM_cl, 1, &clQueue,
                           0, NULL, &events[0]);
-        err |= clWaitForEvents(4, events);
+        err |= clWaitForEvents(1, events);
 
         if (err != CL_SUCCESS) {
           std::cout << __LINE__ << ": ERROR " << err << std::endl;
         }
       }  // End of copy
     }
+ 
     {
       err = clEnqueueReadBuffer(clQueue, bM0_cl, CL_FALSE, 0,
                                 (vM0.size() * sizeof(BASETYPE)), vM0.data(), 0,
@@ -1362,17 +1362,19 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
     clFinish(clQueue);
 
-    clReleaseMemObject(bM0_cl);
-    clReleaseMemObject(bM1_cl);
-    clReleaseMemObject(bX0_cl);
-    clReleaseMemObject(bY0_cl);
-    clReleaseMemObject(bX1_cl);
-    clReleaseMemObject(bY1_cl);
-    clReleaseMemObject(bX2_cl);
-    clReleaseMemObject(bY2_cl);
-    clReleaseMemObject(bR_cl);
-    clReleaseMemObject(bS_cl);
-    clReleaseMemObject(bT_cl);
+    {
+      clReleaseMemObject(bM0_cl);
+      clReleaseMemObject(bM1_cl);
+      clReleaseMemObject(bX0_cl);
+      clReleaseMemObject(bY0_cl);
+      clReleaseMemObject(bX1_cl);
+      clReleaseMemObject(bY1_cl);
+      clReleaseMemObject(bX2_cl);
+      clReleaseMemObject(bY2_cl);
+      clReleaseMemObject(bR_cl);
+      clReleaseMemObject(bS_cl);
+      clReleaseMemObject(bT_cl);
+    }
 
     clblasTeardown();
   }
@@ -1460,7 +1462,7 @@ int main(int argc, char *argv[]) {
   size_t returnVal = 0;
 
   if (argc == 1) {
-    sizeV = DEF_SIZE_VECT;
+    sizeV = DEF_NUM_ELEM;
   } else if (argc == 2) {
     if (atoi(argv[1]) < 0) {
       sizeV = -atoi(argv[1]);
