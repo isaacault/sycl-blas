@@ -217,7 +217,7 @@ struct Evaluate<GemvC_1Row_1Thread_ShMem_Full<LHS, RHS1, RHS2, RHS3>> {
   }
 };
 
-/**** GEMV BY COLUMNS 1 ROW x M THREAD ****/
+/**** GEMV BY COLUMNS 1 ROW x M THREADS ****/
 /*! Evaluate<GemvC_1Row_MThreads>.
 * @brief See Evaluate.
 */
@@ -231,6 +231,30 @@ struct Evaluate<GemvC_1Row_MThreads<LHS, RHS1, RHS2, RHS3>> {
   using cont_type = typename Evaluate<LHS>::cont_type;
   using input_type = GemvC_1Row_MThreads<LHS, RHS1, RHS2, RHS3>;
   using type = GemvC_1Row_MThreads<lhs_type, rhs1_type, rhs2_type, rhs3_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    auto rhs3 = Evaluate<RHS3>::convert_to(v.r3, h);
+    return type(lhs, v.scl, rhs1, rhs2, rhs3, v.nThr);
+  }
+};
+
+/**** GEMV BY COLUMNS 1 ROW x M THREADS ****/
+/*! Evaluate<GemvC_1Row_MThreads_ShMem>.
+* @brief See Evaluate.
+*/
+template <typename LHS, typename RHS1, typename RHS2, typename RHS3>
+struct Evaluate<GemvC_1Row_MThreads_ShMem<LHS, RHS1, RHS2, RHS3>> {
+  using value_type = typename RHS2::value_type;
+  using lhs_type = typename Evaluate<LHS>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using rhs3_type = typename Evaluate<RHS3>::type;
+  using cont_type = typename Evaluate<LHS>::cont_type;
+  using input_type = GemvC_1Row_MThreads_ShMem<LHS, RHS1, RHS2, RHS3>;
+  using type = GemvC_1Row_MThreads_ShMem<lhs_type, rhs1_type, rhs2_type, rhs3_type>;
 
   static type convert_to(input_type v, cl::sycl::handler &h) {
     auto lhs = Evaluate<LHS>::convert_to(v.l, h);
