@@ -802,6 +802,79 @@ GemvC_1Row_MThreads_ShMem<LHS, RHS1, RHS2, RHS3> make_GemvC_1Row_MThreads_ShMem(
   return GemvC_1Row_MThreads_ShMem<LHS, RHS1, RHS2, RHS3>(l, scl, r1, r2, r3, nThr);
 }
 
+/**** GEMV BY COLUMNS 1 ROW x M THREADS USING SHARED MEMORY, WITHOUT LOCAL ADDITION ****/
+template <class LHS, class RHS1, class RHS2>
+struct GemvC_1Row_MThreads_ShMem_NoRed {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+
+  RHS1 r1;
+  RHS2 r2;
+  size_t nThr;
+
+  GemvC_1Row_MThreads_ShMem_NoRed(LHS &_l, RHS1 &_r1, RHS2 &_r2, size_t &_nThr)
+      : l(_l), r1(_r1), r2(_r2), nThr(_nThr) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    size_t rowSz = (localSz + nThr - 1) / nThr;
+    size_t colSz = (dimC    + nThr - 1) / nThr;
+
+    size_t idWFR = (localid % rowSz);
+    size_t idWFC = (localid / rowSz);
+
+    size_t rowid = (groupid * rowSz) + idWFR;
+    size_t colid = colSz * idWFC;
+
+//    if (idWFR == 0)
+//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+//              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+//    for (size_t k=colid; k<std::min(dimC,colid+colSz); k++) {
+    for (size_t k=colid; k<std::min(dimC,colid+colSz); k+=rowSz) {
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      scratch[localid] = r2.eval(k+idWFR);
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      for (size_t j=k; j<std::min(dimC,k+rowSz); j++) {
+        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+        val = addOp2_struct::eval(val, prod);
+      }
+    }
+
+    l.eval(rowid,idWFC) = val;
+    return val;
+  }
+};
+
+template <class LHS, class RHS1, class RHS2>
+GemvC_1Row_MThreads_ShMem_NoRed<LHS, RHS1, RHS2> make_GemvC_1Row_MThreads_ShMem_NoRed(
+    LHS &l, RHS1 &r1, RHS2 &r2, size_t nThr) {
+  return GemvC_1Row_MThreads_ShMem_NoRed<LHS, RHS1, RHS2>(l, r1, r2, nThr);
+}
+
 /*! PrdRowMatVct.
  * @brief CLASSICAL DOT PRODUCT GEMV
  * Each thread computes a dot product, If
