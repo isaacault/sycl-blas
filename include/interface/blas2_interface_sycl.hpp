@@ -65,7 +65,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   my_vy.printH("VY");
 #endif  // VERBOSE
   if (my_mA.getAccess()) {
-    if (OPT == -1) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
+    if (OPT == 0) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_-1" << "M = " << _M
@@ -89,7 +89,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else if (OPT == 2) {  // GEMV BY ROWS 1 ROW x 1 BLOCK WITHOUT LOCAL ADDITION
+    } else if (OPT == 1) {  // GEMV BY ROWS 1 ROW x 1 BLOCK WITHOUT LOCAL ADDITION
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_2" << "M = " << _M
@@ -116,7 +116,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else if (OPT == 1) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
+    } else if (OPT == 2) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_1" << "M = " << _M
@@ -198,7 +198,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #endif  // BLAS_EXPERIMENTAL
     auto localSize = 256;  // NOT FINAL VALUE
     ex.execute(assignOp, localSize);
-  } else if (OPT == 2) {  // Sure solution
+  } else if (OPT == -2) {  // Sure solution
 #ifdef VERBOSE
     std::cout << "COLS_1" << std::endl;
 #endif  // VERBOSE
@@ -210,7 +210,20 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     auto nWG = (M + localSize - 1) / localSize;
     auto gridSize = localSize *  nWG;
     ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-  } else if (OPT == -2) {  // Sure solution
+  } else if (OPT == 2) {  // Sure solution
+#ifdef VERBOSE
+    std::cout << "COLS_1" << std::endl;
+#endif  // VERBOSE
+    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+    auto nThr = 4;  // NOT FINAL VALUE
+    auto prdRowMatVectOp =
+          make_GemvC_1Row_MThread(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
+    auto localSize = 256;  // NOT FINAL VALUE
+    auto nWG = (M + localSize - 1) / localSize;
+    auto gridSize = localSize *  nWG * nThr;
+    ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+  } else if (OPT == -2) {
 #ifdef VERBOSE
     std::cout << "COLS_1" << std::endl;
 #endif  // VERBOSE

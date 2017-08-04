@@ -108,7 +108,6 @@ struct GemvR_1Row_1WG {
     value_type val = addOp2_struct::init(r2);
 
     if (interLoop == 1) {
-//      printf ("YES2");
 //        size_t frs_thrd = groupid * localSz + localid;
       size_t frs_thrd = localid;
 //      for (size_t k = frs_thrd; k < vecS; k += glbalSz) {
@@ -553,8 +552,9 @@ GemvC_1Row_1Thread_ShMem<LHS, RHS1, RHS2, RHS3> make_GemvC_1Row_1Thread_ShMem(
     LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, RHS3 &r3) {
   return GemvC_1Row_1Thread_ShMem<LHS, RHS1, RHS2, RHS3>(l, scl, r1, r2, r3);
 }
-//
-/**** GEMV BY COLUMNS 1 ROW x 1 THREAD USING SHARED MEMORY MINIMIZING SYNC ****/
+
+/**** GEMV BY COLUMNS 1 ROW x 1 THREAD USING SHARED MEMORY MINIMIZING SYNCHRONIZATION ****/
+/**** This option uses too much memory, failing when the local memory is completed ****/
 template <class LHS, class RHS1, class RHS2, class RHS3>
 struct GemvC_1Row_1Thread_ShMem_Full {
   LHS l;
@@ -620,6 +620,93 @@ GemvC_1Row_1Thread_ShMem_Full<LHS, RHS1, RHS2, RHS3> make_GemvC_1Row_1Thread_ShM
   return GemvC_1Row_1Thread_ShMem_Full<LHS, RHS1, RHS2, RHS3>(l, scl, r1, r2, r3);
 }
 
+/**** GEMV BY COLUMNS 1 ROW x M THREAD ****/
+template <class LHS, class RHS1, class RHS2, class RHS3>
+struct GemvC_1Row_MThreads {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
+  RHS1 r1;
+  RHS2 r2;
+  RHS3 r3;
+  size_t nThr;
+
+  GemvC_1Row_MThreads(LHS &_l, value_type _scl, RHS1 &_r1,
+                            RHS2 &_r2, RHS3 &_r3, size_t &_nThr)
+      : l(_l), scl(_scl), r1(_r1), r2(_r2), r3(_r3), nThr(_nThr) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    size_t rowSz = (localSz + nThr - 1) / nThr;
+    size_t colSz = (dimC    + nThr - 1) / nThr;
+
+    size_t idWFR = (localid % rowSz);
+    size_t idWFC = (localid / rowSz);
+
+    size_t rowid = (groupid * rowSz) + idWFR;
+    size_t colid = colSz * idWFC;
+
+    if (idWFR == 0)
+      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t k=colid; k<std::min(dimC,colid+colSz); k++) {
+      auto prod = prdOp2_struct::eval(r1.eval(rowid,k),r2.eval(k));
+      val = addOp2_struct::eval(val, prod);
+    }
+
+    scratch[localid] = val;
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    // Reduction inside the block
+    for (size_t offset = nThr >> 1; offset > 0; offset >>= 1) {
+      if ((rowid < dimR) && (idWFC < offset)) {
+        scratch[localid] += scratch[localid + offset * rowSz];
+      }
+      // This barrier is mandatory to be sure the data are on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+    }
+    // The result is stored in lhs
+    if ((rowid < dimR) && (idWFC == 0)) {
+//      l.eval(rowid) = scl * scratch[localid] + r3.eval(rowid);
+      auto prod = prdOp2_struct::eval(scl, scratch[localid]);
+      l.eval(rowid) = addOp2_struct::eval(prod, r3.eval(rowid));
+    }
+
+    return val;
+  }
+};
+
+template <class LHS, class RHS1, class RHS2, class RHS3>
+GemvC_1Row_MThreads<LHS, RHS1, RHS2, RHS3> make_GemvC_1Row_MThreads(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, RHS3 &r3, size_t nThr) {
+  return GemvC_1Row_MThreads<LHS, RHS1, RHS2, RHS3>(l, scl, r1, r2, r3, nThr);
+}
 /*! PrdRowMatVct.
  * @brief CLASSICAL DOT PRODUCT GEMV
  * Each thread computes a dot product, If
@@ -746,7 +833,7 @@ PrdRowMatVctMult<LHS, RHS1, RHS2, RHS3> make_prdRowMatVctMult(
  * @brief TWO KERNELS DOT PRODUCT GEMV
  * FIRST KERNEL: THE LOCAL COMPUTATIONS ARE MADE
  * The common data are copied to the scratch vector,
- * and later the computation begins.
+ * and later the computation finalizes.
  */
 template <class LHS, class RHS1, class RHS2>
 struct PrdRowMatVctMultShm {
