@@ -64,8 +64,23 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   my_vx.printH("VX");
   my_vy.printH("VY");
 #endif  // VERBOSE
-  if (my_mA.getAccess()) {
-    if (OPT == 0) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
+  if (my_mA.getAccess()) {  // ROWS ACCESS
+    if (OPT == 1){
+  #ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_3" << "M = " << _M
+                << " N = " << _N << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto redRowMatVectOp = make_redRowMatVct(my_mA, my_vx, 1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, redRowMatVectOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+  #ifdef BLAS_EXPERIMENTAL
+      ex.execute(assignOp, M);
+  #endif  // BLAS_EXPERIMENTAL
+      ex.execute(assignOp, 256);
+    } else if (OPT == 11) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_-1" << "M = " << _M
@@ -89,7 +104,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else if (OPT == 1) {  // GEMV BY ROWS 1 ROW x 1 BLOCK WITHOUT LOCAL ADDITION
+    } else if (OPT == 12) {  // GEMV BY ROWS 1 ROW x 1 BLOCK WITHOUT LOCAL ADDITION
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_2" << "M = " << _M
@@ -116,7 +131,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else if (OPT == 2) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
+    } else if (OPT == 13) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_1" << "M = " << _M
@@ -141,7 +156,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else if (OPT == 3) {  // GEMV BY ROWS M ROW x nWG_col BLOCK
+    } else if (OPT == 14) {  // GEMV BY ROWS M ROW x nWG_col BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_3" << "M = " << _M
@@ -167,155 +182,203 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
-    } else {
-#ifdef VERBOSE
-  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
-                << " N = " << _N << std::endl;
-#endif  // VERBOSE
+    }
+  } else { // COLUMN ACCESS
+    if (OPT == 1) {  // Sure solution
+      #ifdef VERBOSE
+      std::cout << "COLS_2" << std::endl;
+      #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-      auto redRowMatVectOp = make_redRowMatVct(my_mA, my_vx, 1);
-      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, redRowMatVectOp);
+      auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, prdRowMatVectOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      #ifdef BLAS_EXPERIMENTAL
+      ex.execute(assignOp, M);
+      #endif  // BLAS_EXPERIMENTAL
+      ex.execute(assignOp);
+    } else if (OPT == 2) {  // First improvement
+  #ifdef VERBOSE
+      std::cout << "COLS_2" << std::endl;
+  #endif  // VERBOSE
+      auto nThr = 8;
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto prdRowMatVectOp =
+          make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
+  //    auto localSize = 32;  // NOT FINAL VALUE
+      auto localSize = 32;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize * nThr * nWG;
+      ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
+  //    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
+    } else if (OPT == 3) {
+  #ifdef VERBOSE
+      std::cout << "COLS_3" << std::endl;
+  #endif  // VERBOSE
+      auto nThr = 16;
+      ContainerT valT1(nThr * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  #ifdef BLAS_EXPERIMENTAL
+      auto val1 = vector_view<T, ContainerT>(valT1, 0, 1, nThr * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, M, nThr);
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto prdRowMatVectOp = make_prdRowMatVctMultShm(val1, my_mA, my_vx, nThr);
+  #endif  // BLAS_EXPERIMENTAL
+      auto prdRowMatVectOp = make_prdRowMatVctMultShm(mat1, my_mA, my_vx, nThr);
+  //    auto localSize = 32;  // NOT FINAL VALUE
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize * nThr * nWG;
+      ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
+  //    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
+  #ifdef VERBOSE
+      my_vy.printH("VY");
+  #endif
+  #ifdef VERBOSE
+      mat1.printH("MAT1");
+  #endif  // VERBOSE
+      auto addPrdOp = make_addPrdRowMatVctMultShm(my_vy, _alpha, mat1, scalOp1);
+  #ifdef BLAS_EXPERIMENTAL
+      ex.execute(addPrdOp, localSize, localSize);
+  #endif  // BLAS_EXPERIMENTAL
+  //    ex.execute(addPrdOp, localSize, nWG*localSize, 0);
+      ex.execute(addPrdOp, localSize);
+    } else if (OPT == 11) {  // Sure solution
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto prdRowMatVectOp = make_GemvC_1Row_1Thread(my_mA, my_vx);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, prdRowMatVectOp);
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
   #ifdef BLAS_EXPERIMENTAL
       ex.execute(assignOp, M);
   #endif  // BLAS_EXPERIMENTAL
-      ex.execute(assignOp, 256);
+      auto localSize = 256;  // NOT FINAL VALUE
+      ex.execute(assignOp, localSize);
+    } else if (OPT == 12) {  // Sure solution
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto prdRowMatVectOp =
+            make_GemvC_1Row_1Thread_ShMem(my_vy, _alpha, my_mA, my_vx, scalOp1);
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize *  nWG;
+      ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+    } else if (OPT == 13) {
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto prdRowMatVectOp =
+            make_GemvC_1Row_1Thread_ShMem_Full(my_vy, _alpha, my_mA, my_vx, scalOp1);
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize *  nWG;
+      ex.execute(prdRowMatVectOp, localSize , gridSize, N);
+    } else if (OPT == 14) {
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto nThr = 4;  // NOT FINAL VALUE
+      auto prdRowMatVectOp =
+            make_GemvC_1Row_MThreads(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize *  nWG * nThr;
+      ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+    } else if (OPT == 15) {
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto nThr = 4;  // NOT FINAL VALUE
+      auto prdRowMatVectOp =
+            make_GemvC_1Row_MThreads_ShMem(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize *  nWG * nThr;
+      ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+    } else if (OPT == 16) {
+  #ifdef VERBOSE
+      std::cout << "COLS_1" << std::endl;
+  #endif  // VERBOSE
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+  //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
+      auto nThr = 4;  // NOT FINAL VALUE
+  //    auto nThr = 16;
+      ContainerT valT1(nThr * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
+      auto prdRowMatVectOp =
+            make_GemvC_1Row_MThreads_ShMem_NoRed(mat1, my_mA, my_vx, nThr);
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto gridSize = localSize *  nWG * nThr;
+      ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
+    } else if (OPT == 17) {
+#ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_3" << "M = " << _M
+                << " N = " << _N << std::endl;
+#endif  // VERBOSE
+      size_t nBlq = 4;
+      ContainerT valT1(nBlq * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
+
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto gridSize = localSize *  dimWGR * nBlq;
+      auto gemvC = make_GemvC_1Row_MBlocks (mat1, my_mA, my_vx, nBlq);
+      ex.execute(gemvC, localSize, gridSize);
+//      mat1.printH("MAT1");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
+    } else if (OPT == 18) {
+#ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_3" << "M = " << _M
+                << " N = " << _N << std::endl;
+#endif  // VERBOSE
+      size_t nBlq = 4;
+      ContainerT valT1(nBlq * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
+
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto gridSize = localSize *  dimWGR * nBlq;
+      auto gemvC = make_GemvC_1Row_MBlocks_ShMem (mat1, my_mA, my_vx, nBlq);
+      ex.execute(gemvC, localSize, gridSize, localSize);
+//      mat1.printH("MAT1");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
     }
-  } else if (OPT == -1) {  // Sure solution
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto prdRowMatVectOp = make_GemvC_1Row_1Thread(my_mA, my_vx);
-    auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, prdRowMatVectOp);
-    auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
-    auto assignOp = make_op<Assign>(my_vy, addOp);
-#ifdef BLAS_EXPERIMENTAL
-    ex.execute(assignOp, M);
-#endif  // BLAS_EXPERIMENTAL
-    auto localSize = 256;  // NOT FINAL VALUE
-    ex.execute(assignOp, localSize);
-  } else if (OPT == -2) {  // Sure solution
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto prdRowMatVectOp =
-          make_GemvC_1Row_1Thread_ShMem(my_vy, _alpha, my_mA, my_vx, scalOp1);
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize *  nWG;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-  } else if (OPT == -3) {
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto prdRowMatVectOp =
-          make_GemvC_1Row_1Thread_ShMem_Full(my_vy, _alpha, my_mA, my_vx, scalOp1);
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize *  nWG;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, N);
-  } else if (OPT == 1) {
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto nThr = 4;  // NOT FINAL VALUE
-    auto prdRowMatVectOp =
-          make_GemvC_1Row_MThreads(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize *  nWG * nThr;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-  } else if (OPT == 4) {
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto nThr = 4;  // NOT FINAL VALUE
-    auto prdRowMatVectOp =
-          make_GemvC_1Row_MThreads_ShMem(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize *  nWG * nThr;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-  } else if (OPT == 2) {
-#ifdef VERBOSE
-    std::cout << "COLS_1" << std::endl;
-#endif  // VERBOSE
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
-    auto nThr = 4;  // NOT FINAL VALUE
-//    auto nThr = 16;
-    ContainerT valT1(nThr * M);
-    auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
-    auto prdRowMatVectOp =
-          make_GemvC_1Row_MThreads_ShMem_NoRed(mat1, my_mA, my_vx, nThr);
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize *  nWG * nThr;
-    ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
-    auto addMOp = make_addSetColumns(mat1);
-    auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
-    auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
-    auto assignOp = make_op<Assign>(my_vy, addOp);
-    ex.execute(assignOp, localSize);
-  } else if (OPT == 2) {  // First improvement
-#ifdef VERBOSE
-    std::cout << "COLS_2" << std::endl;
-#endif  // VERBOSE
-    auto nThr = 8;
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-    auto prdRowMatVectOp =
-        make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
-//    auto localSize = 32;  // NOT FINAL VALUE
-    auto localSize = 32;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize * nThr * nWG;
-    ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
-//    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
-  } else if (OPT == 3) {
-#ifdef VERBOSE
-    std::cout << "COLS_3" << std::endl;
-#endif  // VERBOSE
-    auto nThr = 16;
-    ContainerT valT1(nThr * M);
-    auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nThr);
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-#ifdef BLAS_EXPERIMENTAL
-    auto val1 = vector_view<T, ContainerT>(valT1, 0, 1, nThr * M);
-    auto mat1 = matrix_view<T, ContainerT>(valT1, M, nThr);
-    auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-    auto prdRowMatVectOp = make_prdRowMatVctMultShm(val1, my_mA, my_vx, nThr);
-#endif  // BLAS_EXPERIMENTAL
-    auto prdRowMatVectOp = make_prdRowMatVctMultShm(mat1, my_mA, my_vx, nThr);
-//    auto localSize = 32;  // NOT FINAL VALUE
-    auto localSize = 256;  // NOT FINAL VALUE
-    auto nWG = (M + localSize - 1) / localSize;
-    auto gridSize = localSize * nThr * nWG;
-    ex.execute(prdRowMatVectOp, localSize, gridSize, (N + nThr - 1) / nThr);
-//    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
-#ifdef VERBOSE
-    my_vy.printH("VY");
-#endif
-#ifdef VERBOSE
-    mat1.printH("MAT1");
-#endif  // VERBOSE
-    auto addPrdOp = make_addPrdRowMatVctMultShm(my_vy, _alpha, mat1, scalOp1);
-#ifdef BLAS_EXPERIMENTAL
-    ex.execute(addPrdOp, localSize, localSize);
-#endif  // BLAS_EXPERIMENTAL
-//    ex.execute(addPrdOp, localSize, nWG*localSize, 0);
-    ex.execute(addPrdOp, localSize);
   }
 #ifdef VERBOSE
   my_vy.printH("RES");

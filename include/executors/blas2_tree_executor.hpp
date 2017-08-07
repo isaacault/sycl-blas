@@ -287,6 +287,50 @@ struct Evaluate<GemvC_1Row_MThreads_ShMem_NoRed<LHS, RHS1, RHS2>> {
   }
 };
 
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS ****/
+/*! Evaluate<GemvC_1Row_MBlocks>.
+* @brief See Evaluate.
+*/
+template <typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<GemvC_1Row_MBlocks<LHS, RHS1, RHS2>> {
+  using value_type = typename RHS2::value_type;
+  using lhs_type = typename Evaluate<LHS>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using cont_type = typename Evaluate<LHS>::cont_type;
+  using input_type = GemvC_1Row_MBlocks<LHS, RHS1, RHS2>;
+  using type = GemvC_1Row_MBlocks<lhs_type, rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(lhs, rhs1, rhs2, v.nBlq);
+  }
+};
+
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS USING SHARED MEMORY ****/
+/*! Evaluate<GemvC_1Row_MBlocks>.
+* @brief See Evaluate.
+*/
+template <typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<GemvC_1Row_MBlocks_ShMem<LHS, RHS1, RHS2>> {
+  using value_type = typename RHS2::value_type;
+  using lhs_type = typename Evaluate<LHS>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using cont_type = typename Evaluate<LHS>::cont_type;
+  using input_type = GemvC_1Row_MBlocks_ShMem<LHS, RHS1, RHS2>;
+  using type = GemvC_1Row_MBlocks_ShMem<lhs_type, rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(lhs, rhs1, rhs2, v.nBlq);
+  }
+};
+
 /**** CLASSICAL DOT PRODUCT GEMV ****/
 /*! Evaluate<PrdRowMatVct>.
  * @brief See Evaluate.

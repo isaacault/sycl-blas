@@ -768,11 +768,13 @@ struct GemvC_1Row_MThreads_ShMem {
       scratch[localid] = r2.eval(k+idWFR);
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
       for (size_t j=k; j<std::min(dimC,k+rowSz); j++) {
-        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+//        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),scratch[idWFC*rowSz+j-k]);
         val = addOp2_struct::eval(val, prod);
       }
     }
 
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
     scratch[localid] = val;
     // This barrier is mandatory to be sure the data is on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
@@ -850,8 +852,8 @@ struct GemvC_1Row_MThreads_ShMem_NoRed {
     size_t colid = colSz * idWFC;
 
 //    if (idWFR == 0)
-//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
-//              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
+//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+//              glbalid, groupid, localid, rowSz, colSz, rowid, colid, idWFR, idWFC*rowSz);
     auto val = iniAddOp1_struct::eval(r2.eval(0));
 //    for (size_t k=colid; k<std::min(dimC,colid+colSz); k++) {
     for (size_t k=colid; k<std::min(dimC,colid+colSz); k+=rowSz) {
@@ -859,7 +861,8 @@ struct GemvC_1Row_MThreads_ShMem_NoRed {
       scratch[localid] = r2.eval(k+idWFR);
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
       for (size_t j=k; j<std::min(dimC,k+rowSz); j++) {
-        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+//        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),scratch[idWFC*rowSz+j-k]);
         val = addOp2_struct::eval(val, prod);
       }
     }
@@ -873,6 +876,189 @@ template <class LHS, class RHS1, class RHS2>
 GemvC_1Row_MThreads_ShMem_NoRed<LHS, RHS1, RHS2> make_GemvC_1Row_MThreads_ShMem_NoRed(
     LHS &l, RHS1 &r1, RHS2 &r2, size_t nThr) {
   return GemvC_1Row_MThreads_ShMem_NoRed<LHS, RHS1, RHS2>(l, r1, r2, nThr);
+}
+
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS ****/
+template <class LHS, class RHS1, class RHS2>
+struct GemvC_1Row_MBlocks {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+
+  RHS1 r1;
+  RHS2 r2;
+  size_t nBlq;
+
+  GemvC_1Row_MBlocks(LHS &_l, RHS1 &_r1, RHS2 &_r2, size_t &_nBlq)
+      : l(_l), r1(_r1), r2(_r2), nBlq(_nBlq) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+//  template <typename sharedT>
+//  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    size_t rowSz = localSz;
+    size_t colSz = (dimC    + nBlq - 1) / nBlq;
+
+//    size_t idWFR = localid;
+    size_t dimWF = (groupSz + nBlq - 1) / nBlq;
+    size_t idWFR = (groupid + dimWF - 1) / dimWF;
+    size_t idWFC = (groupid % nBlq);
+
+    size_t rowid = (idWFR * rowSz) + idWFR;
+    size_t colid = colSz * idWFC;
+
+//    if (idWFR == 0)
+//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+//              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t k=colid; k<std::min(dimC,colid+colSz); k++) {
+      auto prod = prdOp2_struct::eval(r1.eval(rowid,k),r2.eval(k));
+      val = addOp2_struct::eval(val, prod);
+    }
+
+/*    scratch[localid] = val;
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    // Reduction inside the block
+    for (size_t offset = nBlq >> 1; offset > 0; offset >>= 1) {
+      if ((rowid < dimR) && (idWFC < offset)) {
+        scratch[localid] += scratch[localid + offset * rowSz];
+      }
+      // This barrier is mandatory to be sure the data are on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+    }
+    // The result is stored in lhs
+    if ((rowid < dimR) && (idWFC == 0)) {
+//      l.eval(rowid) = scl * scratch[localid] + r3.eval(rowid);
+      auto prod = prdOp2_struct::eval(scl, scratch[localid]);
+      l.eval(rowid) = addOp2_struct::eval(prod, r3.eval(rowid));
+    }
+*/
+    l.eval(rowid,idWFC) = val;
+    return val;
+  }
+};
+
+template <class LHS, class RHS1, class RHS2>
+GemvC_1Row_MBlocks<LHS, RHS1, RHS2> make_GemvC_1Row_MBlocks(
+    LHS &l, RHS1 &r1, RHS2 &r2, size_t nBlq) {
+  return GemvC_1Row_MBlocks<LHS, RHS1, RHS2>(l, r1, r2, nBlq);
+}
+
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS USING SHARED MEMORY ****/
+template <class LHS, class RHS1, class RHS2>
+struct GemvC_1Row_MBlocks_ShMem {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+
+  RHS1 r1;
+  RHS2 r2;
+  size_t nBlq;
+
+  GemvC_1Row_MBlocks_ShMem(LHS &_l, RHS1 &_r1, RHS2 &_r2, size_t &_nBlq)
+      : l(_l), r1(_r1), r2(_r2), nBlq(_nBlq) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT scratch, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    size_t rowSz = localSz;
+    size_t colSz = (dimC    + nBlq - 1) / nBlq;
+
+//    size_t idWFR = localid;
+    size_t dimWF = (groupSz + nBlq - 1) / nBlq;
+    size_t idWFR = (groupid + dimWF - 1) / dimWF;
+    size_t idWFC = (groupid % nBlq);
+
+    size_t rowid = (idWFR * rowSz) + idWFR;
+    size_t colid = colSz * idWFC;
+
+//    if (idWFR == 0)
+//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+//              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t k=colid; k<std::min(dimC,colid+colSz); k+=rowSz) {
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      scratch[localid] = r2.eval(k+localid);
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+      for (size_t j=k; j<std::min(dimC,k+rowSz); j++) {
+        auto prod = prdOp2_struct::eval(r1.eval(rowid,j),r2.eval(j));
+//        auto prod = prdOp2_struct::eval(r1.eval(rowid,k),scratch[j-k]);
+        val = addOp2_struct::eval(val, prod);
+      }
+    }
+
+/*    scratch[localid] = val;
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    // Reduction inside the block
+    for (size_t offset = nBlq >> 1; offset > 0; offset >>= 1) {
+      if ((rowid < dimR) && (idWFC < offset)) {
+        scratch[localid] += scratch[localid + offset * rowSz];
+      }
+      // This barrier is mandatory to be sure the data are on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+    }
+    // The result is stored in lhs
+    if ((rowid < dimR) && (idWFC == 0)) {
+//      l.eval(rowid) = scl * scratch[localid] + r3.eval(rowid);
+      auto prod = prdOp2_struct::eval(scl, scratch[localid]);
+      l.eval(rowid) = addOp2_struct::eval(prod, r3.eval(rowid));
+    }
+*/
+    l.eval(rowid,idWFC) = val;
+    return val;
+  }
+};
+
+template <class LHS, class RHS1, class RHS2>
+GemvC_1Row_MBlocks_ShMem<LHS, RHS1, RHS2> make_GemvC_1Row_MBlocks_ShMem(
+    LHS &l, RHS1 &r1, RHS2 &r2, size_t nBlq) {
+  return GemvC_1Row_MBlocks_ShMem<LHS, RHS1, RHS2>(l, r1, r2, nBlq);
 }
 
 /*! PrdRowMatVct.
