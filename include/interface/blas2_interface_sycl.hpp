@@ -378,6 +378,30 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
+    } else if (OPT == 19) {
+#ifdef VERBOSE
+  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
+      std::cout << "ROWS_3" << "M = " << _M
+                << " N = " << _N << std::endl;
+#endif  // VERBOSE
+      size_t nBlq = 4;
+      ContainerT valT1(nBlq * M);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
+
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto nWG = (M + localSize - 1) / localSize;
+      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto gridSize = localSize *  dimWGR * nBlq;
+      auto gemvC = make_GemvC_1Row_MBlocks_ShMem_Full (mat1, my_mA, my_vx, nBlq);
+      ex.execute(gemvC, localSize, gridSize, (M + nBlq - 1) / nBlq);
+//      mat1.printH("MAT1");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
     }
   }
 #ifdef VERBOSE

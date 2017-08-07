@@ -168,7 +168,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<BASETYPE> vX2(dimC);
   std::vector<BASETYPE> vY2(dimR);
   std::vector<BASETYPE> vR(9);
-  std::vector<BASETYPE> vS(11);
+  std::vector<BASETYPE> vS(12);
   std::vector<BASETYPE> vT(3);
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
@@ -183,6 +183,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::chrono::duration<BASETYPE> t9_gmvR, t9_gmvC, t9_ger;
   std::chrono::duration<BASETYPE> t10_gmvR, t10_gmvC, t10_ger;
   std::chrono::duration<BASETYPE> t11_gmvR, t11_gmvC, t11_ger;
+  std::chrono::duration<BASETYPE> t12_gmvR, t12_gmvC, t12_ger;
   std::vector<std::chrono::duration<BASETYPE>> v1_gmvR(NUMBER_REPEATS), v1_gmvC(NUMBER_REPEATS), v1_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v2_gmvR(NUMBER_REPEATS), v2_gmvC(NUMBER_REPEATS), v2_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v3_gmvR(NUMBER_REPEATS), v3_gmvC(NUMBER_REPEATS), v3_ger(NUMBER_REPEATS);
@@ -194,6 +195,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<std::chrono::duration<BASETYPE>> v9_gmvR(NUMBER_REPEATS), v9_gmvC(NUMBER_REPEATS), v9_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v10_gmvR(NUMBER_REPEATS), v10_gmvC(NUMBER_REPEATS), v10_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v11_gmvR(NUMBER_REPEATS), v11_gmvC(NUMBER_REPEATS), v11_ger(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v12_gmvR(NUMBER_REPEATS), v12_gmvC(NUMBER_REPEATS), v12_ger(NUMBER_REPEATS);
 #endif
 
   // INITIALIZING DATA
@@ -430,6 +432,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvS9(bS,8);
     BufferVectorView<BASETYPE> bvS10(bS,9);
     BufferVectorView<BASETYPE> bvS11(bS,10);
+    BufferVectorView<BASETYPE> bvS12(bS,11);
     BufferVectorView<BASETYPE> bvT(bT);
 
     // EXECUTION OF THE ROUTINES
@@ -775,6 +778,28 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       auto reducOpY_18 = make_addAssignReduction(bvS11, bvY2, 256, 256);
       ex.reduce(reducOpY_18); q.wait_and_throw();
       /*****************************************/
+      auto assign_Y2_19 = make_op<Assign>(bvY2, bvY1);
+      ex.execute(assign_Y2_19); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _gemv<19, SYCL>(ex, "No", dimR - shftR, dimC - shftC, 2.0, bmM0(shftR, shftC),
+                  dimL, bvY0, 1, 1.5, bvY2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t12_gmvC = t_stop - t_start;
+      } else if (i > 0) {
+        t12_gmvC += t_stop - t_start;
+      } else {
+        t12_gmvC = t_start - t_start;
+      }
+      v12_gmvC[i] = t_stop - t_start;
+  #endif
+      auto reducOpY_19 = make_addAssignReduction(bvS12, bvY2, 256, 256);
+      ex.reduce(reducOpY_19); q.wait_and_throw();
+      /*****************************************/
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
@@ -819,6 +844,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", " << t9_gmvC.count()/div
               << ", " << t10_gmvC.count()/div
               << ", " << t11_gmvC.count()/div
+              << ", " << t12_gmvC.count()/div
               << std::endl;
     std::cout << "t_ger   , " << t1_ger.count()/div << std::endl;
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
@@ -841,6 +867,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::sort (v9_gmvC.begin()+1, v9_gmvC.end());
     std::sort (v10_gmvC.begin()+1, v10_gmvC.end());
     std::sort (v11_gmvC.begin()+1, v11_gmvC.end());
+    std::sort (v12_gmvC.begin()+1, v12_gmvC.end());
     std::cout << "m_gmvC , " << v1_gmvC[(NUMBER_REPEATS+1)/2].count()
               << ", "        << v2_gmvC[(NUMBER_REPEATS+1)/2].count()
               << ", "        << v3_gmvC[(NUMBER_REPEATS+1)/2].count()
@@ -852,6 +879,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "        << v9_gmvC[(NUMBER_REPEATS+1)/2].count()
               << ", "        << v10_gmvC[(NUMBER_REPEATS+1)/2].count()
               << ", "        << v11_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "        << v12_gmvC[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v1_ger.begin()+1, v1_ger.end());
     std::cout << "m_gmvC , " << v1_ger[(NUMBER_REPEATS+1)/2].count()
@@ -877,7 +905,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
   std::cout << "GEMVC ANALYSYS!!" << std::endl;
-  for (int i=0; i<11; i++) {
+  for (int i=0; i<12; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
     std::cout << "( " << i << ") ";
