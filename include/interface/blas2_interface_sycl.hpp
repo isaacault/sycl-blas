@@ -68,7 +68,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     if (OPT == 1){
   #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
+      std::cout << "ROWS_1" << "M = " << _M
                 << " N = " << _N << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
@@ -83,7 +83,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 11) {  // GEMV BY ROWS 1 ROW x 1 BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_-1" << "M = " << _M
+      std::cout << "ROWS_11" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
 //      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
@@ -107,7 +107,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 12) {  // GEMV BY ROWS 1 ROW x 1 BLOCK WITHOUT LOCAL ADDITION
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_2" << "M = " << _M
+      std::cout << "ROWS_12" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
 //      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
@@ -135,9 +135,6 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 #ifdef VERBOSE
       std::cout << "ROWS_13" << "M = " << _M
                 << " N = " << _N << std::endl;
-  //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_1" << "M = " << _M
-                << " N = " << _N << std::endl;
 #endif  // VERBOSE
 //      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
 //      my_mA.printH("MA");
@@ -161,7 +158,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 14) {  // GEMV BY ROWS M ROW x nWG_col BLOCK
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
+      std::cout << "ROWS_14" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
 //      std::cout << "alpha = " << _alpha << " , beta = " << _beta << std::endl;
@@ -173,10 +170,10 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       size_t localSize = 256;
       ContainerT valT1(nWG_col * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
+      auto nWG_row = (M + n_rows - 1) / n_rows;
 
       auto gemvR = make_GemvR_MRow_NWG (mat1, my_mA, my_vx, n_rows, nWG_col);
-      ex.execute(gemvR, localSize, M*nWG_col*localSize/n_rows, localSize*n_rows);
-//      mat1.printH("MAT1");
+      ex.execute(gemvR, localSize, nWG_row*nWG_col*localSize, localSize*n_rows);
 
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto addMOp = make_addSetColumns(mat1);
@@ -188,7 +185,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   } else { // COLUMN ACCESS
     if (OPT == 1) {  // Sure solution
       #ifdef VERBOSE
-      std::cout << "COLS_2" << std::endl;
+      std::cout << "COLS_1" << std::endl;
       #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -204,16 +201,17 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       std::cout << "COLS_2" << std::endl;
   #endif  // VERBOSE
 //      auto nThr = 8;
-      auto nThr = 1;
+      auto nThr = 4;
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto prdRowMatVectOp =
           make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
   //    auto localSize = 32;  // NOT FINAL VALUE
-      auto localSize = 32;  // NOT FINAL VALUE
+//      auto localSize = 32;  // NOT FINAL VALUE
+      auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
       auto gridSize = localSize * nThr * nWG;
-      ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
-  //    ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
+//      ex.execute(prdRowMatVectOp, localSize * nThr, gridSize, localSize * nThr);
+      ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
     } else if (OPT == 3) {
   #ifdef VERBOSE
       std::cout << "COLS_3" << std::endl;
@@ -249,7 +247,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       ex.execute(addPrdOp, localSize);
     } else if (OPT == 11) {  // Sure solution
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_11" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -264,7 +262,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       ex.execute(assignOp, localSize);
     } else if (OPT == 12) {  // Sure solution
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_12" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -276,7 +274,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
     } else if (OPT == 13) {
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_13" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -285,10 +283,10 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
       auto gridSize = localSize *  nWG;
-//      ex.execute(prdRowMatVectOp, localSize , gridSize, N);
+      ex.execute(prdRowMatVectOp, localSize, gridSize, N);
     } else if (OPT == 14) {
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_14" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -301,7 +299,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
     } else if (OPT == 15) {
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_15" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -311,10 +309,10 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
       auto gridSize = localSize *  nWG * nThr;
-      ex.execute(prdRowMatVectOp, localSize , gridSize, localSize);
+      ex.execute(prdRowMatVectOp, localSize, gridSize, localSize);
     } else if (OPT == 16) {
   #ifdef VERBOSE
-      std::cout << "COLS_1" << std::endl;
+      std::cout << "COLS_16" << std::endl;
   #endif  // VERBOSE
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
   //    auto prdRowMatVectOp = make_prdRowMatVct(my_mA, my_vx);
@@ -336,7 +334,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 17) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
+      std::cout << "ROWS_17" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -345,7 +343,9 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
-      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+//      auto nWG = (M + (localSize*nBlq) - 1) / (localSize*nBlq);
+//      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto dimWGR = nWG;
       auto gridSize = localSize *  dimWGR * nBlq;
       auto gemvC = make_GemvC_1Row_MBlocks (mat1, my_mA, my_vx, nBlq);
       ex.execute(gemvC, localSize, gridSize);
@@ -369,7 +369,9 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
-      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+//      auto nWG = (M + (localSize*nBlq) - 1) / (localSize*nBlq);
+//      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto dimWGR = nWG;
       auto gridSize = localSize *  dimWGR * nBlq;
       auto gemvC = make_GemvC_1Row_MBlocks_ShMem (mat1, my_mA, my_vx, nBlq);
       ex.execute(gemvC, localSize, gridSize, localSize);

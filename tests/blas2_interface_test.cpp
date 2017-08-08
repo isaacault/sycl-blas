@@ -894,11 +894,11 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
     std::sort (v3_gmvR.begin()+1, v3_gmvR.end());
     std::sort (v4_gmvR.begin()+1, v4_gmvR.end());
-    std::cout << "m_gmvC , " << v1_gmvR[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v2_gmvR[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v3_gmvR[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v4_gmvR[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v5_gmvR[(NUMBER_REPEATS+1)/2].count()
+    std::cout << "m_gemvR , " << v1_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v3_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v4_gmvR[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v5_gmvR[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v1_gmvC.begin()+1, v1_gmvC.end());
     std::sort (v2_gmvC.begin()+1, v2_gmvC.end());
@@ -912,21 +912,21 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::sort (v10_gmvC.begin()+1, v10_gmvC.end());
     std::sort (v11_gmvC.begin()+1, v11_gmvC.end());
     std::sort (v12_gmvC.begin()+1, v12_gmvC.end());
-    std::cout << "m_gmvC , " << v1_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v2_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v3_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v4_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v5_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v6_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v7_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v8_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v9_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v10_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v11_gmvC[(NUMBER_REPEATS+1)/2].count()
-              << ", "        << v12_gmvC[(NUMBER_REPEATS+1)/2].count()
+    std::cout << "m_gemvC , " << v1_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v3_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v4_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v5_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v6_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v7_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v8_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v9_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v10_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v11_gmvC[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v12_gmvC[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v1_ger.begin()+1, v1_ger.end());
-    std::cout << "m_gmvC , " << v1_ger[(NUMBER_REPEATS+1)/2].count()
+    std::cout << "m_ger   , " << v1_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
 
 #endif
@@ -936,12 +936,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   for (int i=0; i<5; i++) {
     res = vR[i];
 #ifdef SHOW_VALUES
-    std::cout << "( " << i << ") ";
+    std::cout << "( " << i+((i>0)?10:1) << ") ";
     std::cout << "VALUES!! --> res = " << res << " , addX = " << addX
               << " , err = " << addX - res << std::endl;
 #endif  // VERBOSE
     if (std::abs((res - addX) / res) > ERROR_ALLOWED) {
-      std::cout << "( " << i << ") ";
+      std::cout << "( " << i+((i>0)?10:1) << ") ";
       std::cout << "ERROR!! --> res = " << res << " , addX = " << addX
                 << " , err = " << addX - res << std::endl;
       returnVal += 1;
@@ -952,12 +952,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   for (int i=0; i<12; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
-    std::cout << "( " << i << ") ";
+    std::cout << "( " << i+((i>2)?8:1) << ") ";
     std::cout << "VALUES!! --> res = " << res << " , addY = " << addY
               << " , err = " << addY - res << std::endl;
   #endif  // VERBOSE
     if (std::abs((res - addY) / res) > ERROR_ALLOWED) {
-      std::cout << "( " << i << ") ";
+      std::cout << "( " << i+((i>2)?8:1) << ") ";
       std::cout << "ERROR!! --> res = " << res << " , addY = " << addY
                 << " , err = " << addY - res << std::endl;
       returnVal += 2;
