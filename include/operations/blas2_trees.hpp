@@ -377,11 +377,11 @@ struct GemvR_MRow_NWG {
           (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
       shrMem[row*localSz+localid] = val;
     }
-#else
-    for (size_t row=0, id_row=blqidR*n_rows;
-          (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
-      ;
-    }
+//#else
+//    for (size_t row=0, id_row=blqidR*n_rows;
+//          (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
+//      ;
+//    }
 #endif
 //    if ((blqidR == 0) && (localid == 0)) printf ("num_rows = %lu\n", num_rows);
     if (interLoop == 1) {
@@ -400,13 +400,16 @@ struct GemvR_MRow_NWG {
         }
       }
 #else
-      for (size_t row=0, id_row=blqidR*n_rows; (row<num_rows); row++, id_row++) {
+//      for (size_t row=0, id_row=blqidR*n_rows; (row<num_rows); row++, id_row++) {
+      size_t id_row =blqidR*n_rows; 
+      for (size_t row=0; (row<num_rows); row++) {
         val = addOp2_struct::init(r2);
         for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),r2.eval(k));
           val = addOp2_struct::eval(val, prod);
         }
-        shrMem[row*localSz+localid] = val;
+        shrMem[row*localSz+localid] = val; 
+        id_row++;
       }
 #endif
     } else { // NOT VERIFIED
@@ -1051,6 +1054,7 @@ struct GemvC_1Row_MBlocks_ShMem {
     }
 */
     l.eval(rowid,idWFC) = val;
+//    l.eval(idWFC,rowid) = val;
     return val;
   }
 };
@@ -1113,17 +1117,23 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
 //    if (idWFR == 0)
 //      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
 //              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
-    for (size_t k=colid; k<std::min(dimC,colid+colSz); k+=rowSz) {
-      scratch[k-colid+localid] = r2.eval(k+localid);
+    for (size_t k=colid+localid; k<std::min(dimC,colid+colSz); k+=rowSz) {
+//    for (size_t j=colid+localid, k=localid; j<std::min(dimC,colid+colSz); j+=rowSz,k+=rowSz) {
+//      scratch[k+localid-colid] = r2.eval(k+localid);
+      scratch[k-colid] = r2.eval(k);
+//      scratch[k] = r2.eval(j);
     }
 
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     for (size_t k=colid; k<std::min(dimC,colid+colSz); k++) {
+//    for (size_t j=colid, k=0; k<std::min(dimC,colid+colSz); j++,k++) {
 //      auto prod = prdOp2_struct::eval(r1.eval(rowid,k),r2.eval(k));
+//      auto prod = prdOp2_struct::eval(r1.eval(rowid,j),scratch[k]);
       auto prod = prdOp2_struct::eval(r1.eval(rowid,k),scratch[k-colid]);
       val = addOp2_struct::eval(val, prod);
+//      val += r1.eval(rowid,k) * scratch[k-colid];
     }
 
 /*    scratch[localid] = val;

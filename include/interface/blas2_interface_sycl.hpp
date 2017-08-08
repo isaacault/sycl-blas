@@ -133,6 +133,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       ex.execute(assignOp, localSize);
     } else if (OPT == 13) {  // GEMV BY ROWS 1 ROW x nWG_col BLOCK
 #ifdef VERBOSE
+      std::cout << "ROWS_13" << "M = " << _M
+                << " N = " << _N << std::endl;
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
       std::cout << "ROWS_1" << "M = " << _M
                 << " N = " << _N << std::endl;
@@ -201,7 +203,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   #ifdef VERBOSE
       std::cout << "COLS_2" << std::endl;
   #endif  // VERBOSE
-      auto nThr = 8;
+//      auto nThr = 8;
+      auto nThr = 1;
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto prdRowMatVectOp =
           make_prdRowMatVctMult(my_vy, _alpha, my_mA, my_vx, scalOp1, nThr);
@@ -282,7 +285,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
       auto gridSize = localSize *  nWG;
-      ex.execute(prdRowMatVectOp, localSize , gridSize, N);
+//      ex.execute(prdRowMatVectOp, localSize , gridSize, N);
     } else if (OPT == 14) {
   #ifdef VERBOSE
       std::cout << "COLS_1" << std::endl;
@@ -336,7 +339,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       std::cout << "ROWS_3" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
-      size_t nBlq = 4;
+      size_t nBlq = 16;
       ContainerT valT1(nBlq * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
 
@@ -360,7 +363,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       std::cout << "ROWS_3" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
-      size_t nBlq = 4;
+      size_t nBlq = 16;
       ContainerT valT1(nBlq * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
 
@@ -384,7 +387,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       std::cout << "ROWS_3" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
-      size_t nBlq = 4;
+      size_t nBlq = 16;
       ContainerT valT1(nBlq * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nBlq);
 
