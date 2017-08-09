@@ -297,7 +297,8 @@ GemvR_1Row_NWG<interLoop, LHS, RHS1, RHS2>
 }
 
 /**** GEMV BY ROWS M ROWS x N BLOCK ****/
-// #define GROUP_ROWS 1 // Not useful for GEMV by rows
+#define GROUP_ROWS 1 // Not useful for GEMV by rows
+#define SHARED_ACCESS 1
 template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
 struct GemvR_MRow_NWG {
   LHS  l;
@@ -350,19 +351,31 @@ struct GemvR_MRow_NWG {
     size_t num_rows = 0;
     for (size_t row=0, id_row=blqidR*n_rows;
           (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
+  #ifdef SHARED_ACCESS
       shrMem[row*localSz+localid] = val;
+  #else
+      shrMem[row+n_rows*localid] = val;
+  #endif
     }
 #endif
     if (interLoop == 1) {
       size_t frs_thrd = blqidC * localSz + localid;
+//      if (localid == 0)
+//        printf("%lu -> %lu , %lu\n", glbalid, frs_thrd, blqidR);
+//      return 0.0;
 #ifdef GROUP_ROWS
       for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
         auto elm = r2.eval(k);
         for (size_t row=0, id_row=blqidR*n_rows;
               (row<n_rows); row++, id_row++) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),elm);
+  #ifdef SHARED_ACCESS
           shrMem[row*localSz+localid] =
                   addOp2_struct::eval(shrMem[row*localSz+localid], prod);
+  #else
+          shrMem[row+n_rows*localid] =
+                  addOp2_struct::eval(shrMem[row+n_rows*localid], prod);
+  #endif
         }
       }
 #else
@@ -373,8 +386,11 @@ struct GemvR_MRow_NWG {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),r2.eval(k));
           val = addOp2_struct::eval(val, prod);
         }
-//        shrMem[row*localSz+localid] = val;
-        shrMem[row+localSz*localid] = val;
+  #ifdef SHARED_ACCESS
+        shrMem[row*localSz+localid] = val;
+  #else
+        shrMem[row+n_rows*localid] = val;
+  #endif
         id_row++;
       }
 #endif
@@ -389,31 +405,41 @@ struct GemvR_MRow_NWG {
 
     // This barrier is mandatory to be sure the data is on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
-
+//    if (blqidR == 0)
+//      printf ("%lu -> (%f , %f , %f , %f)\n",
+//              glbalid, shrMem[localid], shrMem[localid+localSz],
+//              shrMem[localid+2*localSz], shrMem[localid+3*localSz]);
     // Reduction inside the block
     for (size_t offset = localSz >> 1; offset > 0; offset >>= 1) {
       if (localid < offset) {
         for (size_t row=0; row<n_rows; row++) {
-//          shrMem[row*localSz+localid] =
-//              addOp2_struct::eval(shrMem[row*localSz+localid],
-//                                  shrMem[row*localSz+localid+offset]);
-          shrMem[row+localSz*localid] =
-              addOp2_struct::eval(shrMem[row+localSz*localid],
-                                  shrMem[row+localSz*(localid+offset)]);
+#ifdef SHARED_ACCESS
+          shrMem[row*localSz+localid] =
+              addOp2_struct::eval(shrMem[row*localSz+localid],
+                                  shrMem[row*localSz+localid+offset]);
+#else
+          shrMem[row+n_rows*localid] =
+              addOp2_struct::eval(shrMem[row+n_rows*localid],
+                                  shrMem[row+n_rows*(localid+offset)]);
+#endif
         }
       }
       // This barrier is mandatory to be sure the data are on the shared memory
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
     }
     if (localid == 0) {
+//      if (blqidR == 0)
+//        printf ("%lu -> (%f , %f , %f , %f)\n",
+//                glbalid, shrMem[localid], shrMem[localid+localSz],
+//                shrMem[localid+2*localSz], shrMem[localid+3*localSz]);
       size_t id_row=blqidR*n_rows;
 //      for (size_t row=0, id_row=blqidR*n_rows;(row<n_rows); row++, id_row++) {
-//      printf ("%lu -> (%lu-%lu-%lu)\n", glbalid, id_row, blqidC, n_rows);
       for (size_t row=0; row<n_rows; row++) {
-//        l.eval(id_row,blqidC) = shrMem[row*localSz];
+#ifdef SHARED_ACCESS
+        l.eval(id_row,blqidC) = shrMem[row*localSz];
+#else
         l.eval(id_row,blqidC) = shrMem[row];
-//        if (id_row == (dimR-1)) printf ("%lu -> (%lu,%f)\n", id_row, blqidC, shrMem[row]);
-//        if (id_row == 0) printf ("%lu -> (%lu,%f)\n", id_row, blqidC, shrMem[row]);
+#endif
         id_row++;
       }
     }

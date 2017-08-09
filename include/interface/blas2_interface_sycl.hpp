@@ -165,8 +165,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 //      my_mA.printH("MA");
 //      my_vx.printH("VX");
 //      my_vy.printH("VY");
-      size_t nWG_col = 1;
-      size_t n_rows = 1;
+      size_t nWG_col = 4;
+      size_t n_rows = 4;
       size_t localSize = 256;
       ContainerT valT1(nWG_col * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
