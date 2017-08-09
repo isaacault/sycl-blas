@@ -165,8 +165,8 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 //      my_mA.printH("MA");
 //      my_vx.printH("VX");
 //      my_vy.printH("VY");
-      size_t nWG_col = 4;
-      size_t n_rows = 4;
+      size_t nWG_col = 1;
+      size_t n_rows = 1;
       size_t localSize = 256;
       ContainerT valT1(nWG_col * M);
       auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
@@ -283,7 +283,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
       auto gridSize = localSize *  nWG;
-      ex.execute(prdRowMatVectOp, localSize, gridSize, N);
+//      ex.execute(prdRowMatVectOp, localSize, gridSize, N);
     } else if (OPT == 14) {
   #ifdef VERBOSE
       std::cout << "COLS_14" << std::endl;
@@ -395,10 +395,11 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 
       auto localSize = 256;  // NOT FINAL VALUE
       auto nWG = (M + localSize - 1) / localSize;
-      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+//      auto dimWGR = (nWG + nBlq - 1) / nBlq;
+      auto dimWGR = nWG;
       auto gridSize = localSize *  dimWGR * nBlq;
       auto gemvC = make_GemvC_1Row_MBlocks_ShMem_Full (mat1, my_mA, my_vx, nBlq);
-      ex.execute(gemvC, localSize, gridSize, (M + nBlq - 1) / nBlq);
+      ex.execute(gemvC, localSize, gridSize, (N + nBlq - 1) / nBlq);
 //      mat1.printH("MAT1");
 
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);

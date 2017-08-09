@@ -333,6 +333,7 @@ struct GemvR_MRow_NWG {
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
     size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
     size_t glbalSz = ndItem.get_global_range(0);
 
     size_t dimR = r1.getSizeR();
@@ -345,8 +346,8 @@ struct GemvR_MRow_NWG {
     size_t vecS = r2.getSize();
 
     value_type val = addOp2_struct::init(r2);
-    size_t num_rows = 0;
 #ifdef GROUP_ROWS
+    size_t num_rows = 0;
     for (size_t row=0, id_row=blqidR*n_rows;
           (row<n_rows) && (id_row<dimR); row++, id_row++, num_rows++) {
       shrMem[row*localSz+localid] = val;
@@ -358,7 +359,7 @@ struct GemvR_MRow_NWG {
       for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
         auto elm = r2.eval(k);
         for (size_t row=0, id_row=blqidR*n_rows;
-              (row<num_rows); row++, id_row++) {
+              (row<n_rows); row++, id_row++) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),elm);
           shrMem[row*localSz+localid] =
                   addOp2_struct::eval(shrMem[row*localSz+localid], prod);
@@ -366,7 +367,7 @@ struct GemvR_MRow_NWG {
       }
 #else
       size_t id_row =blqidR*n_rows;
-      for (size_t row=0; (row<num_rows); row++) {
+      for (size_t row=0; (row<n_rows); row++) {
         val = addOp2_struct::init(r2);
         for (size_t k = frs_thrd; k < vecS; k += localSz*nWG_col) {
           auto prod = prdOp2_struct::eval(r1.eval(id_row,k),r2.eval(k));
@@ -392,7 +393,7 @@ struct GemvR_MRow_NWG {
     // Reduction inside the block
     for (size_t offset = localSz >> 1; offset > 0; offset >>= 1) {
       if (localid < offset) {
-        for (size_t row=0; row<num_rows; row++) {
+        for (size_t row=0; row<n_rows; row++) {
 //          shrMem[row*localSz+localid] =
 //              addOp2_struct::eval(shrMem[row*localSz+localid],
 //                                  shrMem[row*localSz+localid+offset]);
@@ -405,9 +406,15 @@ struct GemvR_MRow_NWG {
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
     }
     if (localid == 0) {
-      for (size_t row=0, id_row=blqidR*n_rows;(row<num_rows); row++, id_row++) {
+      size_t id_row=blqidR*n_rows;
+//      for (size_t row=0, id_row=blqidR*n_rows;(row<n_rows); row++, id_row++) {
+//      printf ("%lu -> (%lu-%lu-%lu)\n", glbalid, id_row, blqidC, n_rows);
+      for (size_t row=0; row<n_rows; row++) {
 //        l.eval(id_row,blqidC) = shrMem[row*localSz];
         l.eval(id_row,blqidC) = shrMem[row];
+//        if (id_row == (dimR-1)) printf ("%lu -> (%lu,%f)\n", id_row, blqidC, shrMem[row]);
+//        if (id_row == 0) printf ("%lu -> (%lu,%f)\n", id_row, blqidC, shrMem[row]);
+        id_row++;
       }
     }
 
@@ -908,9 +915,10 @@ struct GemvC_1Row_MBlocks {
         auto prod = prdOp2_struct::eval(r1.eval(rowid,k),r2.eval(k));
         val = addOp2_struct::eval(val, prod);
       }
+      l.eval(rowid,idWFC) = val;
     }
 
-    if (rowid < dimR) l.eval(rowid,idWFC) = val;
+//    if (rowid < dimR) l.eval(rowid,idWFC) = val;
     return val;
   }
 };
@@ -979,7 +987,8 @@ struct GemvC_1Row_MBlocks_ShMem {
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     for (size_t k=colid; k<std::min(colid+colSz,dimC); k+=rowSz) {
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
-      scratch[localid] = ((k+localid)<dimC)?r2.eval(k+localid):0.0;
+//      scratch[localid] = ((k+localid)<dimC)?r2.eval(k+localid):0.0;
+      scratch[localid] = r2.eval(k+localid);
       ndItem.barrier(cl::sycl::access::fence_space::local_space);
       if (rowid < dimR) {
         for (size_t j=k; j<std::min(k+rowSz,std::min(colid+colSz,dimC)); j++) {
@@ -1059,9 +1068,14 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
     for (size_t k=colid+localid; k<std::min(dimC,colid+colSz); k+=rowSz) {
 //    for (size_t j=colid+localid, k=localid; j<std::min(dimC,colid+colSz); j+=rowSz,k+=rowSz) {
 //      scratch[k+localid-colid] = r2.eval(k+localid);
-      scratch[k-colid] = (k<dimC)?r2.eval(k):0.0;
+//      scratch[k-colid] = (k<dimC)?r2.eval(k):0.0;
+      scratch[k-colid] = r2.eval(k);
 //      scratch[k] = r2.eval(j);
     }
+
+//    if (rowid == (dimR - 1))
+//      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
+//              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
 
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
@@ -1075,9 +1089,10 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
         val = addOp2_struct::eval(val, prod);
   //      val += r1.eval(rowid,k) * scratch[k-colid];
       }
+      l.eval(rowid,idWFC) = val;
     }
 
-    if (rowid < dimR) l.eval(rowid,idWFC) = val;
+//    if (rowid < dimR) l.eval(rowid,idWFC) = val;
     return val;
   }
 };

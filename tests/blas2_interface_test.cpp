@@ -15,7 +15,7 @@ using namespace blas;
 #define SHOW_VALUES   1
 
 #define EXECUTED_ON_GPU 1
-#define EXECUTING_FLOAT
+// #define EXECUTING_FLOAT
 
 #define SHOW_TIMES 1  // If it exists, the code prints the execution time
                       // The ... should be changed by the corresponding routine
