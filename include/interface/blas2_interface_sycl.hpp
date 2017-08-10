@@ -422,7 +422,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 
 /**** RANK 1 MODIFICATION ****/
 
-template <typename ExecutorType, typename T, typename ContainerT>
+template <unsigned int OPT, typename ExecutorType, typename T, typename ContainerT>
 void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
           vector_view<T, ContainerT> _vx, size_t _incx,
           vector_view<T, ContainerT> _vy, size_t _incy,
@@ -434,20 +434,69 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       matrix_view<T, ContainerT>(_mA, _M, _N, accessOpr, _lda, _mA.getDisp());
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, M);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, N);
+  if (my_mA.getAccess()) {  // ROWS ACCESS
+    if (OPT == 1) {
 #ifdef VERBOSE
-  std::cout << "alpha = " << _alpha << std::endl;
-  my_mA.printH("MA");
-  my_vx.printH("VX");
-  my_vy.printH("VY");
+      std::cout << "alpha = " << _alpha << std::endl;
+      my_mA.printH("MA");
+      my_vx.printH("VX");
+      my_vy.printH("VY");
 #endif
-  auto modifOp = make_modifRank1(my_mA, my_vx, my_vy);
-  auto scalOp = make_op<ScalarOp, prdOp2_struct>(_alpha, modifOp);
-  auto addOp = make_op<BinaryOp, addOp2_struct>(my_mA, scalOp);
-  auto assignOp = make_op<Assign>(my_mA, addOp);
-  ex.execute(assignOp);
+      auto modifOp = make_modifRank1(my_mA, my_vx, my_vy);
+      auto scalOp = make_op<ScalarOp, prdOp2_struct>(_alpha, modifOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(my_mA, scalOp);
+      auto assignOp = make_op<Assign>(my_mA, addOp);
+      ex.execute(assignOp);
 #ifdef VERBOSE
-  my_vy.printH("VY");
+      my_vy.printH("VY");
 #endif
+    } else if (OPT == 11) {
+      std::cout << "GER_ROW_11 = " << std::endl;
+#ifdef VERBOSE
+      std::cout << "alpha = " << _alpha << std::endl;
+      my_mA.printH("MA");
+      my_vx.printH("VX");
+      my_vy.printH("VY");
+#endif
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto assignOp = make_Ger_1Row_1WG(my_mA, _alpha, my_vx, my_vy);
+      ex.execute(assignOp, localSize, M);
+#ifdef VERBOSE
+      my_vy.printH("VY");
+#endif
+    }
+  } else { // COLUMN ACCESS
+    if (OPT == 1) {
+#ifdef VERBOSE
+      std::cout << "alpha = " << _alpha << std::endl;
+      my_mA.printH("MA");
+      my_vx.printH("VX");
+      my_vy.printH("VY");
+#endif
+      auto modifOp = make_modifRank1(my_mA, my_vx, my_vy);
+      auto scalOp = make_op<ScalarOp, prdOp2_struct>(_alpha, modifOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(my_mA, scalOp);
+      auto assignOp = make_op<Assign>(my_mA, addOp);
+      ex.execute(assignOp);
+#ifdef VERBOSE
+      my_vy.printH("VY");
+#endif
+    } else if (OPT == 11) {
+      std::cout << "GER_COL_11 = " << std::endl;
+    #ifdef VERBOSE
+      std::cout << "alpha = " << _alpha << std::endl;
+      my_mA.printH("MA");
+      my_vx.printH("VX");
+      my_vy.printH("VY");
+    #endif
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto assignOp = make_Ger_1Row_1WG(my_mA, _alpha, my_vx, my_vy);
+      ex.execute(assignOp, localSize, M*localSize);
+    #ifdef VERBOSE
+      my_vy.printH("VY");
+    #endif
+    }
+  }
 }
 
 }  // namespace blas

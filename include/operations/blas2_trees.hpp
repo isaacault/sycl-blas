@@ -1558,6 +1558,64 @@ ModifRank1<RHS1, RHS2, RHS3> make_modifRank1(RHS1 &r1, RHS2 &r2, RHS3 &r3) {
   return ModifRank1<RHS1, RHS2, RHS3>(r1, r2, r3);
 }
 
+template <class LHS, class RHS1, class RHS2>
+struct Ger_1Row_1WG {
+  LHS l;
+  RHS1 r1;
+  RHS2 r2;
+
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
+  Ger_1Row_1WG(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2)
+    : l(_l), scl(_scl), r1(_r1), r2(_r2) { };
+
+  value_type eval(size_t i) {
+    auto size = (l.getAccess()) ? l.getSizeC() : l.getSizeR();
+    auto row = (l.getAccess()) ? (i / size) : (i % size);
+    auto col = (l.getAccess()) ? (i % size) : (i / size);
+
+    auto val = r1.eval(row) * r2.eval(col);
+
+    return val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = l.getSizeR();
+    size_t dimC = l.getSizeC();
+
+    value_type val = scl * r1.eval(groupid);
+
+//    if (localid == 0)
+//      printf ("%lu -> %f = %f * %f , %f , %f\n",
+//          glbalid, val, scl, r1.eval(0), r2.eval(0), l.eval(groupid,0));
+    size_t frs_thrd = localid;
+    for (size_t k = frs_thrd; k < dimC; k += localSz) {
+//        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
+//        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
+      l.eval(groupid,k) += val * r2.eval(k);
+    }
+//    if (localid == 0)
+//      printf ("%lu ->  %f\n", glbalid, l.eval(groupid,0));
+
+    return val;
+  }
+
+  size_t getSize() { return r1.getSize(); }
+};
+
+template <class LHS, class RHS1, class RHS2>
+Ger_1Row_1WG<LHS, RHS1, RHS2> make_Ger_1Row_1WG(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2) {
+  return Ger_1Row_1WG<LHS, RHS1, RHS2>(l, scl, r1, r2);
+}
+
 }  // namespace blas
 
 #endif  // BLAS2_TREES_HPP

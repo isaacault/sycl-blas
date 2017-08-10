@@ -15,7 +15,7 @@ using namespace blas;
 #define SHOW_VALUES   1
 
 #define EXECUTED_ON_GPU 1
-#define EXECUTING_FLOAT
+// #define EXECUTING_FLOAT
 
 #define SHOW_TIMES 1  // If it exists, the code prints the execution time
                       // The ... should be changed by the corresponding routine
@@ -453,7 +453,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvS10(bS,9);
     BufferVectorView<BASETYPE> bvS11(bS,10);
     BufferVectorView<BASETYPE> bvS12(bS,11);
-    BufferVectorView<BASETYPE> bvT(bT);
+    BufferVectorView<BASETYPE> bvT1(bT,0);
+    BufferVectorView<BASETYPE> bvT2(bT,1);
 
     // EXECUTION OF THE ROUTINES
     for (int i = 0; i < NUMBER_REPEATS; i++) {
@@ -845,7 +846,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _ger<SYCL>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvY0, 1, bvX0, 1,
+      _ger<1, SYCL>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvY0, 1, bvX0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -859,10 +860,31 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_ger[i] = t_stop - t_start;
   #endif
-      auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
-      ex.reduce(reducOpV);
+      auto reducOpV_1 = make_addAssignReduction(bvT1, bvV0, 256, 256);
+      ex.reduce(reducOpV_1); q.wait_and_throw();
 
+      /*****************************************/
+      auto assign_M0_11 = make_op<Assign>(bmM0, bmM1);
+  ex.execute(assign_M0_11); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _ger<11, SYCL>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvY0, 1, bvX0, 1,
+                 bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_ger = t_stop - t_start;
+      } else if (i > 0) {
+        t2_ger += t_stop - t_start;
+      } else {
+        t2_ger = t_start - t_start;
+      }
+      v2_ger[i] = t_stop - t_start;
+  #endif
+      auto reducOpV_11 = make_addAssignReduction(bvT2, bvV0, 256, 256);
+      ex.reduce(reducOpV_11); q.wait_and_throw();
     }
   }
 
@@ -889,7 +911,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", " << t11_gmvC.count()/div
               << ", " << t12_gmvC.count()/div
               << std::endl;
-    std::cout << "t_ger   , " << t1_ger.count()/div << std::endl;
+    std::cout << "t_ger   , " << t1_ger.count()/div
+              <<  ", "        << t2_ger.count()/div << std::endl;
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
     std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
     std::sort (v3_gmvR.begin()+1, v3_gmvR.end());
@@ -927,6 +950,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << std::endl;
     std::sort (v1_ger.begin()+1, v1_ger.end());
     std::cout << "m_ger   , " << v1_ger[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
 
 #endif
@@ -965,15 +989,19 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
   std::cout << "GER ANALYSYS!!" << std::endl;
-  res = vT[0];
-#ifdef SHOW_VALUES
-  std::cout << "VALUES!! --> res = " << res << " , addRng1 = " << addRng1
-            << " , err = " << addRng1 - res << std::endl;
-#endif  // VERBOSE
-  if (std::abs((res - addRng1) / res) > ERROR_ALLOWED) {
-    std::cout << "ERROR!! --> res = " << res << " , addRng1 = " << addRng1
+  for (int i=0; i<2; i++) {
+    res = vT[i];
+  #ifdef SHOW_VALUES
+    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1 = " << addRng1
               << " , err = " << addRng1 - res << std::endl;
-    returnVal += 2;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i+((i>0)?10:1) << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1 = " << addRng1
+                << " , err = " << addRng1 - res << std::endl;
+      returnVal += 2;
+    }
   }
 
   return returnVal;
