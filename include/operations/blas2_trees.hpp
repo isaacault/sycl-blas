@@ -1653,10 +1653,10 @@ struct Ger_MRow_NWG {
     size_t dimC = l.getSizeC();
     size_t blqSz = (groupSz + nWG_col - 1) / nWG_col;  // number of "real" workgroups
 
-    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
-//    size_t blqidR = groupid % blqSz;  // row bloq id of the current workgroup
-    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
-//    size_t blqidC = groupid / blqSz;  // col blq id of the current workgroup
+//    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
+    size_t blqidR = groupid % blqSz;  // row bloq id of the current workgroup
+//    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
+    size_t blqidC = groupid / blqSz;  // col blq id of the current workgroup
 
 //    size_t frs_row = blqidR*n_rows+localid;
     size_t frs_row = blqidR*n_rows;

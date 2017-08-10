@@ -504,9 +504,10 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vy.printH("VY");
     #endif
       auto localSize = 256;  // NOT FINAL VALUE
-      auto n_rows = 256;
+//      auto n_rows = 4;
 //      auto nWG_col = 4;
-      auto nWG_col = (N + localSize - 1) / localSize;
+      auto n_rows = localSize;
+      auto nWG_col = (N + localSize - 1) / (localSize);
       auto nWG_row = (M + n_rows - 1) / n_rows;
       auto assignOp = make_Ger_MRow_NWG(my_mA, _alpha, my_vx, my_vy, n_rows, nWG_col);
 //      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, n_rows);
