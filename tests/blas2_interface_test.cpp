@@ -455,6 +455,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvS12(bS,11);
     BufferVectorView<BASETYPE> bvT1(bT,0);
     BufferVectorView<BASETYPE> bvT2(bT,1);
+    BufferVectorView<BASETYPE> bvT3(bT,2);
 
     // EXECUTION OF THE ROUTINES
     for (int i = 0; i < NUMBER_REPEATS; i++) {
@@ -885,6 +886,28 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpV_11 = make_addAssignReduction(bvT2, bvV0, 256, 256);
       ex.reduce(reducOpV_11); q.wait_and_throw();
+      /*****************************************/
+      auto assign_M0_12 = make_op<Assign>(bmM0, bmM1);
+  ex.execute(assign_M0_12); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _ger<12, SYCL>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvY0, 1, bvX0, 1,
+                 bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t3_ger = t_stop - t_start;
+      } else if (i > 0) {
+        t3_ger += t_stop - t_start;
+      } else {
+        t3_ger = t_start - t_start;
+      }
+      v3_ger[i] = t_stop - t_start;
+  #endif
+      auto reducOpV_12 = make_addAssignReduction(bvT3, bvV0, 256, 256);
+      ex.reduce(reducOpV_12); q.wait_and_throw();
     }
   }
 
@@ -912,11 +935,14 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", " << t12_gmvC.count()/div
               << std::endl;
     std::cout << "t_ger   , " << t1_ger.count()/div
-              <<  ", "        << t2_ger.count()/div << std::endl;
+              <<  ", "        << t2_ger.count()/div
+              <<  ", "        << t3_ger.count()/div
+              << std::endl;
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
     std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
     std::sort (v3_gmvR.begin()+1, v3_gmvR.end());
     std::sort (v4_gmvR.begin()+1, v4_gmvR.end());
+    std::sort (v5_gmvR.begin()+1, v5_gmvR.end());
     std::cout << "m_gemvR , " << v1_gmvR[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_gmvR[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v3_gmvR[(NUMBER_REPEATS+1)/2].count()
@@ -951,6 +977,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::sort (v1_ger.begin()+1, v1_ger.end());
     std::cout << "m_ger   , " << v1_ger[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_ger[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v3_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
 
 #endif
@@ -989,7 +1016,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
   std::cout << "GER ANALYSYS!!" << std::endl;
-  for (int i=0; i<2; i++) {
+  for (int i=0; i<3; i++) {
     res = vT[i];
   #ifdef SHOW_VALUES
     std::cout << "( " << i+((i>0)?10:1) << ") ";

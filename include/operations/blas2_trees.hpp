@@ -1616,6 +1616,86 @@ Ger_1Row_1WG<LHS, RHS1, RHS2> make_Ger_1Row_1WG(
   return Ger_1Row_1WG<LHS, RHS1, RHS2>(l, scl, r1, r2);
 }
 
+template <class LHS, class RHS1, class RHS2>
+struct Ger_MRow_NWG {
+  LHS l;
+  RHS1 r1;
+  RHS2 r2;
+  size_t n_rows;
+  size_t nWG_col;
+
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
+  Ger_MRow_NWG(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2, size_t &_n_rows, size_t &_nWG_col)
+    : l(_l), scl(_scl), r1(_r1), r2(_r2), n_rows(_n_rows), nWG_col(_nWG_col) { };
+
+  value_type eval(size_t i) {
+    auto size = (l.getAccess()) ? l.getSizeC() : l.getSizeR();
+    auto row = (l.getAccess()) ? (i / size) : (i % size);
+    auto col = (l.getAccess()) ? (i % size) : (i / size);
+
+    auto val = r1.eval(row) * r2.eval(col);
+
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT shrMem, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+    // size_t glbalSz = ndItem.get_global_range(0);
+
+    size_t dimR = l.getSizeR();
+    size_t dimC = l.getSizeC();
+    size_t blqSz = (groupSz + nWG_col - 1) / nWG_col;  // number of "real" workgroups
+
+    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
+//    size_t blqidR = groupid % blqSz;  // row bloq id of the current workgroup
+    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
+//    size_t blqidC = groupid / blqSz;  // col blq id of the current workgroup
+
+//    size_t frs_row = blqidR*n_rows+localid;
+    size_t frs_row = blqidR*n_rows;
+
+//    for (size_t row=0; (row<n_rows); row+=localSz) {
+    for (size_t row=localid; (row<n_rows); row+=localSz) {
+      shrMem[row] = scl * r1.eval(frs_row+row);
+    }
+
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    size_t frs_thrd = blqidC * blqSz * localSz + localid;
+    for (size_t row=0; row<n_rows; row++) {
+//      if (localid == dimC-1)
+//        printf ("%lu -> (%lu,%lu) , %f = %f * %f , %f , %f\n",
+//              glbalid, frs_row, frs_thrd, shrMem[row], scl, r1.eval(frs_row), r2.eval(frs_thrd), l.eval(groupid,frs_thrd));
+      size_t id_row = frs_row+row;
+      for (size_t k = frs_thrd; k < dimC; k += localSz) {
+  //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
+  //        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
+        l.eval(id_row,k) += shrMem[row] * r2.eval(k);
+      }
+//      if (localid == dimC-1)
+//        printf ("%lu ->  %f\n", glbalid, l.eval(groupid,frs_thrd));
+    }
+
+    return shrMem[0];
+  }
+
+  size_t getSize() { return r1.getSize(); }
+};
+
+template <class LHS, class RHS1, class RHS2>
+Ger_MRow_NWG<LHS, RHS1, RHS2> make_Ger_MRow_NWG(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, size_t n_rows, size_t nWG_col) {
+  return Ger_MRow_NWG<LHS, RHS1, RHS2>(l, scl, r1, r2, n_rows, nWG_col);
+}
+
 }  // namespace blas
 
 #endif  // BLAS2_TREES_HPP
