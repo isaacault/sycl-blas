@@ -1651,37 +1651,46 @@ struct Ger_MRow_NWG {
 
     size_t dimR = l.getSizeR();
     size_t dimC = l.getSizeC();
-    size_t blqSz = (groupSz + nWG_col - 1) / nWG_col;  // number of "real" workgroups
+
+    size_t nWG_row = (groupSz + nWG_col - 1) / nWG_col;  // number of "row" workgroups
+    size_t blqidR  = groupid % nWG_row;  // row bloq id of the current workgroup
+    size_t blqidC  = groupid / nWG_row;  // col blq id of the current workgroup
+
+    size_t dimWFC = (dimC + (localSz*nWG_col) - 1) / (localSz*nWG_col) * localSz;
 
 //    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
-    size_t blqidR = groupid % blqSz;  // row bloq id of the current workgroup
 //    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
-    size_t blqidC = groupid / blqSz;  // col blq id of the current workgroup
 
 //    size_t frs_row = blqidR*n_rows+localid;
     size_t frs_row = blqidR*n_rows;
 
 //    for (size_t row=0; (row<n_rows); row+=localSz) {
     for (size_t row=localid; (row<n_rows); row+=localSz) {
-      shrMem[row] = scl * r1.eval(frs_row+row);
+//      shrMem[row] = scl * r1.eval(frs_row+row);
+      shrMem[row] = ((frs_row+row)<dimR)?(scl*r1.eval(frs_row+row)):0.0;
     }
 
     // This barrier is mandatory to be sure the data is on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
-    size_t frs_thrd = blqidC * blqSz * localSz + localid;
+//    size_t frs_thrd = blqidC * nWG_row * localSz + localid;
+//    size_t frs_thrd = blqidC * localSz + localid;
+    size_t frs_thrd = blqidC * dimWFC + localid;
+    size_t lst_thrd = std::min(dimC,frs_thrd + dimWFC);
     for (size_t row=0; row<n_rows; row++) {
-//      if (localid == dimC-1)
-//        printf ("%lu -> (%lu,%lu) , %f = %f * %f , %f , %f\n",
-//              glbalid, frs_row, frs_thrd, shrMem[row], scl, r1.eval(frs_row), r2.eval(frs_thrd), l.eval(groupid,frs_thrd));
+//      if (localid == 0)
+//        printf ("%lu -> (%lu,%lu,%lu) , %f = %f * %f , %f , %f\n",
+//              glbalid, frs_row, frs_thrd, lst_thrd, shrMem[row], scl, r1.eval(frs_row), r2.eval(frs_thrd), l.eval(groupid,frs_thrd));
       size_t id_row = frs_row+row;
-      for (size_t k = frs_thrd; k < dimC; k += localSz) {
-  //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
-  //        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
-        l.eval(id_row,k) += shrMem[row] * r2.eval(k);
-      }
+      if (id_row < dimR) {
+        for (size_t k = frs_thrd; k < lst_thrd; k += localSz) {
+    //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
+    //        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
+          l.eval(id_row,k) += shrMem[row] * r2.eval(k);
+        }
 //      if (localid == dimC-1)
 //        printf ("%lu ->  %f\n", glbalid, l.eval(groupid,frs_thrd));
+      }
     }
 
     return shrMem[0];
