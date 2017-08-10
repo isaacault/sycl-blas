@@ -1078,19 +1078,21 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
     size_t localSz = ndItem.get_local_range(0);
     size_t groupid = ndItem.get_group(0);
     size_t groupSz = ndItem.get_num_groups(0);
-    size_t glbalid = ndItem.get_global(0);
+//    size_t glbalid = ndItem.get_global(0);
 
     size_t dimR = r1.getSizeR();
     size_t dimC = r1.getSizeC();
 
-    size_t rowSz = localSz;
+    size_t rowSz = (dimR < localSz)? dimR: localSz;
     size_t colSz = (dimC    + nBlq - 1) / nBlq;
 
 //    size_t idWFR = localid;
     size_t dimWF = (groupSz + nBlq - 1) / nBlq;
 //    size_t idWFR = (groupid + dimWF - 1) / dimWF;
-    size_t idWFR = (groupid / nBlq);
-    size_t idWFC = (groupid % nBlq);
+//    size_t idWFR = (groupid / nBlq);
+//    size_t idWFC = (groupid % nBlq);
+    size_t idWFR = (groupid % dimWF);
+    size_t idWFC = (groupid / dimWF);
 
 //    size_t rowid = (idWFR * rowSz) + idWFR;
     size_t rowid = (idWFR * rowSz) + localid;
@@ -1099,12 +1101,17 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
 //    if (idWFR == 0)
 //      printf ("%lu -> (%lu,%lu) - (%lu,%lu) - (%lu,%lu)\n",
 //              glbalid, groupid, localid, rowSz, colSz, rowid, colid);
-    for (size_t k=colid+localid, j=localid; k<std::min(dimC,colid+colSz); k+=rowSz, j+=rowSz) {
+    size_t j;
+//    for (size_t k=colid+localid, j=localid; k<std::min(dimC,colid+colSz); k+=rowSz, j+=rowSz) {
+    j = localid;
+//    for (size_t k=colid+localid; k<std::min(dimC,colid+colSz); k+=rowSz) {
+    for (size_t k=colid+localid; k<std::min(colid+colSz,dimC); k+=rowSz) {
 //    for (size_t j=colid+localid, k=localid; j<std::min(dimC,colid+colSz); j+=rowSz,k+=rowSz) {
 //      scratch[k+localid-colid] = r2.eval(k+localid);
 //      scratch[k-colid] = (k<dimC)?r2.eval(k):0.0;
 //      scratch[k-colid] = r2.eval(k);
       scratch[j] = r2.eval(k);
+      j+=rowSz;
 //      scratch[k] = r2.eval(j);
     }
 
@@ -1116,14 +1123,17 @@ struct GemvC_1Row_MBlocks_ShMem_Full {
 
     auto val = iniAddOp1_struct::eval(r2.eval(0));
     if (rowid < dimR) {
-      for (size_t k=colid, j=0; k<std::min(dimC,colid+colSz); k++, j++) {
+      j = 0;
+      for (size_t k=colid; k<std::min(colid+colSz,dimC); k++) {
+//      for (size_t k=colid, j=0; k<std::min(dimC,colid+colSz); k++, j++) {
   //    for (size_t j=colid, k=0; k<std::min(dimC,colid+colSz); j++,k++) {
   //      auto prod = prdOp2_struct::eval(r1.eval(rowid,k),r2.eval(k));
   //      auto prod = prdOp2_struct::eval(r1.eval(rowid,j),scratch[k]);
   //      auto prod = prdOp2_struct::eval(r1.eval(rowid,k),scratch[k-colid]);
   //      val = addOp2_struct::eval(val, prod);
 //        val += r1.eval(rowid,k) * scratch[k-colid];
-        val += r1.eval(rowid,k) * scratch[j];
+//        val += r1.eval(rowid,k) * scratch[j];
+        val += r1.eval(rowid,k) * scratch[j++];
       }
       l.eval(rowid,idWFC) = val;
     }

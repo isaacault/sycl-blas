@@ -360,7 +360,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 18) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
+      std::cout << "ROWS_18" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -386,7 +386,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 19) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_3" << "M = " << _M
+      std::cout << "ROWS_19" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -401,13 +401,18 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto gemvC = make_GemvC_1Row_MBlocks_ShMem_Full (mat1, my_mA, my_vx, nBlq);
       ex.execute(gemvC, localSize, gridSize, (N + nBlq - 1) / nBlq);
 //      mat1.printH("MAT1");
-
+/**/
       auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
       auto addMOp = make_addSetColumns(mat1);
       auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
       auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
       auto assignOp = make_op<Assign>(my_vy, addOp);
       ex.execute(assignOp, localSize);
+/*
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addProdOp = make_addPrdRowMatVctMultShm(my_vy, _alpha, mat1, scalOp1);
+      ex.execute(addProdOp, localSize);
+*/
     }
   }
 #ifdef VERBOSE
