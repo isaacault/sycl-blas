@@ -522,6 +522,7 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vy.printH("VY");
     #endif
     } else if (OPT == 12) {
+      std::cout << "GER_COL_12 = " << std::endl;
     #ifdef VERBOSE
       std::cout << "GER_COL_12 = " << std::endl;
       std::cout << "alpha = " << _alpha << std::endl;
@@ -530,8 +531,8 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vy.printH("VY");
     #endif
       auto localSize = 64;  // NOT FINAL VALUE
-      auto n_rows_WG = 1;
-//      auto n_rows_WG = localSize;
+//      auto n_rows_WG = 1;
+      auto n_rows_WG = localSize;
       auto n_cols_WG = localSize;
 //      auto n_cols_WG = N;
       auto nWG_col = (N + n_cols_WG - 1) / n_cols_WG;
@@ -540,9 +541,9 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
 //                << " , nWG_row = " << nWG_row
 //                << " , nWG_col = " << nWG_col
 //                << std::endl;
-      auto assignOp = make_Ger_MRow_NWG(my_mA, _alpha, my_vx, my_vy, n_rows_WG, nWG_col);
+      auto assignOp = make_Ger_1Row_NWG_ShMem(my_mA, _alpha, my_vx, my_vy, n_cols_WG, nWG_row);
 //      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, n_rows_WG);
-      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
+      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_cols_WG));
     #ifdef VERBOSE
       my_vy.printH("VY");
     #endif

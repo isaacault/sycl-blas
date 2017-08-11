@@ -413,6 +413,26 @@ struct Evaluate<Ger_1Row_1Thread<LHS, RHS1, RHS2>> {
  }
 };
 
+/*! Evaluate<Ger_MRow_NWG>
+ * @brief See Evaluate.
+ */
+template <typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<Ger_1Row_NWG_ShMem<LHS, RHS1, RHS2>> {
+  using lhs_type  = typename Evaluate<LHS>::type;
+  using value_type = typename LHS::value_type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using input_type = Ger_1Row_NWG_ShMem<LHS, RHS1, RHS2>;
+  using type = Ger_1Row_NWG_ShMem<lhs_type, rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs  = Evaluate<LHS>::convert_to(v.l , h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(lhs, v.scl, rhs1, rhs2, v.n_cols, v.nWG_row);
+  }
+};
+
 /**********************************************************************/
 /************************** OLD VERSIONS ******************************/
 /**********************************************************************/

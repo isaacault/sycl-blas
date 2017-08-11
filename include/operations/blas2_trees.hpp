@@ -1769,14 +1769,14 @@ struct Ger_1Row_NWG_ShMem {
   LHS l;
   RHS1 r1;
   RHS2 r2;
-  size_t n_rows;
-  size_t nWG_col;
+  size_t n_cols;
+  size_t nWG_row;
 
   using value_type = typename RHS2::value_type;
   value_type scl;
 
-  Ger_1Row_NWG_ShMem(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2, size_t &_n_rows, size_t &_nWG_col)
-    : l(_l), scl(_scl), r1(_r1), r2(_r2), n_rows(_n_rows), nWG_col(_nWG_col) { };
+  Ger_1Row_NWG_ShMem(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2, size_t &_n_cols, size_t &_nWG_row)
+    : l(_l), scl(_scl), r1(_r1), r2(_r2), n_cols(_n_cols), nWG_row(_nWG_row) { };
 
   value_type eval(size_t i) {
     auto size = (l.getAccess()) ? l.getSizeC() : l.getSizeR();
@@ -1800,41 +1800,39 @@ struct Ger_1Row_NWG_ShMem {
     size_t dimR = l.getSizeR();
     size_t dimC = l.getSizeC();
 
-    size_t nWG_row = (groupSz + nWG_col - 1) / nWG_col;  // number of "row" workgroups
+    size_t nWG_col = (groupSz + nWG_row - 1) / nWG_row;  // number of "col" workgroups
     size_t blqidR  = groupid % nWG_row;  // row bloq id of the current workgroup
     size_t blqidC  = groupid / nWG_row;  // col blq id of the current workgroup
 
-    size_t dimWFC = (dimC + (localSz*nWG_col) - 1) / (localSz*nWG_col) * localSz;
+    size_t dimWFR = (dimR + (localSz*nWG_row) - 1) / (localSz*nWG_row) * localSz;
 
 //    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
 //    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
 
-    size_t frs_row = blqidR*n_rows;
+    size_t frs_col = blqidC*n_cols;
 
-    for (size_t row=localid; (row<n_rows); row+=localSz) {
-      shrMem[row] = scl * r1.eval(frs_row+row);
+    for (size_t col=localid; (col<n_cols); col+=localSz) {
+      shrMem[col] = scl * r2.eval(frs_col+col);
 //      shrMem[row] = ((frs_row+row)<dimR)?(scl*r1.eval(frs_row+row)):0.0;
     }
 
     // This barrier is mandatory to be sure the data is on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
-    size_t frs_thrd = blqidC * dimWFC + localid;
-    size_t lst_thrd = std::min(dimC,frs_thrd + dimWFC);
-    for (size_t row=0; row<n_rows; row++) {
+    size_t frs_row = blqidR * dimWFR + localid;
+    size_t lst_row = std::min(dimR,frs_row + dimWFR);
+    for (size_t k = frs_row; k < lst_row; k += localSz) {
+      auto val = r1.eval(k);
+      for (size_t id_col=frs_col, col=0; id_col<std::min(dimC,frs_col+n_cols); id_col++, col++) {
 //      if (localid == 0)
 //        printf ("%lu -> (%lu,%lu,%lu) , %f = %f * %f , %f , %f\n",
 //              glbalid, frs_row, frs_thrd, lst_thrd, shrMem[row], scl, r1.eval(frs_row), r2.eval(frs_thrd), l.eval(groupid,frs_thrd));
-      size_t id_row = frs_row+row;
-      if (id_row < dimR) {
-        for (size_t k = frs_thrd; k < lst_thrd; k += localSz) {
     //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
     //        l.eval(id_row,k) = addOp2_struct::eval(l.eval(id_row,k), prod);
-          l.eval(id_row,k) += shrMem[row] * r2.eval(k);
-        }
+        l.eval(k,id_col) += val * shrMem[col];
+      }
 //      if (localid == dimC-1)
 //        printf ("%lu ->  %f\n", glbalid, l.eval(groupid,frs_thrd));
-      }
     }
 
     return shrMem[0];
