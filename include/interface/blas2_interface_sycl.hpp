@@ -464,6 +464,31 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
 #ifdef VERBOSE
       my_vy.printH("VY");
 #endif
+} else if (OPT == 12) {
+#ifdef VERBOSE
+      std::cout << "GER_COL_12 = " << std::endl;
+      std::cout << "alpha = " << _alpha << std::endl;
+      my_mA.printH("MA");
+      my_vx.printH("VX");
+      my_vy.printH("VY");
+#endif
+      auto localSize = 64;  // NOT FINAL VALUE
+      auto n_rows_WG = 1;
+    //      auto n_rows_WG = localSize;
+      auto n_cols_WG = localSize;
+    //      auto n_cols_WG = N;
+      auto nWG_col = (N + n_cols_WG - 1) / n_cols_WG;
+      auto nWG_row = (M + n_rows_WG - 1) / n_rows_WG;
+//      std::cout << "n_rows_WG = " << n_rows_WG
+//                << " , nWG_row = " << nWG_row
+//                << " , nWG_col = " << nWG_col
+//                << std::endl;
+      auto assignOp = make_Ger_MRow_NWG(my_mA, _alpha, my_vx, my_vy, n_rows_WG, nWG_col);
+//      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, n_rows_WG);
+      ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
+#ifdef VERBOSE
+      my_vy.printH("VY");
+#endif
     }
   } else { // COLUMN ACCESS
     if (OPT == 1) {
@@ -491,7 +516,7 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vy.printH("VY");
     #endif
       auto localSize = 256;  // NOT FINAL VALUE
-      auto assignOp = make_Ger_1Row_1WG(my_mA, _alpha, my_vx, my_vy);
+      auto assignOp = make_Ger_1Row_1Thread(my_mA, _alpha, my_vx, my_vy);
       ex.execute(assignOp, localSize, M*localSize);
     #ifdef VERBOSE
       my_vy.printH("VY");

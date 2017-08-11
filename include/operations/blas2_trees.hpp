@@ -1673,6 +1673,154 @@ struct Ger_MRow_NWG {
 
     size_t frs_thrd = blqidC * dimWFC + localid;
     size_t lst_thrd = std::min(dimC,frs_thrd + dimWFC);
+    for (size_t k = frs_thrd; k < lst_thrd; k += localSz) {
+      auto val = r2.eval(k);
+//      for (size_t row=0; row<n_rows; row++) {
+      for (size_t id_row=frs_row, row=0; id_row<std::min(dimR,frs_row+n_rows); id_row++, row++) {
+//      if (localid == 0)
+//        printf ("%lu -> (%lu,%lu,%lu) , %f = %f * %f , %f , %f\n",
+//              glbalid, frs_row, frs_thrd, lst_thrd, shrMem[row], scl, r1.eval(frs_row), r2.eval(frs_thrd), l.eval(groupid,frs_thrd));
+//        size_t id_row = frs_row+row;
+//        if (id_row < dimR) {
+    //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
+    //        l.eval(id_row,k) = addOp2_struct::eval(l.eval(id_row,k), prod);
+          l.eval(id_row,k) += shrMem[row] * val;
+//        }
+//      if (localid == dimC-1)
+//        printf ("%lu ->  %f\n", glbalid, l.eval(groupid,frs_thrd));
+      }
+    }
+
+    return shrMem[0];
+  }
+
+  size_t getSize() { return r1.getSize(); }
+};
+
+template <class LHS, class RHS1, class RHS2>
+Ger_MRow_NWG<LHS, RHS1, RHS2> make_Ger_MRow_NWG(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, size_t n_rows, size_t nWG_col) {
+  return Ger_MRow_NWG<LHS, RHS1, RHS2>(l, scl, r1, r2, n_rows, nWG_col);
+}
+
+template <class LHS, class RHS1, class RHS2>
+struct Ger_1Row_1Thread {
+  LHS l;
+  RHS1 r1;
+  RHS2 r2;
+
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
+  Ger_1Row_1Thread(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2)
+    : l(_l), scl(_scl), r1(_r1), r2(_r2) { };
+
+  value_type eval(size_t i) {
+    auto size = (l.getAccess()) ? l.getSizeC() : l.getSizeR();
+    auto row = (l.getAccess()) ? (i / size) : (i % size);
+    auto col = (l.getAccess()) ? (i % size) : (i / size);
+
+    auto val = r1.eval(row) * r2.eval(col);
+
+    return val;
+  }
+
+  value_type eval(cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = l.getSizeR();
+    size_t dimC = l.getSizeC();
+
+    size_t row_id = groupid*localSz+localid;
+
+    value_type val = scl * r1.eval(row_id);
+
+//    if (localid == 0)
+//      printf ("%lu -> %f = %f * %f , %f , %f\n",
+//          glbalid, val, scl, r1.eval(0), r2.eval(0), l.eval(groupid,0));
+    if (row_id < dimR) {
+      for (size_t k = 0; k < dimC; k ++) {
+  //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
+  //        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
+        l.eval(row_id,k) += val * r2.eval(k);
+      }
+    }
+//    if (localid == 0)
+//      printf ("%lu ->  %f\n", glbalid, l.eval(groupid,0));
+
+    return val;
+  }
+
+  size_t getSize() { return r1.getSize(); }
+};
+
+template <class LHS, class RHS1, class RHS2>
+Ger_1Row_1Thread<LHS, RHS1, RHS2> make_Ger_1Row_1Thread(
+    LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2) {
+  return Ger_1Row_1Thread<LHS, RHS1, RHS2>(l, scl, r1, r2);
+}
+
+template <class LHS, class RHS1, class RHS2>
+struct Ger_1Row_NWG_ShMem {
+  LHS l;
+  RHS1 r1;
+  RHS2 r2;
+  size_t n_rows;
+  size_t nWG_col;
+
+  using value_type = typename RHS2::value_type;
+  value_type scl;
+
+  Ger_1Row_NWG_ShMem(LHS &_l, value_type _scl, RHS1 &_r1, RHS2 &_r2, size_t &_n_rows, size_t &_nWG_col)
+    : l(_l), scl(_scl), r1(_r1), r2(_r2), n_rows(_n_rows), nWG_col(_nWG_col) { };
+
+  value_type eval(size_t i) {
+    auto size = (l.getAccess()) ? l.getSizeC() : l.getSizeR();
+    auto row = (l.getAccess()) ? (i / size) : (i % size);
+    auto col = (l.getAccess()) ? (i % size) : (i / size);
+
+    auto val = r1.eval(row) * r2.eval(col);
+
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT shrMem, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+    // size_t glbalSz = ndItem.get_global_range(0);
+
+    size_t dimR = l.getSizeR();
+    size_t dimC = l.getSizeC();
+
+    size_t nWG_row = (groupSz + nWG_col - 1) / nWG_col;  // number of "row" workgroups
+    size_t blqidR  = groupid % nWG_row;  // row bloq id of the current workgroup
+    size_t blqidC  = groupid / nWG_row;  // col blq id of the current workgroup
+
+    size_t dimWFC = (dimC + (localSz*nWG_col) - 1) / (localSz*nWG_col) * localSz;
+
+//    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
+//    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
+
+    size_t frs_row = blqidR*n_rows;
+
+    for (size_t row=localid; (row<n_rows); row+=localSz) {
+      shrMem[row] = scl * r1.eval(frs_row+row);
+//      shrMem[row] = ((frs_row+row)<dimR)?(scl*r1.eval(frs_row+row)):0.0;
+    }
+
+    // This barrier is mandatory to be sure the data is on the shared memory
+    ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+    size_t frs_thrd = blqidC * dimWFC + localid;
+    size_t lst_thrd = std::min(dimC,frs_thrd + dimWFC);
     for (size_t row=0; row<n_rows; row++) {
 //      if (localid == 0)
 //        printf ("%lu -> (%lu,%lu,%lu) , %f = %f * %f , %f , %f\n",
@@ -1696,9 +1844,9 @@ struct Ger_MRow_NWG {
 };
 
 template <class LHS, class RHS1, class RHS2>
-Ger_MRow_NWG<LHS, RHS1, RHS2> make_Ger_MRow_NWG(
+Ger_1Row_NWG_ShMem<LHS, RHS1, RHS2> make_Ger_1Row_NWG_ShMem(
     LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, size_t n_rows, size_t nWG_col) {
-  return Ger_MRow_NWG<LHS, RHS1, RHS2>(l, scl, r1, r2, n_rows, nWG_col);
+  return Ger_1Row_NWG_ShMem<LHS, RHS1, RHS2>(l, scl, r1, r2, n_rows, nWG_col);
 }
 
 }  // namespace blas
