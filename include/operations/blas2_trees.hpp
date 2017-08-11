@@ -1661,20 +1661,16 @@ struct Ger_MRow_NWG {
 //    size_t blqidR = groupid / nWG_col;  // row bloq id of the current workgroup
 //    size_t blqidC = groupid % nWG_col;  // col blq id of the current workgroup
 
-//    size_t frs_row = blqidR*n_rows+localid;
     size_t frs_row = blqidR*n_rows;
 
-//    for (size_t row=0; (row<n_rows); row+=localSz) {
     for (size_t row=localid; (row<n_rows); row+=localSz) {
-//      shrMem[row] = scl * r1.eval(frs_row+row);
-      shrMem[row] = ((frs_row+row)<dimR)?(scl*r1.eval(frs_row+row)):0.0;
+      shrMem[row] = scl * r1.eval(frs_row+row);
+//      shrMem[row] = ((frs_row+row)<dimR)?(scl*r1.eval(frs_row+row)):0.0;
     }
 
     // This barrier is mandatory to be sure the data is on the shared memory
     ndItem.barrier(cl::sycl::access::fence_space::local_space);
 
-//    size_t frs_thrd = blqidC * nWG_row * localSz + localid;
-//    size_t frs_thrd = blqidC * localSz + localid;
     size_t frs_thrd = blqidC * dimWFC + localid;
     size_t lst_thrd = std::min(dimC,frs_thrd + dimWFC);
     for (size_t row=0; row<n_rows; row++) {
@@ -1685,7 +1681,7 @@ struct Ger_MRow_NWG {
       if (id_row < dimR) {
         for (size_t k = frs_thrd; k < lst_thrd; k += localSz) {
     //        auto prod = prdOp2_struct::eval(scl,r2.eval(k));
-    //        l.eval(groupid,k) = addOp2_struct::eval(l.eval(groupid,k), prod);
+    //        l.eval(id_row,k) = addOp2_struct::eval(l.eval(id_row,k), prod);
           l.eval(id_row,k) += shrMem[row] * r2.eval(k);
         }
 //      if (localid == dimC-1)

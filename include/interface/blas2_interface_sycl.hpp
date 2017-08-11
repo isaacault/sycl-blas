@@ -477,7 +477,8 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       auto scalOp = make_op<ScalarOp, prdOp2_struct>(_alpha, modifOp);
       auto addOp = make_op<BinaryOp, addOp2_struct>(my_mA, scalOp);
       auto assignOp = make_op<Assign>(my_mA, addOp);
-      ex.execute(assignOp);
+//      ex.execute(assignOp);
+      ex.execute(assignOp, 256);
 #ifdef VERBOSE
       my_vy.printH("VY");
 #endif
@@ -503,11 +504,11 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vx.printH("VX");
       my_vy.printH("VY");
     #endif
-      auto localSize = 256;  // NOT FINAL VALUE
-//      auto n_rows = 4;
-//      auto nWG_col = 4;
-      auto n_rows_WG = localSize;
+      auto localSize = 64;  // NOT FINAL VALUE
+      auto n_rows_WG = 1;
+//      auto n_rows_WG = localSize;
       auto n_cols_WG = localSize;
+//      auto n_cols_WG = N;
       auto nWG_col = (N + n_cols_WG - 1) / n_cols_WG;
       auto nWG_row = (M + n_rows_WG - 1) / n_rows_WG;
 //      std::cout << "n_rows_WG = " << n_rows_WG
