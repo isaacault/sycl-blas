@@ -43,7 +43,7 @@ namespace blas {
 template <typename Tree>
 struct Evaluate;
 
-/**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
+/**** ADD A SET OF COLUMNS, 1 ROW PER THREAD ****/
 /*! Evaluate<AddSetColumns>.
  * @brief See Evaluate.
  */
@@ -58,6 +58,28 @@ struct Evaluate<AddSetColumns<RHS>> {
    auto rhs = Evaluate<RHS>::convert_to(v.r, h);
    return type(rhs);
  }
+};
+
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS USING SHARED MEMORY MINIMIZING SYNCHRONIZATION ****/
+/*! Evaluate<Gemv_Col>.
+* @brief See Evaluate.
+*/
+template <typename LHS, typename RHS1, typename RHS2>
+struct Evaluate<Gemv_Col<LHS, RHS1, RHS2>> {
+  using value_type = typename RHS2::value_type;
+  using lhs_type = typename Evaluate<LHS>::type;
+  using rhs1_type = typename Evaluate<RHS1>::type;
+  using rhs2_type = typename Evaluate<RHS2>::type;
+  using cont_type = typename Evaluate<LHS>::cont_type;
+  using input_type = Gemv_Col<LHS, RHS1, RHS2>;
+  using type = Gemv_Col<lhs_type, rhs1_type, rhs2_type>;
+
+  static type convert_to(input_type v, cl::sycl::handler &h) {
+    auto lhs = Evaluate<LHS>::convert_to(v.l, h);
+    auto rhs1 = Evaluate<RHS1>::convert_to(v.r1, h);
+    auto rhs2 = Evaluate<RHS2>::convert_to(v.r2, h);
+    return type(lhs, rhs1, rhs2, v.nWG_row, v.nWG_col, v.shrMemSize);
+  }
 };
 
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
@@ -81,6 +103,10 @@ struct Evaluate<GemvR_1Row_1WG<interLoop, LHS, RHS1, RHS2>> {
    return type(lhs, rhs1, rhs2);
  }
 };
+
+/**********************************************************************/
+/************************* TEST VERSIONS ******************************/
+/**********************************************************************/
 
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK, WITHOUT LOCAL ADDITION ****/
 /*! Evaluate<GemvR_1Row_1WG_NoRed>.

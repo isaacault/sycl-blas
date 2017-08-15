@@ -334,7 +334,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 17) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_17" << "M = " << _M
+      std::cout << "COLS_17" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -360,7 +360,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 18) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_18" << "M = " << _M
+      std::cout << "COLS_18" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -386,7 +386,7 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
     } else if (OPT == 19) {
 #ifdef VERBOSE
   //    std::cout << "ROWS_2" << std::setprecision(15) << "M = " << _M
-      std::cout << "ROWS_19" << "M = " << _M
+      std::cout << "COLS_19" << "M = " << _M
                 << " N = " << _N << std::endl;
 #endif  // VERBOSE
       size_t nBlq = 16;
@@ -413,6 +413,38 @@ void _gemv(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
       auto addProdOp = make_addPrdRowMatVctMultShm(my_vy, _alpha, mat1, scalOp1);
       ex.execute(addProdOp, localSize);
 */
+    } else if (OPT == 20) {
+//      std::cout << "COLS_20"  << std::endl;
+    #ifdef VERBOSE
+      std::cout << "COLS_20" << "M = " << _M
+                << " N = " << _N << std::endl;
+    #endif  // VERBOSE
+      auto localSize = 256;  // NOT FINAL VALUE
+      auto n_rows_WG = 2*localSize;
+      auto n_cols_WG = 2*localSize;
+//      auto shMemSize = std::max(localSize,n_cols_WG);
+      auto shMemSize = localSize;
+
+//      auto nWG_col = (N + n_cols_WG - 1) / n_cols_WG;
+      auto nWG_col = (N - 1) / n_cols_WG + 1;
+//      auto nWG_row = (M + n_rows_WG - 1) / n_rows_WG;
+      auto nWG_row = (M - 1) / n_rows_WG + 1;
+
+      ContainerT valT1(M * nWG_col);
+      auto mat1 = matrix_view<T, ContainerT>(valT1, 0, M, nWG_col);
+
+      auto gridSize = localSize * nWG_row * nWG_col;
+//      auto gemvC = make_Gemv_Col (mat1, my_mA, my_vx, nWG_col);
+      auto gemvC = make_Gemv_Col (mat1, my_mA, my_vx, nWG_row, nWG_col, shMemSize);
+      ex.execute(gemvC, localSize, gridSize, shMemSize);
+//      mat1.printH("MA");
+
+      auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
+      auto addMOp = make_addSetColumns(mat1);
+      auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
+      auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
+      auto assignOp = make_op<Assign>(my_vy, addOp);
+      ex.execute(assignOp, localSize);
     }
   }
 #ifdef VERBOSE
@@ -522,7 +554,6 @@ void _ger(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
       my_vy.printH("VY");
     #endif
     } else if (OPT == 12) {
-      std::cout << "GER_COL_12 = " << std::endl;
     #ifdef VERBOSE
       std::cout << "GER_COL_12 = " << std::endl;
       std::cout << "alpha = " << _alpha << std::endl;

@@ -66,6 +66,103 @@ template <class RHS> AddSetColumns<RHS> make_addSetColumns(RHS &r) {
   return AddSetColumns<RHS>(r);
 }
 
+/**** GEMV BY COLUMNS 1 ROW x M BLOCKS USING SHARED MEMORY MINIMIZING SYNCHRONIZATION ****/
+template <class LHS, class RHS1, class RHS2>
+struct Gemv_Col {
+  LHS l;
+  using value_type = typename RHS2::value_type;
+
+  RHS1 r1;
+  RHS2 r2;
+  size_t nWG_row;
+  size_t nWG_col;
+  size_t shrMemSize;
+
+  Gemv_Col(LHS &_l, RHS1 &_r1, RHS2 &_r2, size_t &_nWG_row, size_t &_nWG_col, size_t &_shrMemSize)
+      : l(_l), r1(_r1), r2(_r2), nWG_row(_nWG_row), nWG_col(_nWG_col), shrMemSize(_shrMemSize) {};
+
+  size_t getSize() { return r1.getSizeR(); }
+
+  value_type eval(size_t i) {
+    auto dim = r2.getSize();
+
+    auto val = iniAddOp1_struct::eval(r2.eval(0));
+    for (size_t j = 0; j < dim; j++) {
+//      val += r1.eval(i, j) * r2.eval(j);
+      auto prod = prdOp2_struct::eval(r1.eval(i,j),r2.eval(j));
+      val = addOp2_struct::eval(val, prod);
+    }
+    return val;
+  }
+
+  template <typename sharedT>
+  value_type eval(sharedT shrMem, cl::sycl::nd_item<1> ndItem) {
+    size_t localid = ndItem.get_local(0);
+    size_t localSz = ndItem.get_local_range(0);
+    size_t groupid = ndItem.get_group(0);
+    size_t groupSz = ndItem.get_num_groups(0);
+    size_t glbalid = ndItem.get_global(0);
+
+    size_t dimR = r1.getSizeR();
+    size_t dimC = r1.getSizeC();
+
+    size_t rowSz = (dimR < localSz)? dimR: localSz;
+    size_t colSz = (dimC + nWG_col - 1) / nWG_col;
+
+//    size_t idWFR = (groupid / nWG_col);
+//    size_t idWFC = (groupid % nWG_col);
+    size_t idWFR = (groupid % nWG_row);
+    size_t idWFC = (groupid / nWG_row);
+    size_t dimWFR = (dimR + (localSz*nWG_row) - 1) / (localSz*nWG_row) * localSz;
+
+    size_t frs_row = idWFR * dimWFR + localid;
+    size_t lst_row = std::min(dimR,frs_row + dimWFR);
+
+    size_t frs_col = idWFC*colSz;
+    size_t lst_col = std::min(dimC,frs_col+colSz);
+
+    // The computation are made in blocks of shrMemSize elements
+    for (size_t colid=frs_col; colid<lst_col; colid+=shrMemSize) {
+      if (colid > frs_col)
+        // This barrier is mandatory to be sure the data is on the shared memory
+        ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+      auto blqSz = std::min(shrMemSize,lst_col-colid);
+      // Copy a block os elements of vector r2 to the shared memory,
+      // executing the expresion tree if it is needed
+      for (size_t col=localid; (col<blqSz); col+=localSz) {
+        shrMem[col] = r2.eval(colid+col);
+      }
+      // This barrier is mandatory to be sure the data is on the shared memory
+      ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+      // The product is computed
+      for (size_t rowid = frs_row; rowid < lst_row; rowid += localSz) {
+        // The initial value of val is different for the first iteration
+        auto val = (colid == frs_col)?
+                    iniAddOp1_struct::eval(r2.eval(0)):
+                    l.eval(rowid,idWFC);
+        for (size_t id_col=colid, col=0; col<blqSz; id_col++, col++) {
+          val += r1.eval(rowid,id_col) * shrMem[col];
+        }
+        // The result is stored in the correct component
+        l.eval(rowid,idWFC) = val;
+      }
+    }
+    return l.eval(frs_row,idWFC);
+  }
+};
+
+template <class LHS, class RHS1, class RHS2>
+Gemv_Col<LHS, RHS1, RHS2> make_Gemv_Col(
+    LHS &l, RHS1 &r1, RHS2 &r2, size_t nWG_row, size_t nWG_col, size_t shrMemSize) {
+  return Gemv_Col<LHS, RHS1, RHS2>(l, r1, r2, nWG_row, nWG_col, shrMemSize);
+}
+
+/**************************************************/
+/*************** PREVIOUS VERSIONS ****************/
+/**************************************************/
+
 /**** GEMV BY ROWS 1 ROW x 1 BLOCK ****/
 template <unsigned int interLoop, class LHS, class RHS1, class RHS2>
 struct GemvR_1Row_1WG {
