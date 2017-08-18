@@ -178,7 +178,8 @@ void _TRMV(Executor<ExecutorType> ex, std::string _Uplo,
       (_Diag[0]  != 'U') && (_Diag[0]  != 'N'))
     std::cout << "Erroneous parameter" << std::endl;
   int accessOpr = ((_Trans[0] == 'n') || (_Trans[0] == 'N'));
-  int triangOpr  = ((_Uplo[0] == 'u') || (_Uplo[0] == 'U'));
+  int triangOpr = (accessOpr)?((_Uplo[0] == 'u') || (_Uplo[0] == 'U')):
+                  	      ((_Uplo[0] == 'l') || (_Uplo[0] == 'L'));
   int unitDiag  = ((_Diag[0] == 'u') || (_Diag[0] == 'U'));
   unsigned int N = _N;
   auto my_mA =
@@ -348,11 +349,11 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
   if (my_mA.getAccess()) {  // ROWS ACCESS
     const auto localSize = (_localSize == 0)? 256: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: _n_rows_WG;
-    const auto n_cols_WG = (_n_cols_WG == 0)? M: _n_cols_WG;
+    const auto n_cols_WG = (_n_cols_WG == 0)? N: _n_cols_WG;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
-    const auto nWG_col = (N - 1) / n_cols_WG + 1;
     const auto nWG_row = (M - 1) / n_rows_WG + 1;
+    const auto nWG_col = (N - 1) / n_cols_WG + 1;
 
 #ifdef VERBOSE
     std::cout << "GER_ROWS: "
@@ -379,8 +380,8 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
     const auto n_cols_WG = (_n_cols_WG == 0)? localSize: _n_cols_WG;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
-    const auto nWG_col = (N - 1) / n_cols_WG + 1;
     const auto nWG_row = (M - 1) / n_rows_WG + 1;
+    const auto nWG_col = (N - 1) / n_cols_WG + 1;
 
 #ifdef VERBOSE
     std::cout << "GER_COL: "

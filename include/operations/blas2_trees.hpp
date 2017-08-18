@@ -144,9 +144,9 @@ struct Gemv_Row {
     printf ("(%lu) -> (%lu,%lu) - (%lu,%lu) - (%lu)\n",
         glbalid, frs_row, lst_row, frs_col, lst_col, id_col_thr);
 */
-    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
-    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
-    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
+//    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
+//    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
+//    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
 
     value_type val = addOp2_struct::init(r2);
     // PROBLEM IF ONLY SOME THREADS OF A WORKGROUP ARE CANCELED
@@ -186,7 +186,7 @@ struct Gemv_Row {
                 l.eval(id_row,id_col_thr) =
                         addOp2_struct::eval(l.eval(id_row,id_col_thr), prod);
               }
-              if (Unit && (id_row == id_col)) {
+              if (Diag && Unit && (id_row == id_col)) {
                 l.eval(id_row,id_col_thr) =
                         addOp2_struct::eval(l.eval(id_row,id_col_thr),
                                             r1.eval(id_row,id_col));
@@ -204,13 +204,14 @@ struct Gemv_Row {
               if (Lower && Upper && Diag && !Unit) {
                 auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                 val = addOp2_struct::eval(val, prod);
+//                val += (r1.eval(id_row,id_col) * r2.eval(id_col));
               } else {
                 if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
                     (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                   val = addOp2_struct::eval(val, prod);
                 }
-                if (Unit && (id_row == id_col)) {
+                if (Diag && Unit && (id_row == id_col)) {
                   val = addOp2_struct::eval(val, r1.eval(id_row,id_col));
                 }
               }
@@ -274,12 +275,13 @@ struct Gemv_Row {
 //    size_t lst_col = std::min(dimC,frs_col+dimWFC*interLoop);
     size_t lst_col = std::min(dimC,frs_col+dimWFC);
 
-//    printf ("A , (%lu) -> (%lu,%lu) - (%lu,%lu)\n",
+//    if (glbalid == 0) 
+//      printf ("A , (%lu) -> (%lu,%lu) - (%lu,%lu)\n",
 //        glbalid, frs_row, lst_row, frs_col, lst_col);
 
-    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
-    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
-    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
+//    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
+//    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
+//    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
 
 
     // PROBLEM IF ONLY SOME THREADS OF A WORKGROUP ARE CANCELED
@@ -329,7 +331,7 @@ struct Gemv_Row {
                   shrMem[row*localSz+localid] =
                           addOp2_struct::eval(shrMem[row*localSz+localid], prod);
                 }
-                if (Unit && (id_row == id_col)) {
+                if (Diag && Unit && (id_row == id_col)) {
                   shrMem[row*localSz+localid] =
                           addOp2_struct::eval(shrMem[row*localSz+localid],
                                                r1.eval(id_row,id_col));
@@ -340,7 +342,10 @@ struct Gemv_Row {
   #else
   //        for (size_t row=0, id_row=frs_row; (id_row<lst_row); row++, id_row++) {
           for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
-            val = addOp2_struct::init(r2);
+//            val = addOp2_struct::init(r2);
+            val = (Diag && Unit && ((id_row >= frs_col) && (id_row < lst_col) && 
+			             (((id_row-frs_col)%localSz) == 0)))?
+                    	r1.eval(id_row,id_row): addOp2_struct::init(r2);
             for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz) {
               if (Lower && Upper && Diag && !Unit) {
                 auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
@@ -351,9 +356,11 @@ struct Gemv_Row {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                   val = addOp2_struct::eval(val, prod);
                 }
-                if (Unit && (id_row == id_col)) {
+/*
+                if (Diag && Unit && (id_row == id_col)) {
                   val = addOp2_struct::eval(val, r1.eval(id_row,id_col));
                 }
+*/
               }
             }
             shrMem[row*localSz+localid] = val;
@@ -374,7 +381,7 @@ struct Gemv_Row {
                     auto prod = prdOp2_struct::eval(r1.eval(id_row,k_int),r2.eval(k_int));
                     val = addOp2_struct::eval(val, prod);
                   }
-                  if (Unit && (id_row == id_col)) {
+                  if (Diag && Unit && (id_row == id_col)) {
                     val = addOp2_struct::eval(val, r1.eval(id_row,k_int));
                   }
                 }
@@ -582,9 +589,16 @@ struct Gemv_Col {
         // The product is computed
         for (size_t rowid = frs_row; rowid < lst_row; rowid += localSz) {
           // The initial value of val is different for the first iteration
+/*
           auto val = (colid == frs_col)?
                       iniAddOp1_struct::eval(r2.eval(0)):
                       l.eval(rowid,idWFC);
+*/
+          auto val = ((colid == frs_col)?
+                      iniAddOp1_struct::eval(r2.eval(0)):
+                      l.eval(rowid,idWFC))+
+                      ((Diag && Unit && ((rowid >= colid) && (rowid < colid+blqSz)))?
+                    	r1.eval(rowid,rowid): iniAddOp1_struct::eval(r2.eval(0)));
           for (size_t id_col=colid, col=0; col<blqSz; id_col++, col++) {
             if (Lower && Upper && Diag && !Unit) {
               auto prod = prdOp2_struct::eval(r1.eval(rowid,id_col), shrMem[col]);
@@ -600,9 +614,11 @@ struct Gemv_Col {
                 auto prod = prdOp2_struct::eval(r1.eval(rowid,id_col), shrMem[col]);
                 val = addOp2_struct::eval(val, prod);
               }
-              if (Unit && (rowid == id_col)) {
+/*
+              if (Diag && Unit && (rowid == id_col)) {
                 val = addOp2_struct::eval(val, r1.eval(rowid,id_col));
               }
+*/
             }
           }
           // The result is stored in the correct component

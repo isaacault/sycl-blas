@@ -32,6 +32,15 @@ using namespace blas;
 #define ROW_TEST "Tr"
 #define COL_TEST "No"
 
+// #define ROW_TRMV 1
+// #define TRM_UNIT 1
+#ifdef TRM_UNIT
+  #define UNT_TEST "Un"
+#else
+  #define UNT_TEST "No"
+#endif
+
+
 #ifdef EXECUTING_FLOAT
   #define BASETYPE float
   #define CONS_ROW1 1.5F
@@ -1164,6 +1173,18 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<BASETYPE> vU(10);
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
+#ifdef ROW_TRMV
+  std::chrono::duration<BASETYPE> t0_gmvR, t0_gmvC, t0_ger, t0_lowX, t0_uppX;
+  std::chrono::duration<BASETYPE> t1_gmvR, t1_gmvC, t1_ger, t1_lowX, t1_uppX;
+  std::chrono::duration<BASETYPE> t2_gmvR, t2_gmvC, t2_ger, t2_lowX, t2_uppX;
+  std::chrono::duration<BASETYPE> t3_gmvR, t3_gmvC, t3_ger, t3_lowX, t3_uppX;
+  std::chrono::duration<BASETYPE> t4_gmvR, t4_gmvC, t4_ger, t4_lowX, t4_uppX;
+  std::chrono::duration<BASETYPE> t5_gmvR, t5_gmvC, t5_ger, t5_lowX, t5_uppX;
+  std::chrono::duration<BASETYPE> t6_gmvR, t6_gmvC, t6_ger, t6_lowX, t6_uppX;
+  std::chrono::duration<BASETYPE> t7_gmvR, t7_gmvC, t7_ger, t7_lowX, t7_uppX;
+  std::chrono::duration<BASETYPE> t8_gmvR, t8_gmvC, t8_ger, t8_lowX, t8_uppX;
+  std::chrono::duration<BASETYPE> t9_gmvR, t9_gmvC, t9_ger, t9_lowX, t9_uppX;
+#else
   std::chrono::duration<BASETYPE> t0_gmvR, t0_gmvC, t0_ger, t0_lowY, t0_uppY;
   std::chrono::duration<BASETYPE> t1_gmvR, t1_gmvC, t1_ger, t1_lowY, t1_uppY;
   std::chrono::duration<BASETYPE> t2_gmvR, t2_gmvC, t2_ger, t2_lowY, t2_uppY;
@@ -1174,6 +1195,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::chrono::duration<BASETYPE> t7_gmvR, t7_gmvC, t7_ger, t7_lowY, t7_uppY;
   std::chrono::duration<BASETYPE> t8_gmvR, t8_gmvC, t8_ger, t8_lowY, t8_uppY;
   std::chrono::duration<BASETYPE> t9_gmvR, t9_gmvC, t9_ger, t9_lowY, t9_uppY;
+#endif
   std::vector<std::chrono::duration<BASETYPE>> v0_gmvR(NUMBER_REPEATS), v0_gmvC(NUMBER_REPEATS), v0_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v1_gmvR(NUMBER_REPEATS), v1_gmvC(NUMBER_REPEATS), v1_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v2_gmvR(NUMBER_REPEATS), v2_gmvC(NUMBER_REPEATS), v2_ger(NUMBER_REPEATS);
@@ -1184,6 +1206,18 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<std::chrono::duration<BASETYPE>> v7_gmvR(NUMBER_REPEATS), v7_gmvC(NUMBER_REPEATS), v7_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v8_gmvR(NUMBER_REPEATS), v8_gmvC(NUMBER_REPEATS), v8_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v9_gmvR(NUMBER_REPEATS), v9_gmvC(NUMBER_REPEATS), v9_ger(NUMBER_REPEATS);
+#ifdef ROW_TRMV
+  std::vector<std::chrono::duration<BASETYPE>> v0_lowX(NUMBER_REPEATS), v0_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v1_lowX(NUMBER_REPEATS), v1_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v2_lowX(NUMBER_REPEATS), v2_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v3_lowX(NUMBER_REPEATS), v3_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v4_lowX(NUMBER_REPEATS), v4_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v5_lowX(NUMBER_REPEATS), v5_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v6_lowX(NUMBER_REPEATS), v6_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v7_lowX(NUMBER_REPEATS), v7_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v8_lowX(NUMBER_REPEATS), v8_uppX(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v9_lowX(NUMBER_REPEATS), v9_uppX(NUMBER_REPEATS);
+#else
   std::vector<std::chrono::duration<BASETYPE>> v0_lowY(NUMBER_REPEATS), v0_uppY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v1_lowY(NUMBER_REPEATS), v1_uppY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v2_lowY(NUMBER_REPEATS), v2_uppY(NUMBER_REPEATS);
@@ -1194,6 +1228,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<std::chrono::duration<BASETYPE>> v7_lowY(NUMBER_REPEATS), v7_uppY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v8_lowY(NUMBER_REPEATS), v8_uppY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v9_lowY(NUMBER_REPEATS), v9_uppY(NUMBER_REPEATS);
+#endif
 #endif
 
   // INITIALIZING DATA
@@ -1337,6 +1372,11 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
   BASETYPE addX = 0.0, auxX;
   BASETYPE lowX = 0.0, diaX = 0.0, uppX = 0.0, untX = 0.0;
+#ifdef ROW_TRMV
+  bool accessTRMV = !accessDev;
+#else
+  bool accessTRMV = accessDev;
+#endif
   for (size_t j = shftC; j < dimC; j++) {
 //    vX2[j - shftC] = 0.5 * vX2[j - shftC];
     auxX = CONS_COL1 * vX1[j - shftC];
@@ -1349,12 +1389,12 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         auxX += CONS_COL2 * vM1[dimR * j + i] * vX0[i - shftR];
       }
       if (i-shftR > j-shftC)
-        lowX += vM1[(accessDev?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
+        lowX += vM1[(accessTRMV?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
       else if (i-shftR < j-shftC)
-        uppX += vM1[(accessDev?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
+        uppX += vM1[(accessTRMV?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
       else {
-        diaX += vM1[(accessDev?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
-        untX += vM1[(accessDev?(dimC*i+j):(dimR*j+i))];
+        diaX += vM1[(accessTRMV?(dimC*i+j):(dimR*j+i))] * vX0[i - shftR];
+        untX += vM1[(accessTRMV?(dimC*i+j):(dimR*j+i))];
       }
     }
 //    addX += vX2[j - shftC];
@@ -1553,6 +1593,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       t_start = std::chrono::steady_clock::now();
   #endif
       _GEMV<256,256,256,256>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
+//      _GEMV<256,0,1,4096>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_COL1, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1624,6 +1665,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
+/* */
   #ifdef EXECUTED_ON_GPU
       if ((dimR - shftR) == 4096) {
         _GEMV<256,256,1,4096>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
@@ -1644,9 +1686,10 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         std::cout << "The value of " << dimR << " is not considered " << std::endl;
       }
   #else
-    _GEMV<256,256,256,256>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+      _GEMV<256,256,256,256>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                 dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
   #endif
+/* */
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1663,13 +1706,158 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       ex.reduce(reducOpY_2); q.wait_and_throw();
 /**/
       /*****************************************/
+#ifdef ROW_TRMV
+      /*****************************************/
 /**/
+      auto assign_UX_0 = make_op<Assign>(bvX2, bvX0);
+      ex.execute(assign_UX_0); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _TRMV(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_uppX = t_stop - t_start;
+      } else if (i > 0) {
+        t0_uppX += t_stop - t_start;
+      } else {
+        t0_uppX = t_start - t_start;
+      }
+      v0_uppX[i] = t_stop - t_start;
+  #endif
+      auto reducOpUX_0 = make_addAssignReduction(bvU0, bvX2, 256, 256);
+      ex.reduce(reducOpUX_0); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_UX_1 = make_op<Assign>(bvX2, bvX0);
+      ex.execute(assign_UX_1); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _TRMV<256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_uppX = t_stop - t_start;
+      } else if (i > 0) {
+        t1_uppX += t_stop - t_start;
+      } else {
+        t1_uppX = t_start - t_start;
+      }
+      v1_uppX[i] = t_stop - t_start;
+  #endif
+      auto reducOpUX_1 = make_addAssignReduction(bvU1, bvX2, 256, 256);
+      ex.reduce(reducOpUX_1); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_UX_2 = make_op<Assign>(bvX2, bvX0);
+      ex.execute(assign_UX_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _TRMV<256,256,256,256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_uppX = t_stop - t_start;
+      } else if (i > 0) {
+        t2_uppX += t_stop - t_start;
+      } else {
+        t2_uppX = t_start - t_start;
+      }
+      v2_uppX[i] = t_stop - t_start;
+  #endif
+      auto reducOpUX_2 = make_addAssignReduction(bvU2, bvX2, 256, 256);
+      ex.reduce(reducOpUX_2); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_LX_0 = make_op<Assign>(bvX2, bvX0);
+      ex.execute(assign_LX_0); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_lowX = t_stop - t_start;
+      } else if (i > 0) {
+        t0_lowX += t_stop - t_start;
+      } else {
+        t0_lowX = t_start - t_start;
+      }
+      v0_lowX[i] = t_stop - t_start;
+  #endif
+      auto reducOpLX_0 = make_addAssignReduction(bvL0, bvX2, 256, 256);
+      ex.reduce(reducOpLX_0); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_LX_1 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_LX_1); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_lowX = t_stop - t_start;
+      } else if (i > 0) {
+        t1_lowX += t_stop - t_start;
+      } else {
+        t1_lowX = t_start - t_start;
+      }
+      v1_lowX[i] = t_stop - t_start;
+  #endif
+      auto reducOpLX_1 = make_addAssignReduction(bvL1, bvX2, 256, 256);
+      ex.reduce(reducOpLX_1); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_LX_2 = make_op<Assign>(bvX2, bvX2);
+      ex.execute(assign_LX_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_lowX = t_stop - t_start;
+      } else if (i > 0) {
+        t2_lowX += t_stop - t_start;
+      } else {
+        t2_lowX = t_start - t_start;
+      }
+      v2_lowX[i] = t_stop - t_start;
+  #endif
+      auto reducOpLX_2 = make_addAssignReduction(bvL2, bvX2, 256, 256);
+      ex.reduce(reducOpLX_2); q.wait_and_throw();
+/**/
+      /*****************************************/
+#else
+/**/
+      /*****************************************/
       auto assign_UY_0 = make_op<Assign>(bvY2, bvY0);
       ex.execute(assign_UY_0); q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _TRMV(ex, "U", COL_TEST, "N", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1692,8 +1880,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//      _TRMV<256,0>(ex, "U", COL_TEST, "N", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256>(ex, "U", COL_TEST, "N", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<256,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1716,8 +1904,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//      _TRMV<256,0>(ex, "U", COL_TEST, "N", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256,256,256,256>(ex, "U", COL_TEST, "N", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<256,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<256,256,256,256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1740,8 +1928,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//    _TRMV<256,0>(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1764,8 +1952,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
       #endif
-      //    _TRMV<256,0>(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256>(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
       #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1788,8 +1976,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
       #endif
-      //    _TRMV<256,0>(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256,256,256,256>(ex, "L", COL_TEST, "U", dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<256,256,256,256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
       #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1805,6 +1993,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       auto reducOpLY_2 = make_addAssignReduction(bvL2, bvY2, 256, 256);
       ex.reduce(reducOpLY_2); q.wait_and_throw();
 /**/
+      /*****************************************/
+#endif
       /*****************************************/
 /**/
   #ifdef SHOW_TIMES
@@ -1906,6 +2096,16 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //              << ", " << t8_gmvC.count()/div
 //              << ", " << t9_gmvC.count()/div
               << std::endl;
+#ifdef ROW_TRMV
+    std::cout << "t_uppX  , " << t0_uppX.count()/div
+              << ", "         << t1_uppX.count()/div
+              << ", "         << t2_uppX.count()/div
+              << std::endl;
+    std::cout << "t_lowX  , " << t0_lowX.count()/div
+              << ", "         << t1_lowX.count()/div
+              << ", "         << t2_lowX.count()/div
+              << std::endl;
+#else
     std::cout << "t_uppY  , " << t0_uppY.count()/div
               << ", "         << t1_uppY.count()/div
               << ", "         << t2_uppY.count()/div
@@ -1914,6 +2114,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << t1_lowY.count()/div
               << ", "         << t2_lowY.count()/div
               << std::endl;
+#endif
     std::cout << "t_ger   , " << t0_ger.count()/div
               <<  ", "        << t1_ger.count()/div
               <<  ", "        << t2_ger.count()/div
@@ -1954,6 +2155,22 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //              << ", "         << v8_gmvC[(NUMBER_REPEATS+1)/2].count()
 //              << ", "         << v9_gmvC[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+#ifdef ROW_TRMV
+    std::sort (v0_uppX.begin()+1, v0_uppX.end());
+    std::sort (v1_uppX.begin()+1, v1_uppX.end());
+    std::sort (v2_uppX.begin()+1, v2_uppX.end());
+    std::cout << "m_uppX  , " << v0_uppX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_uppX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_uppX[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+    std::sort (v0_lowX.begin()+1, v0_lowX.end());
+    std::sort (v1_lowX.begin()+1, v1_lowX.end());
+    std::sort (v2_lowX.begin()+1, v2_lowX.end());
+    std::cout << "m_lowX  , " << v0_lowX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_lowX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_lowX[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+#else
     std::sort (v0_uppY.begin()+1, v0_uppY.end());
     std::sort (v1_uppY.begin()+1, v1_uppY.end());
     std::sort (v2_uppY.begin()+1, v2_uppY.end());
@@ -1968,6 +2185,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << v1_lowY[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_lowY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+#endif
     std::sort (v0_ger.begin()+1, v0_ger.end());
     std::sort (v1_ger.begin()+1, v1_ger.end());
     std::sort (v2_ger.begin()+1, v2_ger.end());
@@ -2013,6 +2231,69 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
+#ifdef ROW_TRMV
+  std::cout << "UPPX ANALYSYS!!" << std::endl;
+  for (int i=0; i<3; i++) {
+    res = vU[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>2)?8:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , uppX = " << uppX
+              << " , diaX = " << diaX << " , untX = " << untX
+#ifdef TRM_UNIT
+              << " , err = " << (uppX+untX) - res << std::endl;
+#else
+              << " , err = " << (uppX+diaX) - res << std::endl;
+#endif
+  #endif  // VERBOSE
+#ifdef TRM_UNIT
+    if (std::abs((res - (uppX+untX)) / res) > ERROR_ALLOWED) {
+#else
+    if (std::abs((res - (uppX+diaX)) / res) > ERROR_ALLOWED) {
+#endif
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , uppX = " << uppX
+                << " , diaX = " << diaX << " , untX = " << untX
+#ifdef TRM_UNIT
+                << " , err = " << (uppX+untX) - res << std::endl;
+#else
+                << " , err = " << (uppX+diaX) - res << std::endl;
+#endif
+      returnVal += 2;
+    }
+  }
+
+  std::cout << "LOWX ANALYSYS!!" << std::endl;
+  for (int i=0; i<3; i++) {
+    res = vL[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>2)?8:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , lowX = " << lowX
+              << " , diaX = " << diaX << " , untX = " << untX
+#ifdef TRM_UNIT
+              << " , err = " << (lowX+untX) - res << std::endl;
+#else
+              << " , err = " << (lowX+diaX) - res << std::endl;
+#endif
+  #endif  // VERBOSE
+#ifdef TRM_UNIT
+    if (std::abs((res - (lowX+untX)) / res) > ERROR_ALLOWED) {
+#else
+    if (std::abs((res - (lowX+diaX)) / res) > ERROR_ALLOWED) {
+#endif
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , lowX = " << lowX
+                << " , diaX = " << diaX << " , untX = " << untX
+#ifdef TRM_UNIT
+                << " , err = " << (lowX+untX) - res << std::endl;
+#else
+                << " , err = " << (lowX+diaX) - res << std::endl;
+#endif
+      returnVal += 2;
+    }
+  }
+#else
   std::cout << "UPPY ANALYSYS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vU[i];
@@ -2021,16 +2302,25 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::cout << "( " << i << ") ";
     std::cout << "VALUES!! --> res = " << res << " , uppY = " << uppY
               << " , diaY = " << diaY << " , untY = " << untY
+#ifdef TRM_UNIT
+              << " , err = " << (uppY+untY) - res << std::endl;
+#else
               << " , err = " << (uppY+diaY) - res << std::endl;
-//              << " , err = " << (uppY+untY) - res << std::endl;
+#endif
   #endif  // VERBOSE
+#ifdef TRM_UNIT
+    if (std::abs((res - (uppY+untY)) / res) > ERROR_ALLOWED) {
+#else
     if (std::abs((res - (uppY+diaY)) / res) > ERROR_ALLOWED) {
-//    if (std::abs((res - (uppY+untY)) / res) > ERROR_ALLOWED) {
+#endif
       std::cout << "( " << i << ") ";
       std::cout << "ERROR!! --> res = " << res << " , uppY = " << uppY
                 << " , diaY = " << diaY << " , untY = " << untY
+#ifdef TRM_UNIT
+                << " , err = " << (uppY+untY) - res << std::endl;
+#else
                 << " , err = " << (uppY+diaY) - res << std::endl;
-//                << " , err = " << (uppY+untY) - res << std::endl;
+#endif
       returnVal += 2;
     }
   }
@@ -2043,19 +2333,29 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::cout << "( " << i << ") ";
     std::cout << "VALUES!! --> res = " << res << " , lowY = " << lowY
               << " , diaY = " << diaY << " , untY = " << untY
+#ifdef TRM_UNIT
               << " , err = " << (lowY+untY) - res << std::endl;
-//              << " , err = " << (lowY+diaY) - res << std::endl;
+#else
+              << " , err = " << (lowY+diaY) - res << std::endl;
+#endif
   #endif  // VERBOSE
-//    if (std::abs((res - (lowY+diaY)) / res) > ERROR_ALLOWED) {
+#ifdef TRM_UNIT
     if (std::abs((res - (lowY+untY)) / res) > ERROR_ALLOWED) {
+#else
+    if (std::abs((res - (lowY+diaY)) / res) > ERROR_ALLOWED) {
+#endif
       std::cout << "( " << i << ") ";
       std::cout << "ERROR!! --> res = " << res << " , lowY = " << lowY
                 << " , diaY = " << diaY << " , untY = " << untY
+#ifdef TRM_UNIT
                 << " , err = " << (lowY+untY) - res << std::endl;
-//                << " , err = " << (lowY+diaY) - res << std::endl;
+#else
+                << " , err = " << (lowY+diaY) - res << std::endl;
+#endif
       returnVal += 2;
     }
   }
+#endif
 
   std::cout << "GER ANALYSYS!!" << std::endl;
   for (int i=0; i<3; i++) {
