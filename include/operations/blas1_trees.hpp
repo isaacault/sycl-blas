@@ -116,6 +116,11 @@ struct Join {
   // If it is smaller, eval function will crash
   size_t getSize() { return r.getSize(); }
 
+//  inline __attribute__((always_inline))
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
+
   value_type eval(size_t i) {
     l.eval(i);
     return r.eval(i);
@@ -141,6 +146,9 @@ struct Assign {
   // If it is smaller, eval function will crash
   size_t getSize() { return r.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) {
     auto val = l.eval(i) = r.eval(i);
     return val;
@@ -170,6 +178,9 @@ struct DobleAssign {
   // If it is smaller, eval function will crash
   size_t getSize() { return r2.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) {
     auto val1 = r1.eval(i);
     auto val2 = r2.eval(i);
@@ -196,6 +207,10 @@ struct ScalarOp {
   ScalarOp(SCL _scl, RHS &_r) : scl(_scl), r(_r){};
 
   size_t getSize() { return r.getSize(); }
+
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) {
     return Operator::eval(internal::get_scalar(scl), r.eval(i));
   }
@@ -217,6 +232,9 @@ struct UnaryOp {
 
   size_t getSize() { return r.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) { return Operator::eval(r.eval(i)); }
 
   value_type eval(cl::sycl::nd_item<1> ndItem) {
@@ -239,6 +257,9 @@ struct BinaryOp {
   // If it is smaller, eval function will crash
   size_t getSize() { return r.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) { return Operator::eval(l.eval(i), r.eval(i)); }
 
   value_type eval(cl::sycl::nd_item<1> ndItem) {
@@ -258,6 +279,9 @@ struct TupleOp {
 
   size_t getSize() { return r.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) {
+    return ((ndItem.get_global(0) < getSize()));
+  }
   value_type eval(size_t i) { return value_type(i, r.eval(i)); }
 
   value_type eval(cl::sycl::nd_item<1> ndItem) {
@@ -293,6 +317,8 @@ struct AssignReduction {
 #endif
 
   size_t getSize() { return r.getSize(); }
+
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) { return true; }
 
   value_type eval(size_t i) {
     size_t vecS = r.getSize();
@@ -449,6 +475,8 @@ struct ReducOp {
 /*
   size_t getSize() { return r.getSize(); }
 
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) { return true; }
+
   auto applyOperator(LHS val1, LHS val2) { return Operator::eval(val1, val2); }
 
   value_type eval(size_t i) { return value_type(i, r.eval(i)); }
@@ -480,6 +508,8 @@ struct AssignReduction_2Ops {
       : l1(_l1), r1(_r1), l2(_l2), r2(_r2),blqS(_blqS), grdS(_grdS){};
 
   size_t getSize() { return r1.getSize(); }
+
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) { return true; }
 
   value_type eval(size_t i) {
     size_t vecS = r1.getSize();
@@ -644,6 +674,8 @@ struct AssignReduction_4Ops {
         l3(_l3), r3(_r3), l4(_l4), r4(_r4),blqS(_blqS), grdS(_grdS){};
 
   size_t getSize() { return r1.getSize(); }
+
+  bool valid_thread (cl::sycl::nd_item<1> ndItem) { return true; }
 
   value_type eval(size_t i) {
     size_t vecS = r1.getSize();

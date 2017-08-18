@@ -179,8 +179,9 @@ struct tree<using_shared_mem::disabled, treeT, sharedMemT> {
                    shared_mem<sharedMemT, using_shared_mem::disabled> scratch,
                    cl::sycl::nd_item<1> index) {
 //    if ((index.get_global(0) < tree.getSize())) {
+    if (tree.valid_thread(index)) {
       tree.eval(index);
-//    }
+    }
   }
 };
 
