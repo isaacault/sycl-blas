@@ -180,8 +180,10 @@ struct Gemv_Row {
               l.eval(id_row,id_col_thr) =
                       addOp2_struct::eval(l.eval(id_row,id_col_thr), prod);
             } else {
-              if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
-                  (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
+//              if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
+              if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= id_row)) ||
+                (Upper && (id_col >= (id_row+((!Diag||Unit)?1:0))))) {
+//                (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                 auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),elm);
                 l.eval(id_row,id_col_thr) =
                         addOp2_struct::eval(l.eval(id_row,id_col_thr), prod);
@@ -196,8 +198,8 @@ struct Gemv_Row {
   #else
   //        for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
         if (id_col_thr < dimC) {
-  //        printf ("(%lu) -> (%lu,%lu) - (%lu,%lu) - (%lu)\n",
-  //            glbalid, frs_row, lst_row, frs_col, lst_col, id_col_thr);
+//          printf ("(%lu) -> (%lu,%lu) - (%lu,%lu) - (%lu)\n",
+//              glbalid, frs_row, lst_row, frs_col, lst_col, id_col_thr);
           for (size_t row=0, id_row=frs_row; (id_row<lst_row); row++, id_row++) {
             val = addOp2_struct::init(r2);
             for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz) {
@@ -206,8 +208,10 @@ struct Gemv_Row {
                 val = addOp2_struct::eval(val, prod);
 //                val += (r1.eval(id_row,id_col) * r2.eval(id_col));
               } else {
-                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
-                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
+//                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
+                if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= id_row)) ||
+                    (Upper && (id_col >= (id_row+((!Diag||Unit)?1:0))))) {
+//                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                   val = addOp2_struct::eval(val, prod);
                 }
@@ -226,8 +230,10 @@ struct Gemv_Row {
           val = addOp2_struct::init(r2);
           for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz*interLoop) {
             auto lst_k_int = std::min(id_col+interLoop,lst_col);
-            for (size_t k_int=((Lower)?id_col:std::max(row+((Diag&&Unit)?1:0),id_col));
-                        k_int<((Upper)?lst_k_int:std::min(row+((Diag&&Unit)?0:1),lst_k_int)); k_int++) {
+//            for (size_t k_int=((Lower)?id_col:std::max(row+((Diag&&Unit)?1:0),id_col));
+            for (size_t k_int=((Lower)?id_col:std::max(row+((!Diag||Unit)?1:0),id_col));
+                        k_int<((Upper)?lst_k_int:std::min(row+((!Diag||Unit)?0:1),lst_k_int)); k_int++) {
+//                        k_int<((Upper)?lst_k_int:std::min(row+((Diag&&Unit)?0:1),lst_k_int)); k_int++) {
 //            for (size_t k_int=id_col; k_int<std::min(id_col+interLoop,lst_col);k_int++) {
               auto prod = prdOp2_struct::eval(r1.eval(id_row,k_int),r2.eval(k_int));
               val = addOp2_struct::eval(val, prod);
@@ -275,12 +281,13 @@ struct Gemv_Row {
 //    size_t lst_col = std::min(dimC,frs_col+dimWFC*interLoop);
     size_t lst_col = std::min(dimC,frs_col+dimWFC);
 
-//    if (glbalid == 0) 
+//    if (glbalid == 0)
 //      printf ("A , (%lu) -> (%lu,%lu) - (%lu,%lu)\n",
 //        glbalid, frs_row, lst_row, frs_col, lst_col);
 
 //    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
 //    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
+//    if ((Diag)   && (glbalid == 0)) printf ("Diag\n");
 //    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
 
 
@@ -325,8 +332,10 @@ struct Gemv_Row {
                 shrMem[row*localSz+localid] =
                         addOp2_struct::eval(shrMem[row*localSz+localid], prod);
               } else {
-                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
-                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
+//                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
+                if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= id_row)) ||
+                    (Upper && (id_col >= (id_row+((!Diag||Unit)?1:0))))) {
+//                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),elm);
                   shrMem[row*localSz+localid] =
                           addOp2_struct::eval(shrMem[row*localSz+localid], prod);
@@ -343,7 +352,7 @@ struct Gemv_Row {
   //        for (size_t row=0, id_row=frs_row; (id_row<lst_row); row++, id_row++) {
           for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
 //            val = addOp2_struct::init(r2);
-            val = (Diag && Unit && ((id_row >= frs_col) && (id_row < lst_col) && 
+            val = (Diag && Unit && ((id_row >= frs_col) && (id_row < lst_col) &&
 			             (((id_row-frs_col)%localSz) == 0)))?
                     	r1.eval(id_row,id_row): addOp2_struct::init(r2);
             for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz) {
@@ -351,8 +360,10 @@ struct Gemv_Row {
                 auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                 val = addOp2_struct::eval(val, prod);
               } else {
-                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
-                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
+//                if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
+                if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= id_row)) ||
+                    (Upper && (id_col >= (id_row+((!Diag||Unit)?1:0))))) {
+//                    (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,id_col),r2.eval(id_col));
                   val = addOp2_struct::eval(val, prod);
                 }
@@ -376,8 +387,10 @@ struct Gemv_Row {
                   auto prod = prdOp2_struct::eval(r1.eval(id_row,k_int),r2.eval(k_int));
                   val = addOp2_struct::eval(val, prod);
                 } else {
-                  if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
-                      (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
+//                  if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= id_row)) ||
+                  if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= id_row)) ||
+                      (Upper && (id_col >= (id_row+((!Diag||Unit)?1:0))))) {
+//                      (Upper && (id_col >= (id_row+((Diag&&Unit)?1:0))))) {
                     auto prod = prdOp2_struct::eval(r1.eval(id_row,k_int),r2.eval(k_int));
                     val = addOp2_struct::eval(val, prod);
                   }
@@ -489,6 +502,7 @@ struct Gemv_Col {
 
 //    if ((!Upper) && (glbalid == 0)) printf ("Lower\n");
 //    if ((!Lower) && (glbalid == 0)) printf ("Upper\n");
+//    if ((Diag)   && (glbalid == 0)) printf ("Diag\n");
 //    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
 
     // PROBLEM IF ONLY SOME THREADS OF A WORKGROUP ARE CANCELED
@@ -515,8 +529,10 @@ struct Gemv_Col {
   //                  glbalid, rowid, frs_row, lst_row, frs_col, lst_col,
   //                  ((Lower)?frs_col:std::max(rowid+((Diag&&Unit)?1:0),frs_col)),
   //                  ((Upper)?lst_col:std::min(rowid+((Diag&&Unit)?0:1),lst_col)));
-        for (size_t id_col=((Lower)?frs_col:std::max(rowid+((Diag&&Unit)?1:0),frs_col));
-                    id_col<((Upper)?lst_col:std::min(rowid+((Diag&&Unit)?0:1),lst_col)); id_col++) {
+//        for (size_t id_col=((Lower)?frs_col:std::max(rowid+((Diag&&Unit)?1:0),frs_col));
+        for (size_t id_col=((Lower)?frs_col:std::max(rowid+((!Diag||Unit)?1:0),frs_col));
+                    id_col<((Upper)?lst_col:std::min(rowid+((!Diag||Unit)?0:1),lst_col)); id_col++) {
+//                    id_col<((Upper)?lst_col:std::min(rowid+((Diag&&Unit)?0:1),lst_col)); id_col++) {
           auto prod = prdOp2_struct::eval(r1.eval(rowid,id_col), r2.eval(id_col));
           val = addOp2_struct::eval(val, prod);
   //        val += r1.eval(rowid,id_col) * r2.eval(id_col);
@@ -609,8 +625,10 @@ struct Gemv_Col {
   //              printf ("(%lu) -> (%lu, %lu, %lu) - (%lu, %lu, %lu) - (%lu,%lu)\n",
   //                        glbalid, rowid, frs_row, lst_row, id_col, frs_col, lst_col,
   //                        (id_col+((Diag&&Unit)?1:0)), (rowid+((Diag&&Unit)?1:0)));
-              if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= rowid)) ||
-                  (Upper && (id_col >= (rowid+((Diag&&Unit)?1:0))))) {
+//              if ((Lower && ((id_col+((Diag&&Unit)?1:0)) <= rowid)) ||
+              if ((Lower && ((id_col+((!Diag||Unit)?1:0)) <= rowid)) ||
+                  (Upper && (id_col >= (rowid+((!Diag||Unit)?1:0))))) {
+//                  (Upper && (id_col >= (rowid+((Diag&&Unit)?1:0))))) {
                 auto prod = prdOp2_struct::eval(r1.eval(rowid,id_col), shrMem[col]);
                 val = addOp2_struct::eval(val, prod);
               }
