@@ -1386,8 +1386,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
     }
 //    addY += vY2[i - shftR];
-  addY += auxY;
-  symY += auxSY;
+    addY += auxY;
+    symY += auxSY;
   }
   for (size_t i = dimR - shftR; i < dimR; i++) {
     addY += vY1[i];
@@ -2027,7 +2027,55 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       auto reducOpSX_0 = make_addAssignReduction(bvSX0, bvX2, 256, 256);
       ex.reduce(reducOpSX_0); q.wait_and_throw();
 /**/
-/*****************************************/
+      /*****************************************/
+/**/
+      auto assign_SX2_1 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_SX2_1); q.wait_and_throw();
+      #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+      #endif
+      _SYMV<256>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+                  dimL, bvX0, 1, CONS_SYM1, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_symX = t_stop - t_start;
+      } else if (i > 0) {
+        t1_symX += t_stop - t_start;
+      } else {
+        t1_symX = t_start - t_start;
+      }
+      v1_symX[i] = t_stop - t_start;
+  #endif
+      auto reducOpSX_1 = make_addAssignReduction(bvSX1, bvX2, 256, 256);
+      ex.reduce(reducOpSX_1); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_SX2_2 = make_op<Assign>(bvX2, bvX1);
+      ex.execute(assign_SX2_2); q.wait_and_throw();
+      #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+      #endif
+      _SYMV<256,256,256,256>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+                  dimL, bvX0, 1, CONS_SYM1, bvX2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_symX = t_stop - t_start;
+      } else if (i > 0) {
+        t2_symX += t_stop - t_start;
+      } else {
+        t2_symX = t_start - t_start;
+      }
+      v2_symX[i] = t_stop - t_start;
+  #endif
+      auto reducOpSX_2 = make_addAssignReduction(bvSX2, bvX2, 256, 256);
+      ex.reduce(reducOpSX_2); q.wait_and_throw();
+/**/
+      /*****************************************/
 /**/
       auto assign_SY2_0 = make_op<Assign>(bvY2, bvY1);
       ex.execute(assign_SY2_0); q.wait_and_throw();
@@ -2052,7 +2100,53 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       ex.reduce(reducOpSY_0); q.wait_and_throw();
 /**/
       /*****************************************/
-
+/**/
+      auto assign_SY2_1 = make_op<Assign>(bvY2, bvY1);
+      ex.execute(assign_SY2_1); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYMV<256>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+                  dimL, bvY0, 1, CONS_SYM1, bvY2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_symY = t_stop - t_start;
+      } else if (i > 0) {
+        t1_symY += t_stop - t_start;
+      } else {
+        t1_symY = t_start - t_start;
+      }
+      v1_symY[i] = t_stop - t_start;
+  #endif
+      auto reducOpSY_1 = make_addAssignReduction(bvSY1, bvY2, 256, 256);
+      ex.reduce(reducOpSY_1); q.wait_and_throw();
+/**/
+      /*****************************************/
+/**/
+      auto assign_SY2_2 = make_op<Assign>(bvY2, bvY1);
+      ex.execute(assign_SY2_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYMV<256,256,256,256>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+                  dimL, bvY0, 1, CONS_SYM1, bvY2, 1);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_symY = t_stop - t_start;
+      } else if (i > 0) {
+        t2_symY += t_stop - t_start;
+      } else {
+        t2_symY = t_start - t_start;
+      }
+      v2_symY[i] = t_stop - t_start;
+  #endif
+      auto reducOpSY_2 = make_addAssignReduction(bvSY2, bvY2, 256, 256);
+      ex.reduce(reducOpSY_2); q.wait_and_throw();
+/**/
       /*****************************************/
 /**/
   #ifdef SHOW_TIMES
@@ -2174,13 +2268,13 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << std::endl;
 //#endif
     std::cout << "t_symX  , " << t0_symX.count()/div
-//              << ", "         << t1_uppX.count()/div
-//              << ", "         << t2_uppX.count()/div
-                << std::endl;
+              << ", "         << t1_uppX.count()/div
+              << ", "         << t2_uppX.count()/div
+              << std::endl;
     std::cout << "t_symY  , " << t0_symY.count()/div
-//              << ", "         << t1_uppY.count()/div
-//              << ", "         << t2_uppY.count()/div
-                << std::endl;
+              << ", "         << t1_uppY.count()/div
+              << ", "         << t2_uppY.count()/div
+              << std::endl;
     std::cout << "t_ger   , " << t0_ger.count()/div
               <<  ", "        << t1_ger.count()/div
               <<  ", "        << t2_ger.count()/div
@@ -2236,13 +2330,6 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << v1_lowX[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_lowX[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
-    std::sort (v0_symX.begin()+1, v0_symX.end());
-//    std::sort (v1_symX.begin()+1, v1_symX.end());
-//    std::sort (v2_symX.begin()+1, v2_symX.end());
-    std::cout << "m_symX  , " << v0_symX[(NUMBER_REPEATS+1)/2].count()
-//              << ", "         << v1_symX[(NUMBER_REPEATS+1)/2].count()
-//              << ", "         << v2_symX[(NUMBER_REPEATS+1)/2].count()
-              << std::endl;
 //#else
     std::sort (v0_uppY.begin()+1, v0_uppY.end());
     std::sort (v1_uppY.begin()+1, v1_uppY.end());
@@ -2259,12 +2346,19 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << v2_lowY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
 //#endif
+    std::sort (v0_symX.begin()+1, v0_symX.end());
+    std::sort (v1_symX.begin()+1, v1_symX.end());
+    std::sort (v2_symX.begin()+1, v2_symX.end());
+    std::cout << "m_symX  , " << v0_symX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_symX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_symX[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
     std::sort (v0_symY.begin()+1, v0_symY.end());
-    //    std::sort (v1_symY.begin()+1, v1_symY.end());
-    //    std::sort (v2_symY.begin()+1, v2_symY.end());
+    std::sort (v1_symY.begin()+1, v1_symY.end());
+    std::sort (v2_symY.begin()+1, v2_symY.end());
     std::cout << "m_symY  , " << v0_symY[(NUMBER_REPEATS+1)/2].count()
-    //              << ", "         << v1_symY[(NUMBER_REPEATS+1)/2].count()
-    //              << ", "         << v2_symY[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_symY[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_symY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v0_ger.begin()+1, v0_ger.end());
     std::sort (v1_ger.begin()+1, v1_ger.end());
@@ -2438,7 +2532,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //#endif
 
   std::cout << "SYMX ANALYSYS!!" << std::endl;
-  for (int i=0; i<1; i++) {
+  for (int i=0; i<3; i++) {
     res = vSX[i];
   #ifdef SHOW_VALUES
   //    std::cout << "( " << i+((i>2)?8:1) << ") ";
@@ -2457,7 +2551,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
   std::cout << "SYMY ANALYSYS!!" << std::endl;
-  for (int i=0; i<1; i++) {
+  for (int i=0; i<3; i++) {
     res = vSY[i];
   #ifdef SHOW_VALUES
   //    std::cout << "( " << i+((i>2)?8:1) << ") ";

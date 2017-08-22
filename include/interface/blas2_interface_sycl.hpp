@@ -409,7 +409,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
     auto mat1 = matrix_view<T, ContainerT>(valT1, 0, N, scratchSize);
     auto mat2 = matrix_view<T, ContainerT>(valT1, N*scratchSize, N, scratchSize);
 */
-//#ifdef VERBOSE
+#ifdef VERBOSE
     std::cout << "ROWS_CASE: "
               << "N = " << N
               << " , localSize = "  << localSize
@@ -421,7 +421,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
               << " , n_cols_WG_C = "  << n_cols_WG_C
               << " , scratchSize_C = "  << scratchSize_C
               << std::endl;
-//#endif  // VERBOSE
+#endif  // VERBOSE
 
 //    my_mA.printH("MAT");
 //    my_vx.printH("VX");
@@ -487,7 +487,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
     auto mat1 = matrix_view<T, ContainerT>(valT1, 0, N, scratchSize);
     auto mat2 = matrix_view<T, ContainerT>(valT1, N*scratchSize, N, scratchSize);
 */
-// #ifdef VERBOSE
+#ifdef VERBOSE
     std::cout << "COLS_CASE: "
               << "N = " << N
               << " , localSize = "  << localSize
@@ -499,7 +499,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
               << " , n_cols_WG_C = "  << n_cols_WG_C
               << " , scratchSize_C = "  << scratchSize_C
               << std::endl;
-// #endif  // VERBOSE
+#endif  // VERBOSE
 
 //    my_mA.printH("MAT");
 //    my_vx.printH("VX");
