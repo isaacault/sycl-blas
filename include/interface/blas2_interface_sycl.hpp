@@ -776,9 +776,9 @@ void _SYR2(Executor<ExecutorType> ex, std::string _Uplo,
               << std::endl;
 #endif  // VERBOSE
 
-    my_mA.printH("MAT");
-    my_vx.printH("VX ");
-    my_vy.printH("VY ");
+//    my_mA.printH("MAT");
+//    my_vx.printH("VX ");
+//    my_vy.printH("VY ");
 
     if (triangOpr) {
       auto gridSize = localSize * nWG_row * nWG_col;
@@ -797,7 +797,7 @@ void _SYR2(Executor<ExecutorType> ex, std::string _Uplo,
         ex.execute(assignOp, localSize, gridSize, shrMemSize);
       }
     }
-    my_mA.printH("MAT");
+//    my_mA.printH("MAT");
 
 //    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
   } else { // COLUMN ACCESS

@@ -12,7 +12,7 @@ using namespace blas;
 #define DEF_SIZE_VECT 1200
 #define ERROR_ALLOWED 1.0E-8
 #define RANDOM_DATA 1
-#define SHOW_VALUES   1
+// #define SHOW_VALUES   1
 
 #define EXECUTED_ON_GPU 1
 // #define EXECUTING_FLOAT
@@ -39,7 +39,7 @@ using namespace blas;
   #define UNT_TEST "No"
 #endif
 
-// #define MATRIX_VECTOR_PRODUCT 1
+#define MATRIX_VECTOR_PRODUCT 1
 
 #ifdef EXECUTING_FLOAT
   #define BASETYPE float
@@ -1098,7 +1098,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
 #endif
 
-  std::cout << "GEMVR ANALYSYS!!" << std::endl;
+  std::cout << "GEMVR ANALYSIS!!" << std::endl;
   // ANALYSIS OF THE RESULTS
   for (int i=0; i<6; i++) {
     res = vR[i];
@@ -1115,7 +1115,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "GEMVC ANALYSYS!!" << std::endl;
+  std::cout << "GEMVC ANALYSIS!!" << std::endl;
   for (int i=0; i<13; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
@@ -1131,7 +1131,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "GER ANALYSYS!!" << std::endl;
+  std::cout << "GER ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vT[i];
   #ifdef SHOW_VALUES
@@ -2583,8 +2583,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 #ifdef SHOW_TIMES
     int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
 //    int div = 1;
-#ifdef MATRIX_VECTOR_PRODUCT
     // COMPUTATIONAL TIMES
+#ifdef MATRIX_VECTOR_PRODUCT
     std::cout << "t_gemvR , " << t0_gmvR.count()/div
               << ", "         << t1_gmvR.count()/div
               << ", "         << t2_gmvR.count()/div
@@ -2775,9 +2775,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
 #endif
 
-#ifdef MATRIX_VECTOR_PRODUCT
-  std::cout << "GEMVR ANALYSYS!!" << std::endl;
   // ANALYSIS OF THE RESULTS
+#ifdef MATRIX_VECTOR_PRODUCT
+  std::cout << "GEMVR ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vR[i];
 #ifdef SHOW_VALUES
@@ -2794,7 +2794,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "GEMVC ANALYSYS!!" << std::endl;
+  std::cout << "GEMVC ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
@@ -2812,7 +2812,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 
 //#ifdef ROW_TRMV
-  std::cout << "UPPX ANALYSYS!!" << std::endl;
+  std::cout << "UPPX ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vUX[i];
   #ifdef SHOW_VALUES
@@ -2843,7 +2843,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "LOWX ANALYSYS!!" << std::endl;
+  std::cout << "LOWX ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vLX[i];
   #ifdef SHOW_VALUES
@@ -2874,7 +2874,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 //#else
-  std::cout << "UPPY ANALYSYS!!" << std::endl;
+  std::cout << "UPPY ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vUY[i];
   #ifdef SHOW_VALUES
@@ -2905,7 +2905,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "LOWY ANALYSYS!!" << std::endl;
+  std::cout << "LOWY ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vLY[i];
   #ifdef SHOW_VALUES
@@ -2937,7 +2937,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 //#endif
 
-  std::cout << "SYMX ANALYSYS!!" << std::endl;
+  std::cout << "SYMX ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vSX[i];
   #ifdef SHOW_VALUES
@@ -2956,7 +2956,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYMY ANALYSYS!!" << std::endl;
+  std::cout << "SYMY ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vSY[i];
   #ifdef SHOW_VALUES
@@ -2976,7 +2976,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   }
 #else // MATRIX_VECTOR_PRODUCT
 
-  std::cout << "GER ANALYSYS!!" << std::endl;
+  std::cout << "GER ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vT[i];
   #ifdef SHOW_VALUES
@@ -2993,7 +2993,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYRX ANALYSYS!!" << std::endl;
+  std::cout << "SYRX ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vTX[i];
   #ifdef SHOW_VALUES
@@ -3010,7 +3010,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYRY ANALYSYS!!" << std::endl;
+  std::cout << "SYRY ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vTY[i];
   #ifdef SHOW_VALUES
@@ -3027,7 +3027,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYR2X ANALYSYS!!" << std::endl;
+  std::cout << "SYR2X ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vTU[i];
   #ifdef SHOW_VALUES
@@ -3044,7 +3044,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYR2Y ANALYSYS!!" << std::endl;
+  std::cout << "SYR2Y ANALYSIS!!" << std::endl;
   for (int i=0; i<3; i++) {
     res = vTL[i];
   #ifdef SHOW_VALUES

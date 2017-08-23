@@ -730,7 +730,7 @@ struct Ger_Row {
         auto val = scl * r2.eval(colid);
         for (size_t id_row=frs_row, row=0; id_row<lst_row; id_row++, row++) {
           if (Lower && Upper && Diag) {
-            l.eval(id_row,colid) += scl * r1.eval(id_row) * val;
+            l.eval(id_row,colid) += r1.eval(id_row) * val;
           } else {
             if ((Lower && ((colid+((!Diag)?1:0)) <= id_row)) ||
               (Upper && (colid >= (id_row+((!Diag)?1:0))))) {

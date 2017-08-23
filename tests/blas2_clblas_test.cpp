@@ -57,7 +57,7 @@ using namespace cl::sycl;
   #define UNT_TEST "No"
 #endif
 
-// #define MATRIX_VECTOR_PRODUCT 1
+#define MATRIX_VECTOR_PRODUCT 1
 
 #ifdef EXECUTING_FLOAT
   #define BASETYPE float
@@ -235,7 +235,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     vTX[i] = 0.0;
     vTY[i] = 0.0;
     vTU[i] = 0.0;
-    vTl[i] = 0.0;
+    vTL[i] = 0.0;
     vLX[i] = 0.0;
 //    vDX[i] = 0.0;
     vUX[i] = 0.0;
@@ -671,7 +671,6 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       /*****************************************/
 //      auto assign_M0 = make_op<Assign>(bmM0, bmM1);
 //      ex.execute(assign_M0); q.wait_and_throw();
-#ifdef MATRIX_VECTOR_PRODUCT
       /*****************************************/
       {
         cl_event events[1];
@@ -684,6 +683,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         }
       }
 
+#ifdef MATRIX_VECTOR_PRODUCT
       /*****************************************/
 //      auto assign_X2_1 = make_op<Assign>(bvX2, bvX1);
 //      ex.execute(assign_X2_1); q.wait_and_throw();
@@ -1302,7 +1302,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //      q.wait_and_throw();
       {
         cl_event events[1];
-        err = clblasDsyr2 (clOrder, clblasUpper, dimR, CONS_SYR, bX0_cl, 0, 1, bY0_cl, 0, 1,
+        err = clblasDsyr2 (clOrder, clblasUpper, dimR, CONS_SYR2, bX0_cl, 0, 1, bY0_cl, 0, 1,
                           bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
         err |= clWaitForEvents(1, events);
         if (err != CL_SUCCESS) {
@@ -1356,7 +1356,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //      q.wait_and_throw();
       {
         cl_event events[1];
-        err = clblasDsyr2 (clOrder, clblasLower, dimR, CONS_SYR, bX0_cl, 0, 1, bY0_cl, 0, 1,
+        err = clblasDsyr2 (clOrder, clblasLower, dimR, CONS_SYR2, bX0_cl, 0, 1, bY0_cl, 0, 1,
                           bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
         err |= clWaitForEvents(1, events);
         if (err != CL_SUCCESS) {
@@ -1390,6 +1390,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }  // End of copy
 
       /*****************************************/
+#endif // MATRIX_VECTOR_PRODUCT
 
     }
 
@@ -1684,7 +1685,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << std::endl;
 #else // MATRIX_VECTOR_PRODUCT
     std::sort (v0_ger.begin()+1, v0_ger.end());
-    std::cout << "m_ger  , " << v0_ger[(NUMBER_REPEATS+1)/2].count()
+    std::cout << "m_ger   , " << v0_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v0_syrX.begin()+1, v0_syrX.end());
 //    std::sort (v1_syrX.begin()+1, v1_syrX.end());
@@ -1701,8 +1702,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //              << ", "         << v2_syrY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
     std::sort (v0_sr2X.begin()+1, v0_sr2X.end());
-    std::sort (v1_sr2X.begin()+1, v1_sr2X.end());
-    std::sort (v2_sr2X.begin()+1, v2_sr2X.end());
+//    std::sort (v1_sr2X.begin()+1, v1_sr2X.end());
+//    std::sort (v2_sr2X.begin()+1, v2_sr2X.end());
     std::cout << "m_sr2X  , " << v0_sr2X[(NUMBER_REPEATS+1)/2].count()
 //              << ", "         << v1_sr2X[(NUMBER_REPEATS+1)/2].count()
 //              << ", "         << v2_sr2X[(NUMBER_REPEATS+1)/2].count()
@@ -1720,7 +1721,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
   // ANALYSIS OF THE RESULTS
 #ifdef MATRIX_VECTOR_PRODUCT
-  std::cout << "GEMVR ANALYSYS!!" << std::endl;
+  std::cout << "GEMVR ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vR[i];
 #ifdef SHOW_VALUES
@@ -1734,7 +1735,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "GEMVC ANALYSYS!!" << std::endl;
+  std::cout << "GEMVC ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
@@ -1748,7 +1749,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "UPPX ANALYSYS!!" << std::endl;
+  std::cout << "UPPX ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vUX[i];
   #ifdef SHOW_VALUES
@@ -1779,7 +1780,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "LOWX ANALYSYS!!" << std::endl;
+  std::cout << "LOWX ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vLX[i];
   #ifdef SHOW_VALUES
@@ -1810,7 +1811,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "UPPY ANALYSYS!!" << std::endl;
+  std::cout << "UPPY ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vUY[i];
   #ifdef SHOW_VALUES
@@ -1841,7 +1842,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "LOWY ANALYSYS!!" << std::endl;
+  std::cout << "LOWY ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vLY[i];
   #ifdef SHOW_VALUES
@@ -1872,7 +1873,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYMX ANALYSYS!!" << std::endl;
+  std::cout << "SYMX ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vSX[i];
   #ifdef SHOW_VALUES
@@ -1891,7 +1892,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYMY ANALYSYS!!" << std::endl;
+  std::cout << "SYMY ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vSY[i];
   #ifdef SHOW_VALUES
@@ -1912,7 +1913,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 
 #else // MATRIX_VECTOR_PRODUCT
 
-  std::cout << "GER ANALYSYS!!" << std::endl;
+  std::cout << "GER ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vT[i];
   #ifdef SHOW_VALUES
@@ -1929,7 +1930,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYRX ANALYSYS!!" << std::endl;
+  std::cout << "SYRX ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vTX[i];
   #ifdef SHOW_VALUES
@@ -1946,7 +1947,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYRY ANALYSYS!!" << std::endl;
+  std::cout << "SYRY ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vTY[i];
   #ifdef SHOW_VALUES
@@ -1963,7 +1964,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYR2X ANALYSYS!!" << std::endl;
+  std::cout << "SYR2X ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vTU[i];
   #ifdef SHOW_VALUES
@@ -1980,7 +1981,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  std::cout << "SYR2Y ANALYSYS!!" << std::endl;
+  std::cout << "SYR2Y ANALYSIS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vTL[i];
   #ifdef SHOW_VALUES
