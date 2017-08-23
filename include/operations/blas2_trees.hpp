@@ -659,7 +659,7 @@ Gemv_Col<Lower, Diag, Upper, Unit, LHS, RHS1, RHS2> make_Gemv_Col(
 
 /**** GER BY ROWS M ROWS x N BLOCK USING PROPERLY THE SHARED MEMORY ****/
 //template <class LHS, class RHS1, class RHS2>
-template <bool Lower, bool Diag, bool Upper,
+template <bool Single, bool Lower, bool Diag, bool Upper,
           class LHS, class RHS1, class RHS2>
 struct Ger_Row {
   LHS  l;
@@ -725,16 +725,32 @@ struct Ger_Row {
     if ((!Upper && (((idWFC*dimWFC)+((!Diag)?1:0))>(lst_row-1))) ||
         (!Lower && ((frs_row+((!Diag)?1:0))>((idWFC*dimWFC+dimWFC)-1)))) {
       ;
-    } else {
+    } else if (Single) {
       for (size_t colid = frs_col; colid < lst_col; colid += localSz) {
-        auto val = r2.eval(colid);
+        auto val = scl * r2.eval(colid);
         for (size_t id_row=frs_row, row=0; id_row<lst_row; id_row++, row++) {
           if (Lower && Upper && Diag) {
             l.eval(id_row,colid) += scl * r1.eval(id_row) * val;
           } else {
             if ((Lower && ((colid+((!Diag)?1:0)) <= id_row)) ||
               (Upper && (colid >= (id_row+((!Diag)?1:0))))) {
-                l.eval(id_row,colid) += scl * r1.eval(id_row) * val;
+                l.eval(id_row,colid) += r1.eval(id_row) * val;
+            }
+          }
+        }
+      }
+    } else {
+      for (size_t colid = frs_col; colid < lst_col; colid += localSz) {
+        auto val1 = scl * r1.eval(colid);
+        auto val2 = scl * r2.eval(colid);
+        for (size_t id_row=frs_row, row=0; id_row<lst_row; id_row++, row++) {
+          if (Lower && Upper && Diag) {
+            l.eval(id_row,colid) += r1.eval(id_row) * val2 + val1 * r2.eval(id_row);
+          } else {
+            if ((Lower && ((colid+((!Diag)?1:0)) <= id_row)) ||
+              (Upper && (colid >= (id_row+((!Diag)?1:0))))) {
+                l.eval(id_row,colid) += r1.eval(id_row) * val2 +
+                                        r2.eval(id_row) * val1;
             }
           }
         }
@@ -782,7 +798,7 @@ struct Ger_Row {
     if ((!Upper && (((idWFC*dimWFC)+((!Diag)?1:0))>(lst_row-1))) ||
         (!Lower && ((frs_row+((!Diag)?1:0))>((idWFC*dimWFC+dimWFC)-1)))) {
       ;
-    } else {
+    } else if (Single) {
       for (size_t rowid=frs_row; rowid<lst_row; rowid+=shrSz) {
         if (rowid > frs_row)
           // This barrier is mandatory to be sure the data is on the shared memory
@@ -810,23 +826,57 @@ struct Ger_Row {
           }
         }
       }
+    } else {
+      auto shrSz1 = (shrSz / 2);
+      for (size_t rowid=frs_row; rowid<lst_row; rowid+=shrSz) {
+        if (rowid > frs_row)
+          // This barrier is mandatory to be sure the data is on the shared memory
+          ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+        auto blqSz = std::min(shrSz1,lst_row-rowid);
+        for (size_t row=localid, id_row=rowid+localid; (row<blqSz); row+=localSz, id_row+=localSz) {
+          shrMem[       row] = scl * r1.eval(id_row);
+          shrMem[shrSz1+row] = scl * r2.eval(id_row);
+        }
+
+        // This barrier is mandatory to be sure the data is on the shared memory
+        ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+        for (size_t colid = frs_col; (colid<lst_col); colid += localSz) {
+          auto val1 = r1.eval(colid);
+          auto val2 = r2.eval(colid);
+          for (size_t id_row=rowid, row=0; row<blqSz; id_row++, row++) {
+            if (Lower && Upper && Diag) {
+              l.eval(id_row,colid) += shrMem[       row] * val2 +
+                                      shrMem[shrSz1+row] * val1;
+            } else {
+              if ((Lower && ((colid+((!Diag)?1:0)) <= id_row)) ||
+                  (Upper && (colid >= (id_row+((!Diag)?1:0))))) {
+                l.eval(id_row,colid) += shrMem[       row] * val2 +
+                                        shrMem[shrSz1+row] * val1;
+              }
+            }
+          }
+        }
+      }
     }
+
     return shrMem[0];
   }
 
 };
 
 //template <class LHS, class RHS1, class RHS2>
-template <bool Lower=true, bool Diag=true, bool Upper=true,
+template <bool Single=true, bool Lower=true, bool Diag=true, bool Upper=true,
           class LHS, class RHS1, class RHS2>
-Ger_Row<Lower, Diag, Upper, LHS, RHS1, RHS2> make_Ger_Row(
+Ger_Row<Single, Lower, Diag, Upper, LHS, RHS1, RHS2> make_Ger_Row(
     LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, size_t nWG_row, size_t nWG_col, size_t shrMemSize) {
-  return Ger_Row<Lower, Diag, Upper, LHS, RHS1, RHS2>(l, scl, r1, r2, nWG_row, nWG_col, shrMemSize);
+  return Ger_Row<Single, Lower, Diag, Upper, LHS, RHS1, RHS2>(l, scl, r1, r2, nWG_row, nWG_col, shrMemSize);
 }
 
 /**** GER BY COLUMNS M ROWS x N BLOCK USING PROPERLY THE SHARED MEMORY ****/
 //template <class LHS, class RHS1, class RHS2>
-template <bool Lower, bool Diag, bool Upper,
+template <bool Single, bool Lower, bool Diag, bool Upper,
           class LHS, class RHS1, class RHS2>
 struct Ger_Col {
   LHS  l;
@@ -890,13 +940,25 @@ struct Ger_Col {
     if ((!Upper && ((frs_col+((!Diag)?1:0))>((idWFR*dimWFR+dimWFR)-1))) ||
         (!Lower && ((idWFR*dimWFR+((!Diag)?1:0))>(lst_col-1)))) {
       ;
-    } else {
+    } else if (Single) {
       for (size_t id_row = frs_row; id_row < lst_row; id_row += localSz) {
         auto val = scl * r1.eval(id_row);
 //        for (size_t id_col=frs_col, col=0; id_col<lst_col; id_col++, col++) {
         for (size_t id_col=((Lower)?frs_col:std::max(id_row+((!Diag)?1:0),frs_col));
                     id_col<((Upper)?lst_col:std::min(id_row+((!Diag)?0:1),lst_col)); id_col++) {
           l.eval(id_row,id_col) += val * r2.eval(id_col);
+        }
+      }
+    } else {
+//      if (glbalid == 0) printf ("HERE\n");
+      for (size_t id_row = frs_row; id_row < lst_row; id_row += localSz) {
+        auto val1 = scl * r1.eval(id_row);
+        auto val2 = scl * r2.eval(id_row);
+//        for (size_t id_col=frs_col, col=0; id_col<lst_col; id_col++, col++) {
+        for (size_t id_col=((Lower)?frs_col:std::max(id_row+((!Diag)?1:0),frs_col));
+                    id_col<((Upper)?lst_col:std::min(id_row+((!Diag)?0:1),lst_col)); id_col++) {
+          l.eval(id_row,id_col) += val1 * r2.eval(id_col) +
+                                   val2 * r1.eval(id_col);
         }
       }
     }
@@ -941,7 +1003,7 @@ struct Ger_Col {
     if ((!Upper && ((frs_col+((!Diag)?1:0))>((idWFR*dimWFR+dimWFR)-1))) ||
         (!Lower && ((idWFR*dimWFR+((!Diag)?1:0))>(lst_col-1)))) {
       ;
-    } else {
+    } else if (Single) {
       // The computation are made in blocks of shrMemSize elements
       for (size_t colid=frs_col; colid<lst_col; colid+=shrMemSize) {
         if (colid > frs_col)
@@ -972,6 +1034,46 @@ struct Ger_Col {
           }
         }
       }
+    } else {
+      auto shrSz1 = (shrMemSize / 2);
+      // The computation are made in blocks of shrMemSize/shrSz1 elements
+//      for (size_t colid=frs_col; colid<lst_col; colid+=shrMemSize) {
+      for (size_t colid=frs_col; colid<lst_col; colid+=shrSz1) {
+//        if (glbalid == 0)
+//          printf ("(%lu) -> (%lu,%lu,%lu), (%lu,%lu)\n",
+//                  glbalid, colid, frs_col, lst_col, shrMemSize, shrSz1);
+        if (colid > frs_col)
+          // This barrier is mandatory to be sure the data is on the shared memory
+          ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+        auto blqSz = std::min(shrSz1,lst_col-colid);
+
+        for (size_t col=localid; (col<blqSz); col+=localSz) {
+          shrMem[       col] = scl * r1.eval(colid+col);
+          shrMem[shrSz1+col] = scl * r2.eval(colid+col);
+        }
+
+        // This barrier is mandatory to be sure the data is on the shared memory
+        ndItem.barrier(cl::sycl::access::fence_space::local_space);
+
+        for (size_t id_row = frs_row; id_row < lst_row; id_row += localSz) {
+          auto val1 = r1.eval(id_row);
+          auto val2 = r2.eval(id_row);
+  //        for (size_t id_col=frs_col, col=0; id_col<std::min(dimC,frs_col+colSz); id_col++, col++) {
+          for (size_t id_col=colid, col=0; col<blqSz; id_col++, col++) {
+            if (Lower && Upper && Diag) {
+              l.eval(id_row,id_col) += val1 * shrMem[shrSz1+col] +
+                                       val2 * shrMem[       col];
+            } else {
+              if ((Lower && ((id_col+((!Diag)?1:0)) <= id_row)) ||
+                  (Upper && (id_col >= (id_row+((!Diag)?1:0))))) {
+                l.eval(id_row,id_col) += val1 * shrMem[shrSz1+col] +
+                                         val2 * shrMem[       col];
+              }
+            }
+          }
+        }
+      }
     }
 
     return shrMem[0];
@@ -980,11 +1082,11 @@ struct Ger_Col {
 };
 
 //template <class LHS, class RHS1, class RHS2>
-template <bool Lower=true, bool Diag=true, bool Upper=true,
+template <bool Single=true, bool Lower=true, bool Diag=true, bool Upper=true,
           class LHS, class RHS1, class RHS2>
-Ger_Col<Lower, Diag, Upper, LHS, RHS1, RHS2> make_Ger_Col(
+Ger_Col<Single, Lower, Diag, Upper, LHS, RHS1, RHS2> make_Ger_Col(
     LHS &l, typename LHS::value_type scl, RHS1 &r1, RHS2 &r2, size_t nWG_row, size_t nWG_col, size_t shrMemSize) {
-  return Ger_Col<Lower, Diag, Upper, LHS, RHS1, RHS2>(l, scl, r1, r2, nWG_row, nWG_col, shrMemSize);
+  return Ger_Col<Single, Lower, Diag, Upper, LHS, RHS1, RHS2>(l, scl, r1, r2, nWG_row, nWG_col, shrMemSize);
 }
 
 /**************************************************/

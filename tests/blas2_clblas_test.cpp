@@ -28,7 +28,7 @@ using namespace cl::sycl;
 
 // #define GPU 1
 
-#define DEF_NUM_ELEM 1200
+#define DEF_SIZE_VECT 1200
 #define ERROR_ALLOWED 1.0E-6
 // #define RANDOM_DATA 1 // IF REMOVE AN ERROR APPEARS, BECAUSE CLBLAS USES THE ABSOLUTE VALUE ADDITION
 // #define SHOW_VALUES   1
@@ -57,6 +57,7 @@ using namespace cl::sycl;
   #define UNT_TEST "No"
 #endif
 
+// #define MATRIX_VECTOR_PRODUCT 1
 
 #ifdef EXECUTING_FLOAT
   #define BASETYPE float
@@ -67,6 +68,8 @@ using namespace cl::sycl;
   #define CONS_SYM1 0.4F
   #define CONS_SYM2 3.5F
   #define CONS_GER  3.0F
+  #define CONS_SYR  4.0F
+  #define CONS_SYR2 4.5F
 #else
   #define BASETYPE double
   #define CONS_ROW1 1.5
@@ -76,6 +79,8 @@ using namespace cl::sycl;
   #define CONS_SYM1 0.4
   #define CONS_SYM2 3.5
   #define CONS_GER  3.0
+  #define CONS_SYR  4.0
+  #define CONS_SYR2 4.5
 #endif
 
 // TESTING ROUTINE
@@ -100,26 +105,33 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<BASETYPE> vY1(dimR);
   std::vector<BASETYPE> vX2(dimC);
   std::vector<BASETYPE> vY2(dimR);
-  std::vector<BASETYPE> vR(3);
-  std::vector<BASETYPE> vS(3);
-  std::vector<BASETYPE> vT(3);
+  std::vector<BASETYPE> vR (3);
+  std::vector<BASETYPE> vS (3);
+  std::vector<BASETYPE> vT (3);
+  std::vector<BASETYPE> vTX(3);
+  std::vector<BASETYPE> vTY(3);
+  std::vector<BASETYPE> vTU(3);
+  std::vector<BASETYPE> vTL(3);
   std::vector<BASETYPE> vLX(3);
-  std::vector<BASETYPE> vDX(3);
+//  std::vector<BASETYPE> vDX(3);
   std::vector<BASETYPE> vUX(3);
   std::vector<BASETYPE> vLY(3);
-  std::vector<BASETYPE> vDY(3);
+//  std::vector<BASETYPE> vDY(3);
   std::vector<BASETYPE> vUY(3);
   std::vector<BASETYPE> vSX(3);
   std::vector<BASETYPE> vSY(3);
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
   std::chrono::duration<BASETYPE> t0_gmvR, t0_gmvC, t0_ger;
+  std::chrono::duration<BASETYPE> t0_syrX, t0_syrY, t0_sr2X, t0_sr2Y;
   std::chrono::duration<BASETYPE> t0_lowX, t0_uppX, t0_lowY, t0_uppY;
   std::chrono::duration<BASETYPE> t0_symX, t0_symY;
   std::vector<std::chrono::duration<BASETYPE>> v0_gmvR(NUMBER_REPEATS), v0_gmvC(NUMBER_REPEATS), v0_ger(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v0_lowX(NUMBER_REPEATS), v0_uppX(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v0_lowY(NUMBER_REPEATS), v0_uppY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v0_symX(NUMBER_REPEATS), v0_symY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v0_syrX(NUMBER_REPEATS), v0_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v0_sr2X(NUMBER_REPEATS), v0_sr2Y(NUMBER_REPEATS);
 #endif
 
   // INITIALIZING DATA
@@ -217,14 +229,18 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   });
 
   for (int i=0; i<3; i++) {
-    vR[i] = 0.0;
-    vS[i] = 0.0;
-    vT[i] = 0.0;
+    vR [i] = 0.0;
+    vS [i] = 0.0;
+    vT [i] = 0.0;
+    vTX[i] = 0.0;
+    vTY[i] = 0.0;
+    vTU[i] = 0.0;
+    vTl[i] = 0.0;
     vLX[i] = 0.0;
-    vDX[i] = 0.0;
+//    vDX[i] = 0.0;
     vUX[i] = 0.0;
     vLY[i] = 0.0;
-    vDY[i] = 0.0;
+//    vDY[i] = 0.0;
     vUY[i] = 0.0;
     vSX[i] = 0.0;
     vSY[i] = 0.0;
@@ -329,13 +345,35 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //    uppX += vX0[j];
   }
 
-  BASETYPE addRng1 = 0.0;
+  BASETYPE addRng1 = 0.0, addRng1U = 0.0, addRng1L = 0.0;
+  BASETYPE addRng2U = 0.0, addRng2L = 0.0;
   for (size_t i = 0; i < dimR; i++) {
     for (size_t j = 0; j < dimC; j++) {
-      addRng1 += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      BASETYPE aux = 0.0, auxU = 0.0, auxL = 0.0;
+      BASETYPE aux2U = 0.0, aux2L = 0.0;
+//      addRng1 += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      aux   += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      auxU  += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      auxL  += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      aux2U += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      aux2L += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
       if ((i >= shftR) && (j >= shftC)) {
-        addRng1 += CONS_GER * vY0[i - shftR] * vX0[j - shftC];
+//        addRng1 += (3.0 * vY0[i - shftR] * vX0[j - shftC]);
+        aux += (CONS_GER * vX0[i - shftR] * vY0[j - shftC]);
+        if ((i-shftR) <= (j-shftC)) {
+          auxU  += (CONS_SYR  * vX0[i - shftR] * vX0[j - shftC]);
+          aux2U += (CONS_SYR2 * vX0[i - shftR] * vY0[j - shftC]) +
+                   (CONS_SYR2 * vY0[i - shftR] * vX0[j - shftC]);
+        }
+        if ((i-shftR) >= (j-shftC)) {
+          auxL  += (CONS_SYR  * vY0[i - shftR] * vY0[j - shftC]);
+          aux2L += (CONS_SYR2 * vX0[i - shftR] * vY0[j - shftC])+
+                   (CONS_SYR2 * vY0[i - shftR] * vX0[j - shftC]);
+        }
       }
+      addRng1  += aux ;
+      addRng1U += auxU ; addRng1L += auxL ;
+      addRng2U += aux2U; addRng2L += aux2L;
     }
   }
 
@@ -418,22 +456,34 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     cl_mem bT_cl =
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                         vT.size() * sizeof(BASETYPE), nullptr, &err);
+    cl_mem bTX_cl =
+        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+                        vTX.size() * sizeof(BASETYPE), nullptr, &err);
+    cl_mem bTY_cl =
+        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+                        vTY.size() * sizeof(BASETYPE), nullptr, &err);
+    cl_mem bTU_cl =
+        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+                        vTU.size() * sizeof(BASETYPE), nullptr, &err);
+    cl_mem bTL_cl =
+        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+                        vTL.size() * sizeof(BASETYPE), nullptr, &err);
 /* */
     cl_mem bLX_cl =
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                         vLX.size() * sizeof(BASETYPE), nullptr, &err);
-    cl_mem bDX_cl =
-        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
-                        vDX.size() * sizeof(BASETYPE), nullptr, &err);
+//    cl_mem bDX_cl =
+//        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+//                        vDX.size() * sizeof(BASETYPE), nullptr, &err);
     cl_mem bUX_cl =
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                         vUX.size() * sizeof(BASETYPE), nullptr, &err);
     cl_mem bLY_cl =
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                         vLY.size() * sizeof(BASETYPE), nullptr, &err);
-    cl_mem bDY_cl =
-        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
-                        vDY.size() * sizeof(BASETYPE), nullptr, &err);
+//    cl_mem bDY_cl =
+//        clCreateBuffer(clContext, CL_MEM_READ_WRITE,
+//                        vDY.size() * sizeof(BASETYPE), nullptr, &err);
     cl_mem bUY_cl =
         clCreateBuffer(clContext, CL_MEM_READ_WRITE,
                         vUY.size() * sizeof(BASETYPE), nullptr, &err);
@@ -540,6 +590,30 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
+      err = clEnqueueWriteBuffer(clQueue, bTX_cl, CL_FALSE, 0,
+                                 (vTX.size() * sizeof(BASETYPE)), vTX.data(), 0,
+                                 NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueWriteBuffer(clQueue, bTY_cl, CL_FALSE, 0,
+                                 (vTY.size() * sizeof(BASETYPE)), vTY.data(), 0,
+                                 NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueWriteBuffer(clQueue, bTU_cl, CL_FALSE, 0,
+                                 (vTU.size() * sizeof(BASETYPE)), vTU.data(), 0,
+                                 NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueWriteBuffer(clQueue, bTL_cl, CL_FALSE, 0,
+                                 (vTL.size() * sizeof(BASETYPE)), vTL.data(), 0,
+                                 NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
 /* */
       err = clEnqueueWriteBuffer(clQueue, bLX_cl, CL_FALSE, 0,
                                  (vLX.size() * sizeof(BASETYPE)), vLX.data(), 0,
@@ -547,12 +621,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
-      err = clEnqueueWriteBuffer(clQueue, bDX_cl, CL_FALSE, 0,
-                                 (vDX.size() * sizeof(BASETYPE)), vDX.data(), 0,
-                                 NULL, NULL);
-      if (err != CL_SUCCESS) {
-        std::cout << " Error copying to device " << err << std::endl;
-      }
+//      err = clEnqueueWriteBuffer(clQueue, bDX_cl, CL_FALSE, 0,
+//                                 (vDX.size() * sizeof(BASETYPE)), vDX.data(), 0,
+//                                 NULL, NULL);
+//      if (err != CL_SUCCESS) {
+//        std::cout << " Error copying to device " << err << std::endl;
+//      }
       err = clEnqueueWriteBuffer(clQueue, bUX_cl, CL_FALSE, 0,
                                  (vUX.size() * sizeof(BASETYPE)), vUX.data(), 0,
                                  NULL, NULL);
@@ -565,12 +639,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
-      err = clEnqueueWriteBuffer(clQueue, bDY_cl, CL_FALSE, 0,
-                                 (vDY.size() * sizeof(BASETYPE)), vDY.data(), 0,
-                                 NULL, NULL);
-      if (err != CL_SUCCESS) {
-        std::cout << " Error copying to device " << err << std::endl;
-      }
+//      err = clEnqueueWriteBuffer(clQueue, bDY_cl, CL_FALSE, 0,
+//                                 (vDY.size() * sizeof(BASETYPE)), vDY.data(), 0,
+//                                 NULL, NULL);
+//      if (err != CL_SUCCESS) {
+//        std::cout << " Error copying to device " << err << std::endl;
+//      }
       err = clEnqueueWriteBuffer(clQueue, bUY_cl, CL_FALSE, 0,
                                  (vUY.size() * sizeof(BASETYPE)), vUY.data(), 0,
                                  NULL, NULL);
@@ -597,6 +671,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       /*****************************************/
 //      auto assign_M0 = make_op<Assign>(bmM0, bmM1);
 //      ex.execute(assign_M0); q.wait_and_throw();
+#ifdef MATRIX_VECTOR_PRODUCT
+      /*****************************************/
       {
         cl_event events[1];
 
@@ -1054,6 +1130,8 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }  // End of copy
 
       /*****************************************/
+#else // MATRIX_VECTOR_PRODUCT
+      /*****************************************/
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
@@ -1094,6 +1172,225 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
           std::cout << __LINE__ << ": ERROR " << err << std::endl;
         }
       }  // End of copy
+
+      /*****************************************/
+//      auto assign_M0_1 = make_op<Assign>(bmM0, bmM1);
+//      ex.execute(assign_M0_1); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDcopy(dimR*dimC, bM1_cl, 0, 1, bM0_cl, 0, 1, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//      _SYR(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
+//            bmM0(shftR, shftC), dimL);
+//      q.wait_and_throw();
+      {
+        cl_event events[1];
+        err = clblasDsyr (clOrder, clblasUpper, dimR, CONS_SYR, bX0_cl, 0, 1,
+                          bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_syrX = t_stop - t_start;
+      } else if (i > 0) {
+        t0_syrX += t_stop - t_start;
+      } else {
+        t0_syrX = t_start - t_start;
+      }
+      v0_syrX[i] = t_stop - t_start;
+  #endif
+//      auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
+//      ex.reduce(reducOpV); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDasum(dimR*dimC,
+                          bTX_cl, 0, bM0_cl, 0, 1, scratchM_cl, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+
+        if (err != CL_SUCCESS) {
+          std::cout << __LINE__ << ": ERROR " << err << std::endl;
+        }
+      }  // End of copy
+
+      /*****************************************/
+//      auto assign_M0_1 = make_op<Assign>(bmM0, bmM1);
+//      ex.execute(assign_M0_1); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDcopy(dimR*dimC, bM1_cl, 0, 1, bM0_cl, 0, 1, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//      _SYR(ex, "L", dimR - shftR, CONS_SYR, bvX0, 1,
+//            bmM0(shftR, shftC), dimL);
+//      q.wait_and_throw();
+      {
+        cl_event events[1];
+        err = clblasDsyr (clOrder, clblasLower, dimR, CONS_SYR, bY0_cl, 0, 1,
+                          bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_syrY = t_stop - t_start;
+      } else if (i > 0) {
+        t0_syrY += t_stop - t_start;
+      } else {
+        t0_syrY = t_start - t_start;
+      }
+      v0_syrY[i] = t_stop - t_start;
+  #endif
+//      auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
+//      ex.reduce(reducOpV); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDasum(dimR*dimC,
+                          bTY_cl, 0, bM0_cl, 0, 1, scratchM_cl, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+
+        if (err != CL_SUCCESS) {
+          std::cout << __LINE__ << ": ERROR " << err << std::endl;
+        }
+      }  // End of copy
+
+      /*****************************************/
+//      auto assign_M0_1 = make_op<Assign>(bmM0, bmM1);
+//      ex.execute(assign_M0_1); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDcopy(dimR*dimC, bM1_cl, 0, 1, bM0_cl, 0, 1, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//      _SYR2(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+//           bmM0(shftR, shftC), dimL);
+//      q.wait_and_throw();
+      {
+        cl_event events[1];
+        err = clblasDsyr2 (clOrder, clblasUpper, dimR, CONS_SYR, bX0_cl, 0, 1, bY0_cl, 0, 1,
+                          bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_sr2X = t_stop - t_start;
+      } else if (i > 0) {
+        t0_sr2X += t_stop - t_start;
+      } else {
+        t0_sr2X = t_start - t_start;
+      }
+      v0_sr2X[i] = t_stop - t_start;
+  #endif
+//      auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
+//      ex.reduce(reducOpV); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDasum(dimR*dimC,
+                          bTU_cl, 0, bM0_cl, 0, 1, scratchM_cl, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+
+        if (err != CL_SUCCESS) {
+          std::cout << __LINE__ << ": ERROR " << err << std::endl;
+        }
+      }  // End of copy
+
+      /*****************************************/
+//      auto assign_M0_1 = make_op<Assign>(bmM0, bmM1);
+//      ex.execute(assign_M0_1); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDcopy(dimR*dimC, bM1_cl, 0, 1, bM0_cl, 0, 1, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+//      _SYR2(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+//           bmM0(shftR, shftC), dimL);
+//      q.wait_and_throw();
+      {
+        cl_event events[1];
+        err = clblasDsyr2 (clOrder, clblasLower, dimR, CONS_SYR, bX0_cl, 0, 1, bY0_cl, 0, 1,
+                          bM0_cl, 0, dimL, 1, &clQueue, 0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+        if (err != CL_SUCCESS) {
+          std::cout << " ERROR " << err << std::endl;
+        }
+      }
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_sr2Y = t_stop - t_start;
+      } else if (i > 0) {
+        t0_sr2Y += t_stop - t_start;
+      } else {
+        t0_sr2Y = t_start - t_start;
+      }
+      v0_sr2Y[i] = t_stop - t_start;
+  #endif
+//      auto reducOpV = make_addAssignReduction(bvT, bvV0, 256, 256);
+//      ex.reduce(reducOpV); q.wait_and_throw();
+      {
+        cl_event events[1];
+
+        err = clblasDasum(dimR*dimC,
+                          bTL_cl, 0, bM0_cl, 0, 1, scratchM_cl, 1, &clQueue,
+                          0, NULL, &events[0]);
+        err |= clWaitForEvents(1, events);
+
+        if (err != CL_SUCCESS) {
+          std::cout << __LINE__ << ": ERROR " << err << std::endl;
+        }
+      }  // End of copy
+
+      /*****************************************/
+
     }
 
     {
@@ -1163,6 +1460,30 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
+      err = clEnqueueReadBuffer(clQueue, bTX_cl, CL_FALSE, 0,
+                                (vTX.size() * sizeof(BASETYPE)), vTX.data(), 0,
+                                NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueReadBuffer(clQueue, bTY_cl, CL_FALSE, 0,
+                                (vTY.size() * sizeof(BASETYPE)), vTY.data(), 0,
+                                NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueReadBuffer(clQueue, bTU_cl, CL_FALSE, 0,
+                                (vTU.size() * sizeof(BASETYPE)), vTU.data(), 0,
+                                NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
+      err = clEnqueueReadBuffer(clQueue, bTL_cl, CL_FALSE, 0,
+                                (vTL.size() * sizeof(BASETYPE)), vTL.data(), 0,
+                                NULL, NULL);
+      if (err != CL_SUCCESS) {
+        std::cout << " Error copying to device " << err << std::endl;
+      }
 /* */
       err = clEnqueueReadBuffer(clQueue, bLX_cl, CL_FALSE, 0,
                                 (vLX.size() * sizeof(BASETYPE)), vLX.data(), 0,
@@ -1170,12 +1491,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
-      err = clEnqueueReadBuffer(clQueue, bDX_cl, CL_FALSE, 0,
-                                (vDX.size() * sizeof(BASETYPE)), vDX.data(), 0,
-                                NULL, NULL);
-      if (err != CL_SUCCESS) {
-        std::cout << " Error copying to device " << err << std::endl;
-      }
+//      err = clEnqueueReadBuffer(clQueue, bDX_cl, CL_FALSE, 0,
+//                                (vDX.size() * sizeof(BASETYPE)), vDX.data(), 0,
+//                                NULL, NULL);
+//      if (err != CL_SUCCESS) {
+//        std::cout << " Error copying to device " << err << std::endl;
+//      }
       err = clEnqueueReadBuffer(clQueue, bUX_cl, CL_FALSE, 0,
                                 (vUX.size() * sizeof(BASETYPE)), vUX.data(), 0,
                                 NULL, NULL);
@@ -1188,12 +1509,12 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       if (err != CL_SUCCESS) {
         std::cout << " Error copying to device " << err << std::endl;
       }
-      err = clEnqueueReadBuffer(clQueue, bDY_cl, CL_FALSE, 0,
-                                (vDY.size() * sizeof(BASETYPE)), vDY.data(), 0,
-                                NULL, NULL);
-      if (err != CL_SUCCESS) {
-        std::cout << " Error copying to device " << err << std::endl;
-      }
+//      err = clEnqueueReadBuffer(clQueue, bDY_cl, CL_FALSE, 0,
+//                                (vDY.size() * sizeof(BASETYPE)), vDY.data(), 0,
+//                                NULL, NULL);
+//      if (err != CL_SUCCESS) {
+//        std::cout << " Error copying to device " << err << std::endl;
+//      }
       err = clEnqueueReadBuffer(clQueue, bUY_cl, CL_FALSE, 0,
                                 (vUY.size() * sizeof(BASETYPE)), vUY.data(), 0,
                                 NULL, NULL);
@@ -1225,15 +1546,19 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       clReleaseMemObject(bY1_cl);
       clReleaseMemObject(bX2_cl);
       clReleaseMemObject(bY2_cl);
-      clReleaseMemObject(bR_cl);
-      clReleaseMemObject(bS_cl);
-      clReleaseMemObject(bT_cl);
+      clReleaseMemObject(bR_cl );
+      clReleaseMemObject(bS_cl );
+      clReleaseMemObject(bT_cl );
+      clReleaseMemObject(bTX_cl);
+      clReleaseMemObject(bTY_cl);
+      clReleaseMemObject(bTU_cl);
+      clReleaseMemObject(bTL_cl);
 /* */
       clReleaseMemObject(bLX_cl);
-      clReleaseMemObject(bDX_cl);
+//      clReleaseMemObject(bDX_cl);
       clReleaseMemObject(bUX_cl);
       clReleaseMemObject(bLY_cl);
-      clReleaseMemObject(bDY_cl);
+//      clReleaseMemObject(bDY_cl);
       clReleaseMemObject(bUY_cl);
 /* */
       clReleaseMemObject(bSX_cl);
@@ -1247,6 +1572,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
 //    int div = 1;
     // COMPUTATIONAL TIMES
+#ifdef MATRIX_VECTOR_PRODUCT
     std::cout << "t_gemvR , " << t0_gmvR.count()/div
 //              << ", " << t2_gmvR.count()/div
 //              << ", " << t3_gmvR.count()/div
@@ -1279,8 +1605,27 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //              << ", "         << t1_uppY.count()/div
 //              << ", "         << t2_uppY.count()/div
               << std::endl;
+#else // MATRIX_VECTOR_PRODUCT
     std::cout << "t_ger   , " << t0_ger.count()/div << std::endl;
+    std::cout << "t_syrX  , " << t0_syrX.count()/div
+//              <<  ", "        << t1_syrX.count()/div
+//              <<  ", "        << t2_syrX.count()/div
+              << std::endl;
+    std::cout << "t_syrY  , " << t0_syrY.count()/div
+//              <<  ", "        << t1_syrY.count()/div
+//              <<  ", "        << t2_syrY.count()/div
+              << std::endl;
+    std::cout << "t_sr2X  , " << t0_sr2X.count()/div
+//              <<  ", "        << t1_sr2X.count()/div
+//              <<  ", "        << t2_sr2X.count()/div
+              << std::endl;
+    std::cout << "t_sr2Y  , " << t0_sr2Y.count()/div
+//              <<  ", "        << t1_sr2Y.count()/div
+//              <<  ", "        << t2_sr2Y.count()/div
+              << std::endl;
+#endif // MATRIX_VECTOR_PRODUCT
 
+#ifdef MATRIX_VECTOR_PRODUCT
     std::sort (v0_gmvR.begin()+1, v0_gmvR.end());
 //    std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
 //    std::sort (v3_gmvR.begin()+1, v3_gmvR.end());
@@ -1337,13 +1682,45 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //              << ", "         << v1_symY[(NUMBER_REPEATS+1)/2].count()
 //              << ", "         << v2_symY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+#else // MATRIX_VECTOR_PRODUCT
     std::sort (v0_ger.begin()+1, v0_ger.end());
     std::cout << "m_ger  , " << v0_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+    std::sort (v0_syrX.begin()+1, v0_syrX.end());
+//    std::sort (v1_syrX.begin()+1, v1_syrX.end());
+//    std::sort (v2_syrX.begin()+1, v2_syrX.end());
+    std::cout << "m_syrX  , " << v0_syrX[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v1_syrX[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v2_syrX[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+    std::sort (v0_syrY.begin()+1, v0_syrY.end());
+//    std::sort (v1_syrY.begin()+1, v1_syrY.end());
+//    std::sort (v2_syrY.begin()+1, v2_syrY.end());
+    std::cout << "m_syrY  , " << v0_syrY[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v1_syrY[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v2_syrY[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+    std::sort (v0_sr2X.begin()+1, v0_sr2X.end());
+    std::sort (v1_sr2X.begin()+1, v1_sr2X.end());
+    std::sort (v2_sr2X.begin()+1, v2_sr2X.end());
+    std::cout << "m_sr2X  , " << v0_sr2X[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v1_sr2X[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v2_sr2X[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+    std::sort (v0_sr2Y.begin()+1, v0_sr2Y.end());
+//    std::sort (v1_sr2Y.begin()+1, v1_sr2Y.end());
+//    std::sort (v2_sr2Y.begin()+1, v2_sr2Y.end());
+    std::cout << "m_sr2Y  , " << v0_sr2Y[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v1_sr2Y[(NUMBER_REPEATS+1)/2].count()
+//              << ", "         << v2_sr2Y[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+#endif // MATRIX_VECTOR_PRODUCT
 
 #endif
 
   // ANALYSIS OF THE RESULTS
+#ifdef MATRIX_VECTOR_PRODUCT
+  std::cout << "GEMVR ANALYSYS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vR[i];
 #ifdef SHOW_VALUES
@@ -1357,6 +1734,7 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
+  std::cout << "GEMVC ANALYSYS!!" << std::endl;
   for (int i=0; i<1; i++) {
     res = vS[i];
   #ifdef SHOW_VALUES
@@ -1532,16 +1910,94 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     }
   }
 
-  res = vT[0];
-#ifdef SHOW_VALUES
-  std::cout << "VALUES!! --> res = " << res << " , addRng1 = " << addRng1
-            << " , err = " << addRng1 - res << std::endl;
-#endif  // VERBOSE
-  if (std::abs((res - addRng1) / res) > ERROR_ALLOWED) {
-    std::cout << "ERROR!! --> res = " << res << " , addRng1 = " << addRng1
+#else // MATRIX_VECTOR_PRODUCT
+
+  std::cout << "GER ANALYSYS!!" << std::endl;
+  for (int i=0; i<1; i++) {
+    res = vT[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1 = " << addRng1
               << " , err = " << addRng1 - res << std::endl;
-    returnVal += 2;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1 = " << addRng1
+                << " , err = " << addRng1 - res << std::endl;
+      returnVal += 2;
+    }
   }
+
+  std::cout << "SYRX ANALYSYS!!" << std::endl;
+  for (int i=0; i<1; i++) {
+    res = vTX[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1U = " << addRng1U
+              << " , err = " << addRng1U - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1U) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1U = " << addRng1U
+                << " , err = " << addRng1U - res << std::endl;
+      returnVal += 2;
+    }
+  }
+
+  std::cout << "SYRY ANALYSYS!!" << std::endl;
+  for (int i=0; i<1; i++) {
+    res = vTY[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1L = " << addRng1L
+              << " , err = " << addRng1L - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1L) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1L = " << addRng1L
+                << " , err = " << addRng1L - res << std::endl;
+      returnVal += 2;
+    }
+  }
+
+  std::cout << "SYR2X ANALYSYS!!" << std::endl;
+  for (int i=0; i<1; i++) {
+    res = vTU[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng2U = " << addRng2U
+              << " , err = " << addRng2U - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng2U) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng2U = " << addRng2U
+                << " , err = " << addRng2U - res << std::endl;
+      returnVal += 2;
+    }
+  }
+
+  std::cout << "SYR2Y ANALYSYS!!" << std::endl;
+  for (int i=0; i<1; i++) {
+    res = vTL[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng2L = " << addRng2L
+              << " , err = " << addRng2L - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng2L) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng2L = " << addRng2L
+                << " , err = " << addRng2L - res << std::endl;
+      returnVal += 2;
+    }
+  }
+
+#endif // MATRIX_VECTOR_PRODUCT
 
   return returnVal;
 }
@@ -1555,7 +2011,7 @@ int main(int argc, char *argv[]) {
   size_t returnVal = 0;
 
   if (argc == 1) {
-    sizeV = DEF_NUM_ELEM;
+    sizeV = DEF_SIZE_VECT;
   } else if (argc == 2) {
     if (atoi(argv[1]) < 0) {
       sizeV = -atoi(argv[1]);
