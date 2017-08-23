@@ -111,8 +111,8 @@ void _GEMV(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   } else {
 //      std::cout << "COLS_CASE"  << std::endl;
     const auto localSize  = (_localSize == 0)? 256: _localSize;
-    const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: _n_rows_WG;
-    const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: _n_cols_WG;
+    const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: std::min(M,_n_rows_WG);
+    const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
     const auto nWG_col = (N - 1) / n_cols_WG + 1;
@@ -260,12 +260,12 @@ void _TRMV(Executor<ExecutorType> ex, std::string _Uplo,
   } else {
 //      std::cout << "COLS_CASE"  << std::endl;
     const auto localSize  = (_localSize == 0)? 256: _localSize;
-    const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: _n_rows_WG;
-    const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: _n_cols_WG;
+    const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);;
+    const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
-    const auto nWG_col = (N - 1) / n_cols_WG + 1;
     const auto nWG_row = (N - 1) / n_rows_WG + 1;
+    const auto nWG_col = (N - 1) / n_cols_WG + 1;
 
     const auto scratchSize = nWG_col;
     ContainerT valT1(N * scratchSize);
@@ -357,7 +357,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
   auto my_mA =
       matrix_view<T, ContainerT>(_mA, _N, _N, accessOpr, _lda, _mA.getDisp());
   auto my_mAT =
-          matrix_view<T, ContainerT>(_mA, _N, _N, 1-accessOpr, _lda, _mA.getDisp());
+          matrix_view<T, ContainerT>(_mA, _N, _N, 0, _lda, _mA.getDisp());
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, N);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, N);
 #ifdef VERBOSE
@@ -368,17 +368,22 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
 #endif  // VERBOSE
 
   const auto interLoop=1;
-  const auto localSize = (_localSize == 0)? 256: _localSize;
+
+  const auto localSize  = (_localSize == 0)? 256: _localSize;
   const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
   const auto n_rows_WG_R = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
   const auto n_cols_WG_R = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);
+//  const auto n_cols_WG_R = std::max(localSize,((_n_cols_WG == 0)? N:_n_cols_WG));
   const auto nWG_row_R = (N - 1) / n_rows_WG_R + 1;
   const auto nWG_col_R = (N - 1) / n_cols_WG_R + 1;
   auto gridSize_R = localSize * nWG_row_R * nWG_col_R;
 
   const auto n_rows_WG_C  = (_n_rows_WG == 0)? localSize: _n_rows_WG;
   const auto n_cols_WG_C  = (_n_cols_WG == 0)? localSize: _n_cols_WG;
+//  const auto n_rows_WG_C  = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);
+//  const auto n_cols_WG_C  = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);
+//  const auto n_cols_WG_C  = std::min(N,((_n_cols_WG == 0)? localSize:_n_cols_WG));
   const auto nWG_row_C = (N - 1) / n_rows_WG_C + 1;
   const auto nWG_col_C = (N - 1) / n_cols_WG_C + 1;
   auto gridSize_C = localSize * nWG_row_C * nWG_col_C;
@@ -410,7 +415,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
     auto mat2 = matrix_view<T, ContainerT>(valT1, N*scratchSize, N, scratchSize);
 */
 #ifdef VERBOSE
-    std::cout << "ROWS_CASE: "
+    std::cout << "SYMV_ROWS: "
               << "N = " << N
               << " , localSize = "  << localSize
               << " , shrMemSize = " << shrMemSize
@@ -434,6 +439,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
 //    } else {
 //      ex.execute(gemvR, localSize, gridSize, shrMemSize);
 //    }
+/* */
     if (triangOpr == 1) {
       auto gemvR = make_Gemv_Row<interLoop,false,true,true> (matR, my_mA, my_vx, nWG_row_R, nWG_col_R, shrMemSize);
 //      auto gemvC = make_Gemv_Col<true,false,false> (matC, my_mA, my_vx, nWG_row_C, nWG_col_C, shrMemSize);
@@ -457,6 +463,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
         ex.execute(gemvC, localSize, gridSize_C, shrMemSize);
       }
     }
+/* */
 
 //    matR.printH("MATR");
 //    matC.printH("MATC");
@@ -488,7 +495,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
     auto mat2 = matrix_view<T, ContainerT>(valT1, N*scratchSize, N, scratchSize);
 */
 #ifdef VERBOSE
-    std::cout << "COLS_CASE: "
+    std::cout << "SYMV_COLS: "
               << "N = " << N
               << " , localSize = "  << localSize
               << " , shrMemSize = " << shrMemSize
@@ -501,20 +508,9 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
               << std::endl;
 #endif  // VERBOSE
 
-//    my_mA.printH("MAT");
-//    my_vx.printH("VX");
-//    my_vy.printH("VY");
-
-//    auto gridSize = localSize * nWG_row * nWG_col;
-//    auto gemvC = make_Gemv_Col (mat1, my_mA, my_vx, nWG_row, nWG_col, shrMemSize);
-//    if (shrMemSize == 0) {
-//      ex.execute(gemvC, localSize, gridSize);
-//    } else {
-//      ex.execute(gemvC, localSize, gridSize, shrMemSize);
-//    }
+/* */
     if (triangOpr == 1) {
       auto gemvC = make_Gemv_Col<false,true,true> (matC, my_mA, my_vx, nWG_row_C, nWG_col_C, shrMemSize);
-//      auto gemvR = make_Gemv_Row<interLoop,true,false,false> (matR, my_mA, my_vx, nWG_row_R, nWG_col_R, shrMemSize);
       auto gemvR = make_Gemv_Row<interLoop,true,false,false> (matR, my_mAT, my_vx, nWG_row_R, nWG_col_R, shrMemSize);
       if (shrMemSize == 0) {
         ex.execute(gemvC, localSize, gridSize_C);
@@ -525,7 +521,6 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
       }
     } else {
       auto gemvC = make_Gemv_Col<true,true,false> (matC, my_mA, my_vx, nWG_row_C, nWG_col_C, shrMemSize);
-//      auto gemvR = make_Gemv_Row<interLoop,false,false,true> (matR, my_mA, my_vx, nWG_row_R, nWG_col_R, shrMemSize);
       auto gemvR = make_Gemv_Row<interLoop,false,false,true> (matR, my_mAT, my_vx, nWG_row_R, nWG_col_R, shrMemSize);
       if (shrMemSize == 0) {
         ex.execute(gemvC, localSize, gridSize_C);
@@ -534,24 +529,19 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
         ex.execute(gemvC, localSize, gridSize_C, shrMemSize);
         ex.execute(gemvR, localSize, gridSize_R, shrMemSize);
       }
+
     }
-//    matR.printH("MATR");
-//    matC.printH("MATC");
+/* */
 /* */
     auto scalOp1 = make_op<ScalarOp, prdOp2_struct>(_beta, my_vy);
-//    auto assignOp1 = make_op<Assign> (my_vy, scalOp1);
-//    ex.execute(assignOp1, localSize); my_vy.printH("VY");
     auto addMOpR = make_addSetColumns(matR);
     auto addMOpC = make_addSetColumns(matC);
     auto addMOp  = make_op<BinaryOp, addOp2_struct>(addMOpR, addMOpC);
     auto scalOp2 = make_op<ScalarOp, prdOp2_struct>(_alpha, addMOp);
-//    auto assignOp2 = make_op<Assign> (my_vy, scalOp2);
-//    ex.execute(assignOp2, localSize); my_vy.printH("VY");
     auto addOp = make_op<BinaryOp, addOp2_struct>(scalOp1, scalOp2);
     auto assignOp = make_op<Assign>(my_vy, addOp);
     ex.execute(assignOp, localSize);
-//    my_vy.printH("VY");
-/* */
+/*  */
   }
 }
 
@@ -567,16 +557,16 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
           vector_view<T, ContainerT> _vy, size_t _incy,
           matrix_view<T, ContainerT> _mA, size_t _lda) {
   int accessOpr = true;
-  size_t M = _M;
-  size_t N = _N;
+  unsigned int M = _M;
+  unsigned int N = _N;
   auto my_mA =
       matrix_view<T, ContainerT>(_mA, _M, _N, accessOpr, _lda, _mA.getDisp());
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, M);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, N);
   if (my_mA.getAccess()) {  // ROWS ACCESS
     const auto localSize = (_localSize == 0)? 256: _localSize;
-    const auto n_rows_WG = (_n_rows_WG == 0)? 1: _n_rows_WG;
-    const auto n_cols_WG = (_n_cols_WG == 0)? N: _n_cols_WG;
+    const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(M,_n_rows_WG);;
+    const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
     const auto nWG_row = (M - 1) / n_rows_WG + 1;
@@ -603,8 +593,8 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
 //    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
   } else { // COLUMN ACCESS
     const auto localSize = (_localSize == 0)? 256: _localSize;
-    const auto n_rows_WG = (_n_rows_WG == 0)? localSize: _n_rows_WG;
-    const auto n_cols_WG = (_n_cols_WG == 0)? localSize: _n_cols_WG;
+    const auto n_rows_WG = (_n_rows_WG == 0)? localSize: std::min(M,_n_rows_WG);;
+    const auto n_cols_WG = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
     const auto nWG_row = (M - 1) / n_rows_WG + 1;
@@ -627,6 +617,116 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
     } else {
       ex.execute(assignOp, localSize, gridSize, shrMemSize);
     }
+  }
+}
+
+/*! _SYR.
+ * @brief Implementation of the rank 1 operation
+ */
+/*
+ssyr 	( 	character  	UPLO,
+   integer  	N,
+   real  	ALPHA,
+   real, dimension(*)  	X,
+   integer  	INCX,
+   real, dimension(lda,*)  	A,
+   integer  	LDA
+ )
+*/
+template <unsigned int _localSize = 0, unsigned int _shrMemSize = 0,
+          unsigned int _n_rows_WG = 0, unsigned int _n_cols_WG = 0,
+          typename ExecutorType, typename T, typename ContainerT>
+void _SYR(Executor<ExecutorType> ex, std::string _Uplo,
+          size_t _N, T _alpha,
+          vector_view<T, ContainerT> _vx, size_t _incx,
+          matrix_view<T, ContainerT> _mA, size_t _lda) {
+  int accessOpr = true;
+  int triangOpr = ((_Uplo[0] == 'u') || (_Uplo[0] == 'U'));
+  unsigned int N = _N;
+  auto my_mA =
+      matrix_view<T, ContainerT>(_mA, _N, _N, accessOpr, _lda, _mA.getDisp());
+  auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, N);
+  if (my_mA.getAccess()) {  // ROWS ACCESS
+    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
+    const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);;
+    const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
+
+    const auto nWG_row = (N - 1) / n_rows_WG + 1;
+    const auto nWG_col = (N - 1) / n_cols_WG + 1;
+
+#ifdef VERBOSE
+    std::cout << "SYR_ROWS: "
+              << "N = " << N
+              << " , localSize = "  << localSize
+              << " , n_rows_WG = "  << n_rows_WG
+              << " , n_cols_WG = "  << n_cols_WG
+              << " , shrMemSize = " << shrMemSize
+              << std::endl;
+#endif  // VERBOSE
+
+//    my_mA.printH("MAT");
+//    my_vx.printH("VX ");
+
+    if (triangOpr) {
+      auto gridSize = localSize * nWG_row * nWG_col;
+      auto assignOp = make_Ger_Row<false,true,true>(my_mA, _alpha, my_vx, my_vx, nWG_row, nWG_col, shrMemSize);
+      if (shrMemSize == 0) {
+        ex.execute(assignOp, localSize, gridSize);
+      } else {
+        ex.execute(assignOp, localSize, gridSize, shrMemSize);
+      }
+    } else {
+      auto gridSize = localSize * nWG_row * nWG_col;
+      auto assignOp = make_Ger_Row<true,true,false>(my_mA, _alpha, my_vx, my_vx, nWG_row, nWG_col, shrMemSize);
+      if (shrMemSize == 0) {
+        ex.execute(assignOp, localSize, gridSize);
+      } else {
+        ex.execute(assignOp, localSize, gridSize, shrMemSize);
+      }
+    }
+//    my_mA.printH("MAT");
+
+//    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
+  } else { // COLUMN ACCESS
+    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto n_rows_WG = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);
+    const auto n_cols_WG = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
+    const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
+
+    const auto nWG_row = (N - 1) / n_rows_WG + 1;
+    const auto nWG_col = (N - 1) / n_cols_WG + 1;
+
+#ifdef VERBOSE
+    std::cout << "SYR_COL: "
+              << "N = " << N
+              << " , localSize = "  << localSize
+              << " , n_rows_WG = "  << n_rows_WG
+              << " , n_cols_WG = "  << n_cols_WG
+              << " , shrMemSize = " << shrMemSize
+              << std::endl;
+#endif  // VERBOSE
+
+//    my_mA.printH("MAT");
+//    my_vx.printH("VX ");
+
+    auto gridSize = localSize * nWG_row * nWG_col;
+    if (triangOpr) {
+      auto assignOp = make_Ger_Col<false,true,true>(my_mA, _alpha, my_vx, my_vx, nWG_row, nWG_col, shrMemSize);
+      if (shrMemSize == 0) {
+        ex.execute(assignOp, localSize, gridSize);
+      } else {
+        ex.execute(assignOp, localSize, gridSize, shrMemSize);
+      }
+    } else {
+      auto assignOp = make_Ger_Col<true,true,false>(my_mA, _alpha, my_vx, my_vx, nWG_row, nWG_col, shrMemSize);
+      if (shrMemSize == 0) {
+        ex.execute(assignOp, localSize, gridSize);
+      } else {
+        ex.execute(assignOp, localSize, gridSize, shrMemSize);
+      }
+    }
+//    my_mA.printH("MAT");
   }
 }
 

@@ -112,15 +112,17 @@ struct Evaluate<Gemv_Col<Lower, Diag, Upper, Unit, LHS, RHS1, RHS2>> {
 /*! Evaluate<Gemv_Col>.
 * @brief See Evaluate.
 */
-template <typename LHS, typename RHS1, typename RHS2>
-struct Evaluate<Ger_Row<LHS, RHS1, RHS2>> {
+//template <typename LHS, typename RHS1, typename RHS2>
+template <bool Lower, bool Diag, bool Upper,
+          class LHS, class RHS1, class RHS2>
+struct Evaluate<Ger_Row<Lower, Diag, Upper, LHS, RHS1, RHS2>> {
   using value_type = typename RHS2::value_type;
   using lhs_type = typename Evaluate<LHS>::type;
   using rhs1_type = typename Evaluate<RHS1>::type;
   using rhs2_type = typename Evaluate<RHS2>::type;
   using cont_type = typename Evaluate<LHS>::cont_type;
-  using input_type = Ger_Row<LHS, RHS1, RHS2>;
-  using type = Ger_Row<lhs_type, rhs1_type, rhs2_type>;
+  using input_type = Ger_Row<Lower, Diag, Upper, LHS, RHS1, RHS2>;
+  using type = Ger_Row<Lower, Diag, Upper, lhs_type, rhs1_type, rhs2_type>;
 
   static type convert_to(input_type v, cl::sycl::handler &h) {
     auto lhs = Evaluate<LHS>::convert_to(v.l, h);
@@ -134,15 +136,17 @@ struct Evaluate<Ger_Row<LHS, RHS1, RHS2>> {
 /*! Evaluate<Gemv_Col>.
 * @brief See Evaluate.
 */
-template <typename LHS, typename RHS1, typename RHS2>
-struct Evaluate<Ger_Col<LHS, RHS1, RHS2>> {
+//template <typename LHS, typename RHS1, typename RHS2>
+template <bool Lower, bool Diag, bool Upper,
+          class LHS, class RHS1, class RHS2>
+struct Evaluate<Ger_Col<Lower, Diag, Upper, LHS, RHS1, RHS2>> {
   using value_type = typename RHS2::value_type;
   using lhs_type = typename Evaluate<LHS>::type;
   using rhs1_type = typename Evaluate<RHS1>::type;
   using rhs2_type = typename Evaluate<RHS2>::type;
   using cont_type = typename Evaluate<LHS>::cont_type;
-  using input_type = Ger_Col<LHS, RHS1, RHS2>;
-  using type = Ger_Col<lhs_type, rhs1_type, rhs2_type>;
+  using input_type = Ger_Col<Lower, Diag, Upper, LHS, RHS1, RHS2>;
+  using type = Ger_Col<Lower, Diag, Upper, lhs_type, rhs1_type, rhs2_type>;
 
   static type convert_to(input_type v, cl::sycl::handler &h) {
     auto lhs = Evaluate<LHS>::convert_to(v.l, h);

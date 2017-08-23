@@ -39,6 +39,7 @@ using namespace blas;
   #define UNT_TEST "No"
 #endif
 
+// #define MATRIX_VECTOR_PRODUCT 1
 
 #ifdef EXECUTING_FLOAT
   #define BASETYPE float
@@ -49,6 +50,7 @@ using namespace blas;
   #define CONS_SYM1 0.4F
   #define CONS_SYM2 3.5F
   #define CONS_GER  3.0F
+  #define CONS_SYR  4.0F
 #else
   #define BASETYPE double
   #define CONS_ROW1 1.5
@@ -58,6 +60,7 @@ using namespace blas;
   #define CONS_SYM1 0.4
   #define CONS_SYM2 3.5
   #define CONS_GER  3.0
+  #define CONS_SYR  4.0
 #endif
 
 // INITIAL MATRIZ VECTOR PRODUCT
@@ -395,14 +398,14 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   BASETYPE addRng1 = 0.0;
   for (size_t i = 0; i < dimR; i++) {
     for (size_t j = 0; j < dimC; j++) {
-      BASETYPE aux = 0.0;
+      BASETYPE aux = 0.0, auxU = 0.0, auxL = 0.0;
 //      addRng1 += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
-      aux += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      aux  += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
       if ((i >= shftR) && (j >= shftC)) {
 //        addRng1 += (3.0 * vY0[i - shftR] * vX0[j - shftC]);
         aux += (CONS_GER * vY0[i - shftR] * vX0[j - shftC]);
       }
-      addRng1 += aux;
+      addRng1  += aux ;
     }
   }
 
@@ -1171,27 +1174,29 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<BASETYPE> vR(10);
   std::vector<BASETYPE> vS(10);
   std::vector<BASETYPE> vT(10);
+  std::vector<BASETYPE> vTX(10);
+  std::vector<BASETYPE> vTY(10);
   std::vector<BASETYPE> vLX(10);
   std::vector<BASETYPE> vDX(10);
   std::vector<BASETYPE> vUX(10);
-  std::vector<BASETYPE> vSX(10);
   std::vector<BASETYPE> vLY(10);
   std::vector<BASETYPE> vDY(10);
   std::vector<BASETYPE> vUY(10);
+  std::vector<BASETYPE> vSX(10);
   std::vector<BASETYPE> vSY(10);
 #ifdef SHOW_TIMES
   std::chrono::time_point<std::chrono::steady_clock> t_start, t_stop;
 //#ifdef ROW_TRMV
-  std::chrono::duration<BASETYPE> t0_gmvR, t0_gmvC, t0_ger;
-  std::chrono::duration<BASETYPE> t1_gmvR, t1_gmvC, t1_ger;
-  std::chrono::duration<BASETYPE> t2_gmvR, t2_gmvC, t2_ger;
-  std::chrono::duration<BASETYPE> t3_gmvR, t3_gmvC, t3_ger;
-  std::chrono::duration<BASETYPE> t4_gmvR, t4_gmvC, t4_ger;
-  std::chrono::duration<BASETYPE> t5_gmvR, t5_gmvC, t5_ger;
-  std::chrono::duration<BASETYPE> t6_gmvR, t6_gmvC, t6_ger;
-  std::chrono::duration<BASETYPE> t7_gmvR, t7_gmvC, t7_ger;
-  std::chrono::duration<BASETYPE> t8_gmvR, t8_gmvC, t8_ger;
-  std::chrono::duration<BASETYPE> t9_gmvR, t9_gmvC, t9_ger;
+  std::chrono::duration<BASETYPE> t0_gmvR, t0_gmvC, t0_ger, t0_syrX, t0_syrY;
+  std::chrono::duration<BASETYPE> t1_gmvR, t1_gmvC, t1_ger, t1_syrX, t1_syrY;
+  std::chrono::duration<BASETYPE> t3_gmvR, t3_gmvC, t3_ger, t3_syrX, t2_syrY;
+  std::chrono::duration<BASETYPE> t2_gmvR, t2_gmvC, t2_ger, t2_syrX, t3_syrY;
+  std::chrono::duration<BASETYPE> t4_gmvR, t4_gmvC, t4_ger, t4_syrX, t4_syrY;
+  std::chrono::duration<BASETYPE> t5_gmvR, t5_gmvC, t5_ger, t5_syrX, t5_syrY;
+  std::chrono::duration<BASETYPE> t6_gmvR, t6_gmvC, t6_ger, t6_syrX, t6_syrY;
+  std::chrono::duration<BASETYPE> t7_gmvR, t7_gmvC, t7_ger, t7_syrX, t7_syrY;
+  std::chrono::duration<BASETYPE> t8_gmvR, t8_gmvC, t8_ger, t8_syrX, t8_syrY;
+  std::chrono::duration<BASETYPE> t9_gmvR, t9_gmvC, t9_ger, t9_syrX, t9_syrY;
 //#else
   std::chrono::duration<BASETYPE> t0_lowX, t0_uppX, t0_symX, t0_lowY, t0_uppY, t0_symY;
   std::chrono::duration<BASETYPE> t1_lowX, t1_uppX, t1_symX, t1_lowY, t1_uppY, t1_symY;
@@ -1247,6 +1252,16 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   std::vector<std::chrono::duration<BASETYPE>> v7_symX(NUMBER_REPEATS), v7_symY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v8_symX(NUMBER_REPEATS), v8_symY(NUMBER_REPEATS);
   std::vector<std::chrono::duration<BASETYPE>> v9_symX(NUMBER_REPEATS), v9_symY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v0_syrX(NUMBER_REPEATS), v0_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v1_syrX(NUMBER_REPEATS), v1_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v2_syrX(NUMBER_REPEATS), v2_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v3_syrX(NUMBER_REPEATS), v3_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v4_syrX(NUMBER_REPEATS), v4_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v5_syrX(NUMBER_REPEATS), v5_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v6_syrX(NUMBER_REPEATS), v6_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v7_syrX(NUMBER_REPEATS), v7_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v8_syrX(NUMBER_REPEATS), v8_syrY(NUMBER_REPEATS);
+  std::vector<std::chrono::duration<BASETYPE>> v9_syrX(NUMBER_REPEATS), v9_syrY(NUMBER_REPEATS);
 #endif
 
   // INITIALIZING DATA
@@ -1449,18 +1464,27 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 //    uppX += vX0[j];
   }
 
-  BASETYPE addRng1 = 0.0;
+  BASETYPE addRng1 = 0.0, addRng1U = 0.0, addRng1L = 0.0;
   for (size_t i = 0; i < dimR; i++) {
     for (size_t j = 0; j < dimC; j++) {
-      BASETYPE aux = 0.0;
+      BASETYPE aux = 0.0, auxU = 0.0, auxL = 0.0;
 //      addRng1 += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
-      aux += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      aux  += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      auxU += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
+      auxL += (accessDev) ? vM1[dimC * i + j] : vM1[dimR * j + i];
       if ((i >= shftR) && (j >= shftC)) {
 //        addRng1 += (3.0 * vY0[i - shftR] * vX0[j - shftC]);
-//        aux += (CONS_GER * vY0[i - shftR] * vX0[j - shftC]);
         aux += (CONS_GER * vX0[i - shftR] * vY0[j - shftC]);
+        if ((i-shftR) <= (j-shftC)) {
+          auxU += (CONS_SYR * vX0[i - shftR] * vX0[j - shftC]);
+        }
+        if ((i-shftR) >= (j-shftC)) {
+          auxL += (CONS_SYR * vY0[i - shftR] * vY0[j - shftC]);
+        }
       }
-      addRng1 += aux;
+      addRng1  += aux ;
+      addRng1U += auxU;
+      addRng1L += auxL;
     }
   }
 
@@ -1494,9 +1518,11 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     buffer<BASETYPE, 1> bY1(vY1.data(), range<1>{vY1.size()});
     buffer<BASETYPE, 1> bX2(vX2.data(), range<1>{vX2.size()});
     buffer<BASETYPE, 1> bY2(vY2.data(), range<1>{vY2.size()});
-    buffer<BASETYPE, 1> bR(vR.data(), range<1>{vR.size()});
-    buffer<BASETYPE, 1> bS(vS.data(), range<1>{vS.size()});
-    buffer<BASETYPE, 1> bT(vT.data(), range<1>{vT.size()});
+    buffer<BASETYPE, 1> bR (vR.data() , range<1>{vR.size ()});
+    buffer<BASETYPE, 1> bS (vS.data() , range<1>{vS.size ()});
+    buffer<BASETYPE, 1> bT (vT.data() , range<1>{vT.size ()});
+    buffer<BASETYPE, 1> bTX(vTX.data(), range<1>{vTX.size()});
+    buffer<BASETYPE, 1> bTY(vTY.data(), range<1>{vTY.size()});
     buffer<BASETYPE, 1> bLX(vLX.data(), range<1>{vLX.size()});
     buffer<BASETYPE, 1> bDX(vDX.data(), range<1>{vDX.size()});
     buffer<BASETYPE, 1> bUX(vUX.data(), range<1>{vUX.size()});
@@ -1522,6 +1548,10 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     BufferVectorView<BASETYPE> bvS5 (bS ,5), bvS6 (bS ,6), bvS7 (bS ,7), bvS8 (bS ,8), bvS9 (bS ,9);
     BufferVectorView<BASETYPE> bvT0 (bT ,0), bvT1 (bT ,1), bvT2 (bT ,2), bvT3 (bT ,3), bvT4 (bT ,4);
     BufferVectorView<BASETYPE> bvT5 (bT ,5), bvT6 (bT ,6), bvT7 (bT ,7), bvT8 (bT ,8), bvT9 (bT ,9);
+    BufferVectorView<BASETYPE> bvTX0(bTX,0), bvTX1(bTX,1), bvTX2(bTX,2), bvTX3(bTX,3), bvTX4(bTX,4);
+    BufferVectorView<BASETYPE> bvTX5(bTX,5), bvTX6(bTX,6), bvTx7(bTX,7), bvTX8(bTX,8), bvTX9(bTX,9);
+    BufferVectorView<BASETYPE> bvTY0(bTY,0), bvTY1(bTY,1), bvTY2(bTY,2), bvTY3(bTY,3), bvTY4(bTY,4);
+    BufferVectorView<BASETYPE> bvTY5(bTY,5), bvTY6(bTY,6), bvTY7(bTY,7), bvTY8(bTY,8), bvTY9(bTY,9);
     BufferVectorView<BASETYPE> bvLX0(bLX,0), bvLX1(bLX,1), bvLX2(bLX,2), bvLX3(bLX,3), bvLX4(bLX,4);
     BufferVectorView<BASETYPE> bvLX5(bLX,5), bvLX6(bLX,6), bvLX7(bLX,7), bvLX8(bLX,8), bvLX9(bLX,9);
     BufferVectorView<BASETYPE> bvDX0(bDX,0), bvDX1(bDX,1), bvDX2(bDX,2), bvDX3(bDX,3), bvDX4(bDX,4);
@@ -1545,6 +1575,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       auto assign_M0 = make_op<Assign>(bmM0, bmM1);
       ex.execute(assign_M0); q.wait_and_throw();
 
+#ifdef MATRIX_VECTOR_PRODUCT
       /*****************************************/
 /**/
       auto assign_X2_0 = make_op<Assign>(bvX2, bvX1);
@@ -1714,8 +1745,6 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       ex.reduce(reducOpY_2); q.wait_and_throw();
 /**/
       /*****************************************/
-//#ifdef ROW_TRMV
-      /*****************************************/
 /**/
       auto assign_UX_0 = make_op<Assign>(bvX2, bvX0);
       ex.execute(assign_UX_0); q.wait_and_throw();
@@ -1857,9 +1886,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       ex.reduce(reducOpLX_2); q.wait_and_throw();
 /**/
       /*****************************************/
-//#else
 /**/
-      /*****************************************/
       auto assign_UY_0 = make_op<Assign>(bvY2, bvY0);
       ex.execute(assign_UY_0); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1957,13 +1984,13 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 /**/
       auto assign_LY_1 = make_op<Assign>(bvY2, bvY0);
       ex.execute(assign_LY_1); q.wait_and_throw();
-      #ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
-      #endif
+  #endif
       //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       _TRMV<256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
-      #ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
       if (NUMBER_REPEATS == 1) {
         t1_lowY = t_stop - t_start;
@@ -1973,7 +2000,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         t1_lowY = t_start - t_start;
       }
       v1_lowY[i] = t_stop - t_start;
-      #endif
+  #endif
       auto reducOpLY_1 = make_addAssignReduction(bvLY1, bvY2, 256, 256);
       ex.reduce(reducOpLY_1); q.wait_and_throw();
 /**/
@@ -1981,13 +2008,13 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 /**/
       auto assign_LY_2 = make_op<Assign>(bvY2, bvY0);
       ex.execute(assign_LY_2); q.wait_and_throw();
-      #ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
-      #endif
+  #endif
       //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       _TRMV<256,256,256,256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
-      #ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
       if (NUMBER_REPEATS == 1) {
         t2_lowY = t_stop - t_start;
@@ -1997,19 +2024,17 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
         t2_lowY = t_start - t_start;
       }
       v2_lowY[i] = t_stop - t_start;
-      #endif
+  #endif
       auto reducOpLY_2 = make_addAssignReduction(bvLY2, bvY2, 256, 256);
       ex.reduce(reducOpLY_2); q.wait_and_throw();
 /**/
       /*****************************************/
-//#endif
-      /*****************************************/
-/**/
+/* */
       auto assign_SX2_0 = make_op<Assign>(bvX2, bvX1);
       ex.execute(assign_SX2_0); q.wait_and_throw();
-      #ifdef SHOW_TIMES
+  #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
-      #endif
+  #endif
       _SYMV(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_SYM1, bvX2, 1);
       q.wait_and_throw();
@@ -2026,9 +2051,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSX_0 = make_addAssignReduction(bvSX0, bvX2, 256, 256);
       ex.reduce(reducOpSX_0); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_SX2_1 = make_op<Assign>(bvX2, bvX1);
       ex.execute(assign_SX2_1); q.wait_and_throw();
       #ifdef SHOW_TIMES
@@ -2050,9 +2075,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSX_1 = make_addAssignReduction(bvSX1, bvX2, 256, 256);
       ex.reduce(reducOpSX_1); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_SX2_2 = make_op<Assign>(bvX2, bvX1);
       ex.execute(assign_SX2_2); q.wait_and_throw();
       #ifdef SHOW_TIMES
@@ -2074,9 +2099,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSX_2 = make_addAssignReduction(bvSX2, bvX2, 256, 256);
       ex.reduce(reducOpSX_2); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_SY2_0 = make_op<Assign>(bvY2, bvY1);
       ex.execute(assign_SY2_0); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2098,9 +2123,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSY_0 = make_addAssignReduction(bvSY0, bvY2, 256, 256);
       ex.reduce(reducOpSY_0); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_SY2_1 = make_op<Assign>(bvY2, bvY1);
       ex.execute(assign_SY2_1); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2122,9 +2147,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSY_1 = make_addAssignReduction(bvSY1, bvY2, 256, 256);
       ex.reduce(reducOpSY_1); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_SY2_2 = make_op<Assign>(bvY2, bvY1);
       ex.execute(assign_SY2_2); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2146,9 +2171,11 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpSY_2 = make_addAssignReduction(bvSY2, bvY2, 256, 256);
       ex.reduce(reducOpSY_2); q.wait_and_throw();
-/**/
-      /*****************************************/
-/**/
+/* */
+    /*****************************************/
+#else // MATRIX_VECTOR_PRODUCT
+    /*****************************************/
+/* */
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
@@ -2168,9 +2195,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpV_0 = make_addAssignReduction(bvT0, bvV0, 256, 256);
       ex.reduce(reducOpV_0); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_M0_1 = make_op<Assign>(bmM0, bmM1);
       ex.execute(assign_M0_1); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2192,9 +2219,9 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpV_1 = make_addAssignReduction(bvT1, bvV0, 256, 256);
       ex.reduce(reducOpV_1); q.wait_and_throw();
-/**/
+/* */
       /*****************************************/
-/**/
+/* */
       auto assign_M0_2 = make_op<Assign>(bmM0, bmM1);
       ex.execute(assign_M0_2); q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2221,13 +2248,160 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
       auto reducOpV_2 = make_addAssignReduction(bvT2, bvV0, 256, 256);
       ex.reduce(reducOpV_2); q.wait_and_throw();
-/**/
+/* */
+      /*****************************************/
+/* */
+      auto assign_MX0_0 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MX0_0); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_syrX = t_stop - t_start;
+      } else if (i > 0) {
+        t0_syrX += t_stop - t_start;
+      } else {
+        t0_syrX = t_start - t_start;
+      }
+      v0_syrX[i] = t_stop - t_start;
+  #endif
+      auto reducOpVX_0 = make_addAssignReduction(bvTX0, bvV0, 256, 256);
+      ex.reduce(reducOpVX_0); q.wait_and_throw();
+/* */
+      /*****************************************/
+/* */
+      auto assign_MX0_1 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MX0_1); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR<256>(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_syrX = t_stop - t_start;
+      } else if (i > 0) {
+        t1_syrX += t_stop - t_start;
+      } else {
+        t1_syrX = t_start - t_start;
+      }
+      v1_syrX[i] = t_stop - t_start;
+  #endif
+      auto reducOpVX_1 = make_addAssignReduction(bvTX1, bvV0, 256, 256);
+      ex.reduce(reducOpVX_1); q.wait_and_throw();
+/* */
+      /*****************************************/
+/* */
+      auto assign_MX0_2 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MX0_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_syrX = t_stop - t_start;
+      } else if (i > 0) {
+        t2_syrX += t_stop - t_start;
+      } else {
+        t2_syrX = t_start - t_start;
+      }
+      v2_syrX[i] = t_stop - t_start;
+  #endif
+      auto reducOpVX_2 = make_addAssignReduction(bvTX2, bvV0, 256, 256);
+      ex.reduce(reducOpVX_2); q.wait_and_throw();
+/* */
+      /*****************************************/
+/* */
+      auto assign_MY0_0 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MY0_0); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR(ex, "L", dimR - shftR, CONS_SYR, bvY0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t0_syrY = t_stop - t_start;
+      } else if (i > 0) {
+        t0_syrY += t_stop - t_start;
+      } else {
+        t0_syrY = t_start - t_start;
+      }
+      v0_syrY[i] = t_stop - t_start;
+  #endif
+      auto reducOpVY_0 = make_addAssignReduction(bvTY0, bvV0, 256, 256);
+      ex.reduce(reducOpVY_0); q.wait_and_throw();
+/* */
+      /*****************************************/
+/* */
+      auto assign_MY0_1 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MY0_1); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR(ex, "L", dimR - shftR, CONS_SYR, bvY0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t1_syrY = t_stop - t_start;
+      } else if (i > 0) {
+        t1_syrY += t_stop - t_start;
+      } else {
+        t1_syrY = t_start - t_start;
+      }
+      v1_syrY[i] = t_stop - t_start;
+  #endif
+      auto reducOpVY_1 = make_addAssignReduction(bvTY1, bvV0, 256, 256);
+      ex.reduce(reducOpVY_1); q.wait_and_throw();
+/* */
+      /*****************************************/
+/* */
+      auto assign_MY0_2 = make_op<Assign>(bmM0, bmM1);
+      ex.execute(assign_MY0_2); q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_start = std::chrono::steady_clock::now();
+  #endif
+      _SYR(ex, "L", dimR - shftR, CONS_SYR, bvY0, 1,
+                  bmM0(shftR, shftC), dimL);
+      q.wait_and_throw();
+  #ifdef SHOW_TIMES
+      t_stop = std::chrono::steady_clock::now();
+      if (NUMBER_REPEATS == 1) {
+        t2_syrY = t_stop - t_start;
+      } else if (i > 0) {
+        t2_syrY += t_stop - t_start;
+      } else {
+        t2_syrY = t_start - t_start;
+      }
+      v2_syrY[i] = t_stop - t_start;
+  #endif
+      auto reducOpVY_2 = make_addAssignReduction(bvTY2, bvV0, 256, 256);
+      ex.reduce(reducOpVY_2); q.wait_and_throw();
+/* */
+      /*****************************************/
+#endif // MATRIX_VECTOR_PRODUCT
     }
   }
 
 #ifdef SHOW_TIMES
     int div = (NUMBER_REPEATS == 1)? 1: (NUMBER_REPEATS-1);
 //    int div = 1;
+#ifdef MATRIX_VECTOR_PRODUCT
     // COMPUTATIONAL TIMES
     std::cout << "t_gemvR , " << t0_gmvR.count()/div
               << ", "         << t1_gmvR.count()/div
@@ -2275,10 +2449,21 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << t1_uppY.count()/div
               << ", "         << t2_uppY.count()/div
               << std::endl;
+#else // MATRIX_VECTOR_PRODUCT
     std::cout << "t_ger   , " << t0_ger.count()/div
               <<  ", "        << t1_ger.count()/div
               <<  ", "        << t2_ger.count()/div
               << std::endl;
+    std::cout << "t_syrX  , " << t0_syrX.count()/div
+              <<  ", "        << t1_syrX.count()/div
+              <<  ", "        << t2_syrX.count()/div
+              << std::endl;
+    std::cout << "t_syrY  , " << t0_syrY.count()/div
+              <<  ", "        << t1_syrY.count()/div
+              <<  ", "        << t2_syrY.count()/div
+              << std::endl;
+#endif // MATRIX_VECTOR_PRODUCT
+#ifdef MATRIX_VECTOR_PRODUCT
     std::sort (v0_gmvR.begin()+1, v0_gmvR.end());
     std::sort (v1_gmvR.begin()+1, v1_gmvR.end());
     std::sort (v2_gmvR.begin()+1, v2_gmvR.end());
@@ -2360,6 +2545,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << v1_symY[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_symY[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+#else // MATRIX_VECTOR_PRODUCT
     std::sort (v0_ger.begin()+1, v0_ger.end());
     std::sort (v1_ger.begin()+1, v1_ger.end());
     std::sort (v2_ger.begin()+1, v2_ger.end());
@@ -2367,9 +2553,25 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
               << ", "         << v1_ger[(NUMBER_REPEATS+1)/2].count()
               << ", "         << v2_ger[(NUMBER_REPEATS+1)/2].count()
               << std::endl;
+    std::sort (v0_syrX.begin()+1, v0_syrX.end());
+    std::sort (v1_syrX.begin()+1, v1_syrX.end());
+    std::sort (v2_syrX.begin()+1, v2_syrX.end());
+    std::cout << "m_syrX  , " << v0_syrX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_syrX[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_syrX[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+    std::sort (v0_syrY.begin()+1, v0_syrY.end());
+    std::sort (v1_syrY.begin()+1, v1_syrY.end());
+    std::sort (v2_syrY.begin()+1, v2_syrY.end());
+    std::cout << "m_syrY  , " << v0_syrY[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v1_syrY[(NUMBER_REPEATS+1)/2].count()
+              << ", "         << v2_syrY[(NUMBER_REPEATS+1)/2].count()
+              << std::endl;
+#endif // MATRIX_VECTOR_PRODUCT
 
 #endif
 
+#ifdef MATRIX_VECTOR_PRODUCT
   std::cout << "GEMVR ANALYSYS!!" << std::endl;
   // ANALYSIS OF THE RESULTS
   for (int i=0; i<3; i++) {
@@ -2568,6 +2770,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       returnVal += 2;
     }
   }
+#else // MATRIX_VECTOR_PRODUCT
 
   std::cout << "GER ANALYSYS!!" << std::endl;
   for (int i=0; i<3; i++) {
@@ -2585,6 +2788,41 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       returnVal += 2;
     }
   }
+
+  std::cout << "SYRX ANALYSYS!!" << std::endl;
+  for (int i=0; i<3; i++) {
+    res = vTX[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1U = " << addRng1U
+              << " , err = " << addRng1U - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1U) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1U = " << addRng1U
+                << " , err = " << addRng1U - res << std::endl;
+      returnVal += 2;
+    }
+  }
+
+  std::cout << "SYRY ANALYSYS!!" << std::endl;
+  for (int i=0; i<3; i++) {
+    res = vTY[i];
+  #ifdef SHOW_VALUES
+//    std::cout << "( " << i+((i>0)?10:1) << ") ";
+    std::cout << "( " << i << ") ";
+    std::cout << "VALUES!! --> res = " << res << " , addRng1L = " << addRng1L
+              << " , err = " << addRng1L - res << std::endl;
+  #endif  // VERBOSE
+    if (std::abs((res - addRng1L) / res) > ERROR_ALLOWED) {
+      std::cout << "( " << i << ") ";
+      std::cout << "ERROR!! --> res = " << res << " , addRng1L = " << addRng1L
+                << " , err = " << addRng1L - res << std::endl;
+      returnVal += 2;
+    }
+  }
+#endif // MATRIX_VECTOR_PRODUCT
 
   return returnVal;
 }
