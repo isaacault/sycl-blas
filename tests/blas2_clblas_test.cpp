@@ -50,7 +50,7 @@ using namespace cl::sycl;
 #define ROW_TEST "Tr"
 #define COL_TEST "No"
 
-// #define TRM_UNIT 1
+//#define TRM_UNIT 1
 #ifdef TRM_UNIT
   #define UNT_TEST "Un"
 #else
@@ -246,6 +246,32 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     vSY[i] = 0.0;
   }
 /*
+  {
+    int i = 0;
+    std::for_each(std::begin(vM1), std::end(vM1), [&](BASETYPE &elem) {
+      std::cout << elem << " ";
+      if ((++i) == dimL) {
+        std::cout << std::endl;
+        i = 0;
+      }
+    });
+    std::for_each(std::begin(vX0), std::end(vX0), [&](BASETYPE &elem) {
+      std::cout << elem << " ";
+      if ((++i) == dimL) {
+        std::cout << std::endl;
+        i = 0;
+      }
+    });
+    std::for_each(std::begin(vY0), std::end(vY0), [&](BASETYPE &elem) {
+      std::cout << elem << " ";
+      if ((++i) == dimL) {
+        std::cout << std::endl;
+        i = 0;
+      }
+    });
+  }
+*/
+/*
   // CREATING HOST STRUCTURES
   matrix_view<BASETYPE, std::vector<BASETYPE>> v_M0(vM0, accessDev, dimR, dimC, true,
                                                 dimL, 0);
@@ -299,10 +325,10 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
 #endif  // VERBOSE
     addY += vY1[i];
     symY += vY1[i];
-//    lowY += vY1[i];
+    lowY += vY1[i];
     diaY += vY0[i];
     untY += vY0[i];
-//    uppY += vY1[i];
+    uppY += vY1[i];
   }
 
   BASETYPE addX = 0.0, auxX, auxSX, symX = 0.0;
@@ -339,10 +365,10 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   for (size_t j = dimC - shftC; j < dimC; j++) {
     addX += vX1[j];
     symX += vX1[j];
-//    lowX += vX0[j];
+    lowX += vX0[j];
     diaX += vX0[j];
     untX += vX0[j];
-//    uppX += vX0[j];
+    uppX += vX0[j];
   }
 
   BASETYPE addRng1 = 0.0, addRng1U = 0.0, addRng1L = 0.0;
@@ -1758,9 +1784,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     std::cout << "VALUES!! --> res = " << res << " , uppX = " << uppX
               << " , diaX = " << diaX << " , untX = " << untX
 #ifdef TRM_UNIT
-              << " , err = " << (uppX+untX) - res << std::endl;
+              << " , err = " << ((uppX+untX) - res) << std::endl;
 #else
-              << " , err = " << (uppX+diaX) - res << std::endl;
+              << " , err = " << ((uppX+diaX) - res) << std::endl;
 #endif
   #endif  // VERBOSE
 #ifdef TRM_UNIT
@@ -1772,9 +1798,9 @@ size_t TestingBLAS2(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       std::cout << "ERROR!! --> res = " << res << " , uppX = " << uppX
                 << " , diaX = " << diaX << " , untX = " << untX
 #ifdef TRM_UNIT
-                << " , err = " << (uppX+untX) - res << std::endl;
+                << " , err = " << ((uppX+untX) - res) << std::endl;
 #else
-                << " , err = " << (uppX+diaX) - res << std::endl;
+                << " , err = " << ((uppX+diaX) - res) << std::endl;
 #endif
       returnVal += 2;
     }

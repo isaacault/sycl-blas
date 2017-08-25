@@ -1429,10 +1429,10 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   for (size_t i = dimR - shftR; i < dimR; i++) {
     addY += vY1[i];
     symY += vY1[i];
-//    lowY += vY0[i];
+    lowY += vY0[i];
     diaY += vY0[i];
     untY += vY0[i];
-//    uppY += vY0[i];
+    uppY += vY0[i];
   }
 
   BASETYPE addX = 0.0, auxX, auxSX, symX = 0.0;
@@ -1480,10 +1480,10 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   for (size_t j = dimC - shftC; j < dimC; j++) {
     addX += vX1[j];
     symX += vX1[j];
-//    lowX += vX0[j];
+    lowX += vX0[j];
     diaX += vX0[j];
     untX += vX0[j];
-//    uppX += vX0[j];
+    uppX += vX0[j];
   }
 
   BASETYPE addRng1 = 0.0, addRng1U = 0.0, addRng1L = 0.0;
@@ -1633,7 +1633,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_gmvR[i] = t_stop - t_start;
   #endif
-      auto reducOpX_0 = make_addAssignReduction(bvR0, bvX2, 256, 256);
+      auto reducOpX_0 = make_addAssignReduction(bvR0, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpX_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1643,7 +1643,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _GEMV<256>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
+      _GEMV<DEF_BLAS2_LOCALSZ>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_COL1, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1657,7 +1657,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_gmvR[i] = t_stop - t_start;
   #endif
-      auto reducOpX_1 = make_addAssignReduction(bvR1, bvX2, 256, 256);
+      auto reducOpX_1 = make_addAssignReduction(bvR1, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpX_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1667,8 +1667,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _GEMV<256,256,256,256>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
-//      _GEMV<256,0,1,4096>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
+      _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
+//      _GEMV<DEF_BLAS2_LOCALSZ,0,1,4096>(ex, ROW_TEST, dimC - shftC, dimR - shftR, CONS_COL2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_COL1, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1682,7 +1682,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_gmvR[i] = t_stop - t_start;
   #endif
-      auto reducOpX_2 = make_addAssignReduction(bvR2, bvX2, 256, 256);
+      auto reducOpX_2 = make_addAssignReduction(bvR2, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpX_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1706,7 +1706,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_gmvC[i] = t_stop - t_start;
   #endif
-      auto reducOpY_0 = make_addAssignReduction(bvS0, bvY2, 256, 256);
+      auto reducOpY_0 = make_addAssignReduction(bvS0, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpY_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1716,7 +1716,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _GEMV<256>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+      _GEMV<DEF_BLAS2_LOCALSZ>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                   dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1730,7 +1730,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_gmvC[i] = t_stop - t_start;
   #endif
-      auto reducOpY_1 = make_addAssignReduction(bvS1, bvY2, 256, 256);
+      auto reducOpY_1 = make_addAssignReduction(bvS1, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpY_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1742,26 +1742,26 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #endif
 /* */
   #ifdef EXECUTED_ON_GPU
-      if ((dimR - shftR) == 4096) {
-        _GEMV<256,256,1,4096>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+      if ((dimR - shftR) == 1024) {
+        _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,1024>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+                    dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
+      } else if ((dimR - shftR) == 2048) {
+        _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,2048>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+                    dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
+      } else if ((dimR - shftR) == 4096) {
+        _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,4096>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                     dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
       } else if ((dimR - shftR) == 8192) {
-        _GEMV<256,256,1,8192>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+        _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,8192>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                     dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
       } else if ((dimR - shftR) == 16384) {
-        _GEMV<256,256,1,16384>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
-                    dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
-      } else if ((dimR - shftR) == 4000) {
-        _GEMV<256,256,1,4000>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
-                    dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
-      } else if ((dimR - shftR) == 1990) {
-        _GEMV<256,256,1,1990>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+        _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,16384>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                     dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
       } else {
         std::cout << "The value of " << dimR - shftR << " is not considered " << std::endl;
       }
   #else
-      _GEMV<256,256,256,256>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
+      _GEMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, COL_TEST, dimR - shftR, dimC - shftC, CONS_ROW2, bmM0(shftR, shftC),
                 dimL, bvY0, 1, CONS_ROW1, bvY2, 1);
   #endif
 /* */
@@ -1777,7 +1777,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_gmvC[i] = t_stop - t_start;
   #endif
-      auto reducOpY_2 = make_addAssignReduction(bvS2, bvY2, 256, 256);
+      auto reducOpY_2 = make_addAssignReduction(bvS2, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpY_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1800,7 +1800,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_uppX[i] = t_stop - t_start;
   #endif
-      auto reducOpUX_0 = make_addAssignReduction(bvUX0, bvX2, 256, 256);
+      auto reducOpUX_0 = make_addAssignReduction(bvUX0, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUX_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1810,7 +1810,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _TRMV<256>(ex, "U", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ>(ex, "U", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1823,7 +1823,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_uppX[i] = t_stop - t_start;
   #endif
-      auto reducOpUX_1 = make_addAssignReduction(bvUX1, bvX2, 256, 256);
+      auto reducOpUX_1 = make_addAssignReduction(bvUX1, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUX_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1833,7 +1833,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _TRMV<256,256,256,256>(ex, "U", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "U", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1846,7 +1846,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_uppX[i] = t_stop - t_start;
   #endif
-      auto reducOpUX_2 = make_addAssignReduction(bvUX2, bvX2, 256, 256);
+      auto reducOpUX_2 = make_addAssignReduction(bvUX2, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUX_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1856,7 +1856,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+//    _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       _TRMV(ex, "L", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -1870,7 +1870,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_lowX[i] = t_stop - t_start;
   #endif
-      auto reducOpLX_0 = make_addAssignReduction(bvLX0, bvX2, 256, 256);
+      auto reducOpLX_0 = make_addAssignReduction(bvLX0, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLX_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1880,8 +1880,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
-      _TRMV<256>(ex, "L", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+//    _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ>(ex, "L", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1894,7 +1894,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_lowX[i] = t_stop - t_start;
   #endif
-      auto reducOpLX_1 = make_addAssignReduction(bvLX1, bvX2, 256, 256);
+      auto reducOpLX_1 = make_addAssignReduction(bvLX1, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLX_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1904,8 +1904,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
-      _TRMV<256,256,256,256>(ex, "L", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+//    _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "L", ROW_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1918,7 +1918,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_lowX[i] = t_stop - t_start;
   #endif
-      auto reducOpLX_2 = make_addAssignReduction(bvLX2, bvX2, 256, 256);
+      auto reducOpLX_2 = make_addAssignReduction(bvLX2, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLX_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1941,7 +1941,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_uppY[i] = t_stop - t_start;
   #endif
-      auto reducOpUY_0 = make_addAssignReduction(bvUY0, bvY2, 256, 256);
+      auto reducOpUY_0 = make_addAssignReduction(bvUY0, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUY_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1951,8 +1951,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//      _TRMV<256,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1965,7 +1965,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_uppY[i] = t_stop - t_start;
   #endif
-      auto reducOpUY_1 = make_addAssignReduction(bvUY1, bvY2, 256, 256);
+      auto reducOpUY_1 = make_addAssignReduction(bvUY1, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUY_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1975,8 +1975,21 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//      _TRMV<256,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256,256,256,256>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      if ((dimR - shftR) == 1024) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,1024>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 2048) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,2048>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 4096) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,4096>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 8192) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,8192>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 16384) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,16384>(ex, "U", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else {
+        std::cout << "The value of " << dimR - shftR << " is not considered " << std::endl;
+      }
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -1989,7 +2002,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_uppY[i] = t_stop - t_start;
   #endif
-      auto reducOpUY_2 = make_addAssignReduction(bvUY2, bvY2, 256, 256);
+      auto reducOpUY_2 = make_addAssignReduction(bvUY2, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpUY_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -1999,7 +2012,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//    _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       _TRMV(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2013,7 +2026,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_lowY[i] = t_stop - t_start;
   #endif
-      auto reducOpLY_0 = make_addAssignReduction(bvLY0, bvY2, 256, 256);
+      auto reducOpLY_0 = make_addAssignReduction(bvLY0, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLY_0); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -2023,8 +2036,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      //    _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      _TRMV<DEF_BLAS2_LOCALSZ>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -2037,7 +2050,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_lowY[i] = t_stop - t_start;
   #endif
-      auto reducOpLY_1 = make_addAssignReduction(bvLY1, bvY2, 256, 256);
+      auto reducOpLY_1 = make_addAssignReduction(bvLY1, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLY_1); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -2047,8 +2060,21 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      //    _TRMV<256,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
-      _TRMV<256,256,256,256>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<DEF_BLAS2_LOCALSZ,0>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+//      _TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      if ((dimR - shftR) == 1024) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,1024>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 2048) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,2048>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 4096) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,4096>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 8192) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,8192>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else if ((dimR - shftR) == 16384) {
+      	_TRMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,16384>(ex, "L", COL_TEST, UNT_TEST, dimR - shftR, bmM0(shftR, shftC), dimL, bvY2, 1);
+      } else {
+        std::cout << "The value of " << dimR - shftR << " is not considered " << std::endl;
+      }
       q.wait_and_throw();
   #ifdef SHOW_TIMES
       t_stop = std::chrono::steady_clock::now();
@@ -2061,7 +2087,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_lowY[i] = t_stop - t_start;
   #endif
-      auto reducOpLY_2 = make_addAssignReduction(bvLY2, bvY2, 256, 256);
+      auto reducOpLY_2 = make_addAssignReduction(bvLY2, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpLY_2); q.wait_and_throw();
 /**/
       /*****************************************/
@@ -2085,7 +2111,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_symX[i] = t_stop - t_start;
   #endif
-      auto reducOpSX_0 = make_addAssignReduction(bvSX0, bvX2, 256, 256);
+      auto reducOpSX_0 = make_addAssignReduction(bvSX0, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSX_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2095,7 +2121,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
       #endif
-      _SYMV<256>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+      _SYMV<DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_SYM1, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2109,7 +2135,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_symX[i] = t_stop - t_start;
   #endif
-      auto reducOpSX_1 = make_addAssignReduction(bvSX1, bvX2, 256, 256);
+      auto reducOpSX_1 = make_addAssignReduction(bvSX1, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSX_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2119,7 +2145,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
       #endif
-      _SYMV<256,256,256,256>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+      _SYMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
                   dimL, bvX0, 1, CONS_SYM1, bvX2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2133,7 +2159,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_symX[i] = t_stop - t_start;
   #endif
-      auto reducOpSX_2 = make_addAssignReduction(bvSX2, bvX2, 256, 256);
+      auto reducOpSX_2 = make_addAssignReduction(bvSX2, bvX2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSX_2); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2157,7 +2183,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_symY[i] = t_stop - t_start;
   #endif
-      auto reducOpSY_0 = make_addAssignReduction(bvSY0, bvY2, 256, 256);
+      auto reducOpSY_0 = make_addAssignReduction(bvSY0, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSY_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2167,7 +2193,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _SYMV<256>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+      _SYMV<DEF_BLAS2_LOCALSZ>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
                   dimL, bvY0, 1, CONS_SYM1, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2181,7 +2207,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_symY[i] = t_stop - t_start;
   #endif
-      auto reducOpSY_1 = make_addAssignReduction(bvSY1, bvY2, 256, 256);
+      auto reducOpSY_1 = make_addAssignReduction(bvSY1, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSY_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2191,7 +2217,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _SYMV<256,256,256,256>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
+      _SYMV<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "L", dimR - shftR, CONS_SYM2, bmM0(shftR, shftC),
                   dimL, bvY0, 1, CONS_SYM1, bvY2, 1);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2205,7 +2231,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_symY[i] = t_stop - t_start;
   #endif
-      auto reducOpSY_2 = make_addAssignReduction(bvSY2, bvY2, 256, 256);
+      auto reducOpSY_2 = make_addAssignReduction(bvSY2, bvY2, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpSY_2); q.wait_and_throw();
 /* */
     /*****************************************/
@@ -2229,7 +2255,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_ger[i] = t_stop - t_start;
   #endif
-      auto reducOpV_0 = make_addAssignReduction(bvT0, bvV0, 256, 256);
+      auto reducOpV_0 = make_addAssignReduction(bvT0, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpV_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2239,7 +2265,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _GER<256>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
+      _GER<DEF_BLAS2_LOCALSZ>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2253,7 +2279,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_ger[i] = t_stop - t_start;
   #endif
-      auto reducOpV_1 = make_addAssignReduction(bvT1, bvV0, 256, 256);
+      auto reducOpV_1 = make_addAssignReduction(bvT1, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpV_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2264,10 +2290,12 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       t_start = std::chrono::steady_clock::now();
   #endif
   #ifdef EXECUTED_ON_GPU
-      _GER<256,256,1,256>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
+//	std::cout << "YES" << std::endl;
+//      _GER<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,1,DEF_BLAS2_LOCALSZ>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
+      _GER<DEF_BLAS2_LOCALSZ,1024,DEF_BLAS2_LOCALSZ,1024>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
   #else
-      _GER<256,256,256,256>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
+      _GER<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, dimR - shftR, dimC - shftC, CONS_GER, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
   #endif
       q.wait_and_throw();
@@ -2282,7 +2310,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_ger[i] = t_stop - t_start;
   #endif
-      auto reducOpV_2 = make_addAssignReduction(bvT2, bvV0, 256, 256);
+      auto reducOpV_2 = make_addAssignReduction(bvT2, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpV_2); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2306,7 +2334,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_syrX[i] = t_stop - t_start;
   #endif
-      auto reducOpVX_0 = make_addAssignReduction(bvTX0, bvV0, 256, 256);
+      auto reducOpVX_0 = make_addAssignReduction(bvTX0, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVX_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2316,7 +2344,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _SYR<256>(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
+      _SYR<DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYR, bvX0, 1,
                   bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2330,7 +2358,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_syrX[i] = t_stop - t_start;
   #endif
-      auto reducOpVX_1 = make_addAssignReduction(bvTX1, bvV0, 256, 256);
+      auto reducOpVX_1 = make_addAssignReduction(bvTX1, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVX_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2354,7 +2382,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_syrX[i] = t_stop - t_start;
   #endif
-      auto reducOpVX_2 = make_addAssignReduction(bvTX2, bvV0, 256, 256);
+      auto reducOpVX_2 = make_addAssignReduction(bvTX2, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVX_2); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2378,7 +2406,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_syrY[i] = t_stop - t_start;
   #endif
-      auto reducOpVY_0 = make_addAssignReduction(bvTY0, bvV0, 256, 256);
+      auto reducOpVY_0 = make_addAssignReduction(bvTY0, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVY_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2402,7 +2430,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_syrY[i] = t_stop - t_start;
   #endif
-      auto reducOpVY_1 = make_addAssignReduction(bvTY1, bvV0, 256, 256);
+      auto reducOpVY_1 = make_addAssignReduction(bvTY1, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVY_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2426,7 +2454,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_syrY[i] = t_stop - t_start;
   #endif
-      auto reducOpVY_2 = make_addAssignReduction(bvTY2, bvV0, 256, 256);
+      auto reducOpVY_2 = make_addAssignReduction(bvTY2, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOpVY_2); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2450,7 +2478,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_sr2X[i] = t_stop - t_start;
   #endif
-      auto reducOp2SX_0 = make_addAssignReduction(bvTU0, bvV0, 256, 256);
+      auto reducOp2SX_0 = make_addAssignReduction(bvTU0, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SX_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2460,7 +2488,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-      _SYR2<256>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+      _SYR2<DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2474,7 +2502,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_sr2X[i] = t_stop - t_start;
   #endif
-      auto reducOp2SX_1 = make_addAssignReduction(bvTU1, bvV0, 256, 256);
+      auto reducOp2SX_1 = make_addAssignReduction(bvTU1, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SX_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2484,8 +2512,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
   #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
   #endif
-//      _SYR2<256,256,256,256>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
-      _SYR2<256,512,256,256>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+//      _SYR2<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+      _SYR2<DEF_BLAS2_LOCALSZ,2*DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "U", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
   #ifdef SHOW_TIMES
@@ -2499,7 +2527,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_sr2X[i] = t_stop - t_start;
   #endif
-      auto reducOp2SX_2 = make_addAssignReduction(bvTU2, bvV0, 256, 256);
+      auto reducOp2SX_2 = make_addAssignReduction(bvTU2, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SX_2); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2523,7 +2551,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v0_sr2Y[i] = t_stop - t_start;
     #endif
-      auto reducOp2SY_0 = make_addAssignReduction(bvTL0, bvV0, 256, 256);
+      auto reducOp2SY_0 = make_addAssignReduction(bvTL0, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SY_0); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2533,7 +2561,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
     #endif
-      _SYR2<256>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+      _SYR2<DEF_BLAS2_LOCALSZ>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
     #ifdef SHOW_TIMES
@@ -2547,7 +2575,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v1_sr2Y[i] = t_stop - t_start;
     #endif
-      auto reducOp2SY_1 = make_addAssignReduction(bvTL1, bvV0, 256, 256);
+      auto reducOp2SY_1 = make_addAssignReduction(bvTL1, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SY_1); q.wait_and_throw();
 /* */
       /*****************************************/
@@ -2557,8 +2585,8 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
     #ifdef SHOW_TIMES
       t_start = std::chrono::steady_clock::now();
     #endif
-//    _SYR2<256,256,256,256>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
-    _SYR2<256,512,256,256>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+//    _SYR2<DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
+    _SYR2<DEF_BLAS2_LOCALSZ,2*DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ,DEF_BLAS2_LOCALSZ>(ex, "L", dimR - shftR, CONS_SYR2, bvX0, 1, bvY0, 1,
                  bmM0(shftR, shftC), dimL);
       q.wait_and_throw();
     #ifdef SHOW_TIMES
@@ -2572,7 +2600,7 @@ size_t TestingBLAS2_New(bool accessDev, size_t dim, size_t divSz, size_t shftR,
       }
       v2_sr2Y[i] = t_stop - t_start;
     #endif
-      auto reducOp2SY_2 = make_addAssignReduction(bvTL2, bvV0, 256, 256);
+      auto reducOp2SY_2 = make_addAssignReduction(bvTL2, bvV0, DEF_BLAS2_LOCALSZ, DEF_BLAS2_LOCALSZ);
       ex.reduce(reducOp2SY_2); q.wait_and_throw();
 /* */
       /*****************************************/

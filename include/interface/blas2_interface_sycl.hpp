@@ -35,6 +35,8 @@
 #include <executors/executor_sycl.hpp>
 #include <operations/blas1_trees.hpp>
 
+#define DEF_BLAS2_LOCALSZ 256
+
 namespace blas {
 
 /**** MATRIX VECTOR PRODUCT ****/
@@ -68,7 +70,7 @@ void _GEMV(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
   if (my_mA.getAccess()) {  // ROWS ACCESS
 //      std::cout << "ROWS_CASE"  << std::endl;
     const auto interLoop=1;
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(M,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -110,7 +112,7 @@ void _GEMV(Executor<ExecutorType> ex, std::string _Trans, size_t _M, size_t _N,
 
   } else {
 //      std::cout << "COLS_CASE"  << std::endl;
-    const auto localSize  = (_localSize == 0)? 256: _localSize;
+    const auto localSize  = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: std::min(M,_n_rows_WG);
     const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -185,7 +187,7 @@ void _TRMV(Executor<ExecutorType> ex, std::string _Uplo,
   if (my_mA.getAccess()) {  // ROWS ACCESS
 //      std::cout << "ROWS_CASE"  << std::endl;
     const auto interLoop=1;
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -259,7 +261,7 @@ void _TRMV(Executor<ExecutorType> ex, std::string _Uplo,
 
   } else {
 //      std::cout << "COLS_CASE"  << std::endl;
-    const auto localSize  = (_localSize == 0)? 256: _localSize;
+    const auto localSize  = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);;
     const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -369,7 +371,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
 
   const auto interLoop=1;
 
-  const auto localSize  = (_localSize == 0)? 256: _localSize;
+  const auto localSize  = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
   const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
 
   const auto n_rows_WG_R = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
@@ -400,7 +402,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
 //      std::cout << "ROWS_CASE"  << std::endl;
 /*
     const auto interLoop=1;
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -481,7 +483,7 @@ void _SYMV(Executor<ExecutorType> ex, std::string _Uplo, size_t _N,
 //      std::cout << "COLS_CASE"  << std::endl;
 /*
     const auto interLoop=1;
-    const auto localSize  = (_localSize == 0)? 256: _localSize;
+    const auto localSize  = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG  = (_n_rows_WG == 0)? localSize: _n_rows_WG;
     const auto n_cols_WG  = (_n_cols_WG == 0)? localSize: _n_cols_WG;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -564,7 +566,7 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, M);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, N);
   if (my_mA.getAccess()) {  // ROWS ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(M,_n_rows_WG);;
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -592,7 +594,7 @@ void _GER(Executor<ExecutorType> ex, size_t _M, size_t _N, T _alpha,
 
 //    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
   } else { // COLUMN ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? localSize: std::min(M,_n_rows_WG);;
     const auto n_cols_WG = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -647,7 +649,7 @@ void _SYR(Executor<ExecutorType> ex, std::string _Uplo,
       matrix_view<T, ContainerT>(_mA, _N, _N, accessOpr, _lda, _mA.getDisp());
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, N);
   if (my_mA.getAccess()) {  // ROWS ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -689,7 +691,7 @@ void _SYR(Executor<ExecutorType> ex, std::string _Uplo,
 
 //    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
   } else { // COLUMN ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? localSize: _shrMemSize;
@@ -758,7 +760,7 @@ void _SYR2(Executor<ExecutorType> ex, std::string _Uplo,
   auto my_vx = vector_view<T, ContainerT>(_vx, _vx.getDisp(), _incx, N);
   auto my_vy = vector_view<T, ContainerT>(_vy, _vy.getDisp(), _incy, N);
   if (my_mA.getAccess()) {  // ROWS ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? 1: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? N: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? 2*localSize: _shrMemSize;
@@ -801,7 +803,7 @@ void _SYR2(Executor<ExecutorType> ex, std::string _Uplo,
 
 //    ex.execute(assignOp, localSize, nWG_row*localSize*nWG_col, std::max(localSize,n_rows_WG));
   } else { // COLUMN ACCESS
-    const auto localSize = (_localSize == 0)? 256: _localSize;
+    const auto localSize = (_localSize == 0)? DEF_BLAS2_LOCALSZ: _localSize;
     const auto n_rows_WG = (_n_rows_WG == 0)? localSize: std::min(N,_n_rows_WG);
     const auto n_cols_WG = (_n_cols_WG == 0)? localSize: std::min(N,_n_cols_WG);;
     const auto shrMemSize = (_localSize == 0)? 2*localSize: _shrMemSize;

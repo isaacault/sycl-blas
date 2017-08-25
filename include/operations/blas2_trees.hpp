@@ -74,7 +74,9 @@ template <class RHS> AddSetColumns<RHS> make_addSetColumns(RHS &r) {
 }
 
 /**** GEMV BY ROWS M ROWS x N BLOCK ****/
-//#define GROUP_ROWS 1 // Not useful for GEMV by rows
+
+// #define GROUP_OF_ROWS 1 // Not useful for GEMV by rows
+
 template <unsigned int interLoop, bool Lower, bool Diag, bool Upper, bool Unit,
           class LHS, class RHS1, class RHS2>
 struct Gemv_Row {
@@ -150,7 +152,7 @@ struct Gemv_Row {
 //    if ((Unit)   && (glbalid == 0)) printf ("Unit\n");
 
     value_type val = addOp2_struct::init(r2);
-    // PROBLEM IF ONLY SOME THREADS OF A WORKGROUP ARE CANCELED
+    // PROBLEM IF ONLY SOME THREADS OF A WORKGROUP_OF ARE CANCELED
     // TO SOLVE IT, USE GLOBAL VALUES OF frs_col AND lst_col
     if ((!Upper && (((idWFC*dimWFC)+((!Diag)?1:0))>(lst_row-1))) ||
         (!Lower && ((frs_row+((!Diag)?1:0))>((idWFC*dimWFC+dimWFC)-1)))) {
@@ -163,14 +165,14 @@ struct Gemv_Row {
       }
     } else {
 
-  #ifdef GROUP_ROWS
+  #ifdef GROUP_OF_ROWS
   //      for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
       for (size_t id_row=frs_row;(id_row<lst_row); id_row++) {
         l.eval(id_row,id_col_thr) = val;
       }
   #endif
       if (interLoop == 1) {
-  #ifdef GROUP_ROWS
+  #ifdef GROUP_OF_ROWS
         for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz) {
   //      for (size_t id_col = frs_col; id_col < dimC; id_col += localSz*nWG_col) {
           auto elm = r2.eval(id_col);
@@ -195,8 +197,9 @@ struct Gemv_Row {
                                             r1.eval(id_row,id_col));
               }
             }
+          }
         }
-  #else
+  #else 
   //        for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
         if (id_col_thr < dimC) {
 //          printf ("(%lu) -> (%lu,%lu) - (%lu,%lu) - (%lu)\n",
@@ -315,14 +318,14 @@ struct Gemv_Row {
   */
         value_type val = addOp2_struct::init(r2);
         auto blqSz = std::min(shrSz,lst_row-rowid);
-  #ifdef GROUP_ROWS
+  #ifdef GROUP_OF_ROWS
   //      for (size_t row=0, id_row=frs_row;(id_row<lst_row); row++, id_row++) {
         for (size_t row=0, id_row=rowid; row<blqSz; row++, id_row++) {
           shrMem[row*localSz+localid] = val;
         }
   #endif
         if (interLoop == 1) {
-  #ifdef GROUP_ROWS
+  #ifdef GROUP_OF_ROWS
           for (size_t id_col = frs_col; id_col < lst_col; id_col += localSz) {
     //      for (size_t id_col = frs_col; id_col < dimC; id_col += localSz*nWG_col) {
             auto elm = r2.eval(id_col);
