@@ -380,12 +380,22 @@ class NoLocalGemmFactory {
       compute_gemm_no_shared_pannel<false>(
           orig_A, orig_B, orig_C, a_size, b_size, c_size, dim_m_a_start,
           dim_n_b_start, A_ptr_index, B_ptr_index, boundary_check_m,
-          boundary_check_n, boundary_check_c, reg_a, reg_b, id);
+          boundary_check_n, boundary_check_c, reg_a, reg_b
+#ifdef ARM_GPU
+          ,
+          id
+#endif
+      );
     } else {
       compute_gemm_no_shared_pannel<true>(
           orig_A, orig_B, orig_C, a_size, b_size, c_size, dim_m_a_start,
           dim_n_b_start, A_ptr_index, B_ptr_index, boundary_check_m,
-          boundary_check_n, boundary_check_c, reg_a, reg_b, id);
+          boundary_check_n, boundary_check_c, reg_a, reg_b
+#ifdef ARM_GPU
+          ,
+          id
+#endif
+      );
     }
   }
   template <bool need_check_boundary, typename A_t, typename B_t, typename C_t,
@@ -399,7 +409,12 @@ class NoLocalGemmFactory {
       const check_boundary_m_t &boundary_check_m,
       const check_boundary_n_t &boundary_check_n,
       const check_boundary_c_t &boundary_check_c, T (&reg_a)[item_rows],
-      T (&reg_b)[item_cols], cl::sycl::nd_item<1> id) noexcept {
+      T (&reg_b)[item_cols]
+#ifdef ARM_GPU
+      ,
+      cl::sycl::nd_item<1> id
+#endif
+      ) noexcept {
     do {
       auto A = orig_A;
       auto B = orig_B;
@@ -413,7 +428,9 @@ class NoLocalGemmFactory {
          */
         load<item_rows, wg_rows, need_check_boundary>(
             A, reg_a, A_ptr_index, dim_m_a_start, boundary_check_m);
+#ifdef ARM_GPU
         id.barrier(cl::sycl::access::fence_space::local_space);
+#endif
         /*
          * Loading a corresponding block of matrix B into reg_b
          */

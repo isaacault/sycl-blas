@@ -258,6 +258,18 @@ void run_gemm_tests(int seed, int m, int k, int n, int batch_size, int rep) {
     test<TARGLOCAL(128, 8, 8, 16, 16, 8, 8)>(rep, ARG);
     test<TARGLOCAL(128, 8, 8, 16, 16, 16, 16)>(rep, ARG);
 
+    test<TARGLOCAL(64, 4, 8, 16, 8, 1, 1)>(rep, ARG);
+    test<TARGLOCAL(64, 4, 8, 16, 8, 2, 2)>(rep, ARG);
+    test<TARGLOCAL(64, 4, 8, 16, 8, 4, 4)>(rep, ARG);
+    test<TARGLOCAL(64, 4, 8, 16, 8, 8, 8)>(rep, ARG);
+    test<TARGLOCAL(64, 4, 8, 16, 8, 16, 16)>(rep, ARG);
+
+    test<TARGLOCAL(64, 8, 4, 8, 16, 1, 1)>(rep, ARG);
+    test<TARGLOCAL(64, 8, 4, 8, 16, 2, 2)>(rep, ARG);
+    test<TARGLOCAL(64, 8, 4, 8, 16, 4, 4)>(rep, ARG);
+    test<TARGLOCAL(64, 8, 4, 8, 16, 8, 8)>(rep, ARG);
+    test<TARGLOCAL(64, 8, 4, 8, 16, 16, 16)>(rep, ARG);
+
     test<TARGNOLOCAL(128, 8, 8, 8, 8)>(rep, ARG);
     test<TARGNOLOCAL(128, 4, 4, 8, 8)>(rep, ARG);
     test<TARGNOLOCAL(128, 4, 4, 16, 16)>(rep, ARG);
