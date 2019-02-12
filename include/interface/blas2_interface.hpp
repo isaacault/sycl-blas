@@ -623,7 +623,6 @@ typename Executor::Return_Type _syr2_impl(
 template <typename Executor, typename IndexType, typename T,
           typename ContainerT0, typename ContainerT1, typename IncrementType,
           typename ContainerT2>
-// [[deprecated("Replaced by _gemv")]]
 typename Executor::Return_Type inline _gemv_legacy(
     Executor& ex,         // Executor (sycl, parallel, serial, etc)
     char _trans,          // The transposition of the matrix ('n', 't', 'c')

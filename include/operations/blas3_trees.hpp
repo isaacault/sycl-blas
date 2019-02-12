@@ -242,12 +242,6 @@ class NoLocalGemmFactory {
   /*! @brief A boolean parameter represents wheather or not matrix B is
    * transposed */
   static constexpr bool trans_b = TransB;
-  /*! @brief The device cacheline size */
-  static constexpr IndexType cl_size = ClSize;
-  /*! @brief Number of elements which fit within a cache line. */
-  static constexpr IndexType cl_elems = cl_size / sizeof(T);
-  /*! @brief Number of work items within a work group. */
-  static constexpr IndexType wg_size = wg_rows * wg_cols;
 
   static_assert(wg_cols * item_cols == item_rows * wg_rows,
                 "Work group size should be a multiple "
@@ -286,7 +280,7 @@ class NoLocalGemmFactory {
    * @brief Get the type of this NoLocalGemmFactory as a human readable string.
    */
   static sycl_blas_inline std::string get_type_string() noexcept {
-    return std::string("NoLocalGemmFactory<") + std::to_string(cl_size) + ", " +
+    return std::string("NoLocalGemmFactory<") + std::to_string(ClSize) + ", " +
            tile_type::get_type_string() + ", " +
            type_string<value_type>::get_value() + ">";
   }
@@ -295,7 +289,7 @@ class NoLocalGemmFactory {
       IndexType m, IndexType n) noexcept {
     const cl::sycl::range<1> nwg(((m - 1) / (item_rows * wg_rows) + 1) *
                                  ((n - 1) / (item_cols * wg_cols) + 1));
-    const cl::sycl::range<1> wgs(wg_size);
+    const cl::sycl::range<1> wgs(wg_rows * wg_cols);
 
     return cl::sycl::nd_range<1>(nwg * wgs, wgs);
   }
