@@ -169,9 +169,9 @@ void run_gemm_tests(int seed, int m, int k, int n, int batch_size, int rep) {
 
   std::mt19937 rnd(seed);
 
-  auto accA = make_matrix_view(ex, m_a_gpu, m, k, lda, Access::ColMajor());
-  auto accB = make_matrix_view(ex, m_b_gpu, k, n, ldb, Access::ColMajor());
-  auto accC = make_matrix_view(ex, m_c_gpu, m, n, ldc, Access::ColMajor());
+  auto dataA = gen_matrix<E>(k * m * batch_size, -1, 1, rnd);
+  auto dataB = gen_matrix<E>(n * k * batch_size, -1, 1, rnd);
+  auto origC = gen_matrix<E>(m * n * batch_size, -1, 1, rnd);
   auto refC = origC;
 
   const char *ta_str = TransA ? "T" : "N";
@@ -246,11 +246,6 @@ void run_gemm_tests(int seed, int m, int k, int n, int batch_size, int rep) {
     test<TARGLOCAL(64, 8, 8, 16, 16, 8, 8)>(rep, ARG);
     test<TARGLOCAL(64, 8, 8, 16, 16, 16, 16)>(rep, ARG);
 
-    test<TARGNOLOCAL(64, 8, 8, 8, 8)>(rep, ARG);
-    test<TARGNOLOCAL(64, 8, 8, 16, 16)>(rep, ARG);
-    test<TARGNOLOCAL(64, 4, 4, 8, 8)>(rep, ARG);
-    test<TARGNOLOCAL(64, 4, 4, 16, 16)>(rep, ARG);
-
     test<TARGLOCAL(128, 8, 8, 8, 8, 1, 1)>(rep, ARG);
     test<TARGLOCAL(128, 8, 8, 8, 8, 2, 2)>(rep, ARG);
     test<TARGLOCAL(128, 8, 8, 8, 8, 4, 4)>(rep, ARG);
@@ -280,20 +275,6 @@ void run_gemm_tests(int seed, int m, int k, int n, int batch_size, int rep) {
     test<TARGNOLOCAL(64, 8, 4, 8, 16)>(rep, ARG);
     test<TARGNOLOCAL(64, 4, 8, 8, 4)>(rep, ARG);
     test<TARGNOLOCAL(64, 8, 4, 4, 8)>(rep, ARG);
-
-    test<TARGNOLOCAL(128, 2, 2, 8, 8)>(rep, ARG);
-    test<TARGNOLOCAL(128, 2, 2, 16, 16)>(rep, ARG);
-    test<TARGNOLOCAL(128, 2, 2, 4, 4)>(rep, ARG);
-    test<TARGNOLOCAL(64, 2, 2, 4, 4)>(rep, ARG);
-    test<TARGNOLOCAL(64, 2, 2, 8, 8)>(rep, ARG);
-    test<TARGNOLOCAL(64, 2, 2, 16, 16)>(rep, ARG);
-
-    test<TARGNOLOCAL(128, 2, 4, 4, 2)>(rep, ARG);
-    test<TARGNOLOCAL(128, 4, 2, 2, 4)>(rep, ARG);
-    test<TARGNOLOCAL(64, 2, 4, 8, 4)>(rep, ARG);
-    test<TARGNOLOCAL(128, 4, 2, 4, 8)>(rep, ARG);
-    test<TARGNOLOCAL(64, 2, 4, 16, 8)>(rep, ARG);
-    test<TARGNOLOCAL(64, 4, 2, 8, 16)>(rep, ARG);
 
     test_syclblas(rep, *ta_str, *tb_str, ARG);
 
