@@ -35,9 +35,9 @@
 #include <interface/blas_interface_sycl.hpp>
 
 template <typename T, typename RndEngine>
-std::vector<T> gen_matrix(int m, int n, T lo, T hi, RndEngine rnd) {
+std::vector<T> gen_matrix(int size, T lo, T hi, RndEngine rnd) {
   std::uniform_real_distribution<T> dst(lo, hi);
-  std::vector<T> v(m * n);
+  std::vector<T> v(size);
   for (auto &e : v) {
     e = dst(rnd);
   }
@@ -169,11 +169,9 @@ void run_gemm_tests(int seed, int m, int k, int n, int batch_size, int rep) {
 
   std::mt19937 rnd(seed);
 
-  auto dataA = gen_matrix<E>(TransA ? k : m * batch_size,
-                             TransA ? m : k * batch_size, -1, 1, rnd);
-  auto dataB = gen_matrix<E>(TransB ? n : k * batch_size,
-                             TransB ? k : n * batch_size, -1, 1, rnd);
-  auto origC = gen_matrix<E>(m, n * batch_size, -1, 1, rnd);
+  auto accA = make_matrix_view(ex, m_a_gpu, m, k, lda, Access::ColMajor());
+  auto accB = make_matrix_view(ex, m_b_gpu, k, n, ldb, Access::ColMajor());
+  auto accC = make_matrix_view(ex, m_c_gpu, m, n, ldc, Access::ColMajor());
   auto refC = origC;
 
   const char *ta_str = TransA ? "T" : "N";

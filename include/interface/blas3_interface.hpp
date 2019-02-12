@@ -170,7 +170,11 @@ cl::sycl::event _gemm_impl(Executor& ex, char _TransA, char _TransB,
   } else if (ex.get_device_type() ==
              sycl_device_property::device_type::SYCL_ARM_GPU) {
     BIND_DATA_SIZE(512, 49, 512) TO_TPARAMS(256, false, 64, 4, 4, 8, 8);
-    BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
+    if (_TrA) {
+      BIND_DEFAULT TO_TPARAMS(256, false, 64, 4, 8, 16, 8);
+    } else {
+      BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
+    }
   } else {
     BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, true, 64, 1, 1, 16, 16);
     BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
@@ -187,7 +191,11 @@ cl::sycl::event _gemm_impl(Executor& ex, char _TransA, char _TransB,
   }
 #elif defined(ARM_GPU)
   BIND_DATA_SIZE(512, 49, 512) TO_TPARAMS(256, false, 64, 4, 4, 8, 8);
-  BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
+  if (_TrA) {
+    BIND_DEFAULT TO_TPARAMS(256, false, 64, 4, 8, 16, 8);
+  } else {
+    BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
+  }
 #else  // any other specified devices
   BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, true, 64, 1, 1, 16, 16);
   BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
