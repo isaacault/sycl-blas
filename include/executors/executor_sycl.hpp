@@ -29,6 +29,7 @@
 #include <stdexcept>
 
 #include <CL/sycl.hpp>
+#include <blas_meta.hpp>
 
 #include <executors/executor_base.hpp>
 #include <operations/blas1_trees.hpp>
@@ -264,24 +265,26 @@ class Executor<SYCL> {
    */
   Executor(cl::sycl::queue q) : q_interface(q){};
 
-  inline Queue_Interface_Type get_policy_handler() { return q_interface; }
+  sycl_blas_inline Queue_Interface_Type get_policy_handler() {
+    return q_interface;
+  }
 
   cl::sycl::queue get_queue() const { return q_interface.get_queue(); }
 
-  inline Queue_Interface_Type::device_type get_device_type() {
+  sycl_blas_inline sycl_device_property::device_type get_device_type() {
     return q_interface.get_device_type();
   }
 
-  inline bool has_local_memory() const {
+  sycl_blas_inline bool has_local_memory() const {
     return q_interface.has_local_memory();
   }
   template <typename T>
-  inline T *allocate(size_t num_elements) const {
+  sycl_blas_inline T *allocate(size_t num_elements) const {
     return q_interface.template allocate<T>(num_elements);
   }
 
   template <typename T>
-  inline void deallocate(T *p) const {
+  sycl_blas_inline void deallocate(T *p) const {
     q_interface.deallocate(p);
   }
   /*
@@ -291,7 +294,7 @@ class Executor<SYCL> {
   side buffer<T> and T are the same
   */
   template <typename ContainerT>
-  inline auto get_buffer(ContainerT ptr)
+  sycl_blas_inline auto get_buffer(ContainerT ptr)
       -> decltype(q_interface.get_buffer(ptr)) const {
     return q_interface.get_buffer(ptr);
   }
@@ -300,7 +303,7 @@ class Executor<SYCL> {
   @tparam T is the type of the pointer
   */
   template <typename ContainerT>
-  inline ptrdiff_t get_offset(ContainerT ptr) const {
+  sycl_blas_inline ptrdiff_t get_offset(ContainerT ptr) const {
     return q_interface.get_offset(ptr);
   }
 
@@ -312,7 +315,8 @@ class Executor<SYCL> {
       @param size is the number of elements to be copied
   */
   template <typename ContainerT0, typename ContainerT1>
-  inline auto copy_to_device(ContainerT0 src, ContainerT1 dst, size_t size)
+  sycl_blas_inline auto copy_to_device(ContainerT0 src, ContainerT1 dst,
+                                       size_t size)
       -> decltype(q_interface.copy_to_device(src, dst, size)) {
     return q_interface.copy_to_device(src, dst, size);
   }
@@ -325,7 +329,8 @@ class Executor<SYCL> {
       @param size is the number of elements to be copied
   */
   template <typename ContainerT0, typename ContainerT1>
-  inline auto copy_to_host(ContainerT0 src, ContainerT1 dst, size_t size)
+  sycl_blas_inline auto copy_to_host(ContainerT0 src, ContainerT1 dst,
+                                     size_t size)
       -> decltype(q_interface.copy_to_host(src, dst, size)) {
     return q_interface.copy_to_host(src, dst, size);
   }
@@ -346,19 +351,20 @@ class Executor<SYCL> {
       @param event is an instance of sycl::sycl::event
   */
   template <typename first_event_t, typename... next_event_t>
-  inline void wait(first_event_t first_event, next_event_t... next_events) {
+  sycl_blas_inline void wait(first_event_t first_event,
+                             next_event_t... next_events) {
     q_interface.wait_for_events(first_event, next_events...);
   }
 
   /*  @brief waiting for a sycl::queue.wait()
    */
-  void inline wait() { q_interface.wait(); }
+  void sycl_blas_inline wait() { q_interface.wait(); }
 
   /*!
    * @brief Executes the tree without defining required shared memory.
    */
   template <typename Tree>
-  inline cl::sycl::event execute(Tree t) {
+  sycl_blas_inline cl::sycl::event execute(Tree t) {
     const auto localSize = get_policy_handler().get_work_group_size();
     auto _N = t.getSize();
     auto nWG = (_N + localSize - 1) / localSize;
@@ -518,7 +524,7 @@ class Executor<SYCL> {
   };
 
   template <typename Gemm>
-  inline cl::sycl::event gemm_executor(Gemm gemm_tree) {
+  sycl_blas_inline cl::sycl::event gemm_executor(Gemm gemm_tree) {
     auto rng = Gemm::get_nd_range(gemm_tree.m, gemm_tree.n);
     return execute_tree<
         Choose_policy<Gemm::version == 19, using_shared_mem::enabled,

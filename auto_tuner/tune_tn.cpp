@@ -1,7 +1,7 @@
 /***************************************************************************
  *
  *  @license
- *  Copyright (C) Codeplay Software Limited
+ *  Copyright (C) 2018 Codeplay Software Limited
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
  *  You may obtain a copy of the License at
@@ -19,16 +19,30 @@
  *
  *  SYCL-BLAS: BLAS implementation using SYCL
  *
- *  @filename blas2_trees.hpp
+ *  @filename tune_tn.cpp
  *
  **************************************************************************/
 
-#ifndef BLAS2_TREES_HPP
-#define BLAS2_TREES_HPP
-#include <blas_meta.hpp>
+#include <cstdlib>
 
-#include "blas2/gemv.hpp"
-#include "blas2/gemv_legacy.hpp"
-#include "blas2/ger.hpp"
+#include "auto_tuner/gemm_tuner.hpp"
 
-#endif  // BLAS2_TREES_HPP
+int main(int argc, char *argv[]) {
+  if (argc != 6) {
+    std::cerr << "Usage: " << argv[0] << " M K N rep" << std::endl;
+    return -1;
+  }
+
+  const bool transA = true;
+  const bool transB = true;
+
+  const int seed = 42;
+  const int m = std::atoi(argv[1]);
+  const int k = std::atoi(argv[2]);
+  const int n = std::atoi(argv[3]);
+  const int batch_size = std::atoi(argv[4]);
+  const int rep = std::atoi(argv[5]);
+  run_gemm_tests<transA, !transB, float>(seed, m, k, n, batch_size, rep);
+
+  return 0;
+}

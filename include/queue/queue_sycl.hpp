@@ -26,6 +26,8 @@
 #define QUEUE_SYCL_HPP
 
 #include <CL/sycl.hpp>
+#include <blas_meta.hpp>
+
 #include <queue/queue_base.hpp>
 #include <queue/sycl_iterator.hpp>
 #include <stdexcept>
@@ -34,6 +36,59 @@
 
 namespace blas {
 
+namespace sycl_device_property {
+enum device_type {
+  SYCL_CPU,
+  SYCL_HOST,
+  SYCL_UNSUPPORTED_DEVICE,
+  SYCL_INTEL_GPU,
+  SYCL_AMD_GPU,
+  SYCL_ARM_GPU,
+  SYCL_RCAR_CVENGINE,
+  SYCL_RCAR_HOST_CPU
+};
+sycl_blas_inline const bool has_local_memory(cl::sycl::queue &q_) {
+  return (q_.get_device()
+              .template get_info<cl::sycl::info::device::local_mem_type>() ==
+          cl::sycl::info::local_mem_type::local);
+}
+// Force the systme not to set this to bigger than 256. As it can be
+sycl_blas_inline const size_t get_work_group_size(cl::sycl::queue &q_) {
+  return std::min(
+      size_t(256),
+      q_.get_device()
+          .template get_info<cl::sycl::info::device::max_work_group_size>());
+}
+
+const device_type find_chosen_device_type(cl::sycl::queue &q_) {
+  auto dev = q_.get_device();
+  auto platform = dev.get_platform();
+  auto plat_name = platform.template get_info<cl::sycl::info::platform::name>();
+  auto device_type =
+      dev.template get_info<cl::sycl::info::device::device_type>();
+  std::transform(plat_name.begin(), plat_name.end(), plat_name.begin(),
+                 ::tolower);
+  if (plat_name.find("amd") != std::string::npos &&
+      device_type == cl::sycl::info::device_type::gpu) {
+    return SYCL_AMD_GPU;
+  } else if (plat_name.find("intel") != std::string::npos &&
+             device_type == cl::sycl::info::device_type::gpu) {
+    return SYCL_INTEL_GPU;
+  } else if (plat_name.find("computeaorta") != std::string::npos &&
+             device_type == cl::sycl::info::device_type::accelerator) {
+    return SYCL_RCAR_CVENGINE;
+  } else if (plat_name.find("computeaorta") != std::string::npos &&
+             device_type == cl::sycl::info::device_type::cpu) {
+    return SYCL_RCAR_HOST_CPU;
+  } else if (plat_name.find("arm") != std::string::npos &&
+             device_type == cl::sycl::info::device_type::gpu) {
+    return SYCL_ARM_GPU;
+  } else {
+    return SYCL_UNSUPPORTED_DEVICE;
+  }
+  throw std::runtime_error("couldn't find device");
+}
+}  // namespace sycl_device_property
 template <>
 class Queue_Interface<SYCL> {
   /*!
@@ -41,20 +96,13 @@ class Queue_Interface<SYCL> {
    */
   cl::sycl::queue q_;
   std::shared_ptr<cl::sycl::codeplay::PointerMapper> pointerMapperPtr_;
-  bool pointer_mapper_owner;
+  const bool pointer_mapper_owner;
+  const size_t workgroupsize;
+  const sycl_device_property::device_type selected_device_type;
+  const bool local_memory_support;
   using generic_buffer_data_type = cl::sycl::codeplay::buffer_data_type_t;
 
  public:
-  enum device_type {
-    SYCL_CPU,
-    SYCL_HOST,
-    SYCL_UNSUPPORTED_DEVICE,
-    SYCL_INTEL_GPU,
-    SYCL_AMD_GPU,
-    SYCL_RCAR_CVENGINE,
-    SYCL_RCAR_HOST_CPU
-  };
-
   explicit Queue_Interface(cl::sycl::queue q)
       : q_(q),
         pointerMapperPtr_(std::shared_ptr<cl::sycl::codeplay::PointerMapper>(
@@ -63,68 +111,42 @@ class Queue_Interface<SYCL> {
               p->clear();
               delete p;
             })),
-        pointer_mapper_owner(true) {}
+        pointer_mapper_owner(true),
+        workgroupsize(sycl_device_property::get_work_group_size(q)),
+        selected_device_type(sycl_device_property::find_chosen_device_type(q)),
+        local_memory_support(sycl_device_property::has_local_memory(q)) {}
 
-  const device_type get_device_type() const {
-    auto dev = q_.get_device();
-    auto platform = dev.get_platform();
-    auto plat_name =
-        platform.template get_info<cl::sycl::info::platform::name>();
-    auto device_type =
-        dev.template get_info<cl::sycl::info::device::device_type>();
-    std::transform(plat_name.begin(), plat_name.end(), plat_name.begin(),
-                   ::tolower);
-    if (plat_name.find("amd") != std::string::npos &&
-        device_type == cl::sycl::info::device_type::gpu) {
-      return SYCL_AMD_GPU;
-    } else if (plat_name.find("intel") != std::string::npos &&
-               device_type == cl::sycl::info::device_type::gpu) {
-      return SYCL_INTEL_GPU;
-    } else if (plat_name.find("computeaorta") != std::string::npos &&
-               device_type == cl::sycl::info::device_type::accelerator) {
-      return SYCL_RCAR_CVENGINE;
-    } else if (plat_name.find("computeaorta") != std::string::npos &&
-               device_type == cl::sycl::info::device_type::cpu) {
-      return SYCL_RCAR_HOST_CPU;
-    } else {
-      return SYCL_UNSUPPORTED_DEVICE;
-    }
-    throw std::runtime_error("couldn't find device");
+  const sycl_device_property::device_type sycl_blas_inline
+  get_device_type() const {
+    return selected_device_type;
   }
-  inline bool has_local_memory() const {
-    return (q_.get_device()
-                .template get_info<cl::sycl::info::device::local_mem_type>() ==
-            cl::sycl::info::local_mem_type::local);
+  sycl_blas_inline bool has_local_memory() const {
+    return local_memory_support;
   }
+  // Force the systme not to set this to bigger than 256. As it can be
+  sycl_blas_inline size_t get_work_group_size() const { return workgroupsize; }
   template <typename T>
-  inline T *allocate(size_t num_elements) const {
+  sycl_blas_inline T *allocate(size_t num_elements) const {
     return static_cast<T *>(cl::sycl::codeplay::SYCLmalloc(
         num_elements * sizeof(T), *pointerMapperPtr_));
   }
 
   template <typename T>
-  inline void deallocate(T *p) const {
+  sycl_blas_inline void deallocate(T *p) const {
     cl::sycl::codeplay::SYCLfree(static_cast<void *>(p), *pointerMapperPtr_);
   }
   cl::sycl::queue get_queue() const { return q_; }
 
   // This function returns the nearest power of 2 Work-group size which is <=
   // maximum device workgroup size.
-  inline size_t get_rounded_power_of_two_work_group_size() const {
+  sycl_blas_inline size_t get_rounded_power_of_two_work_group_size() const {
     return get_power_of_two(get_work_group_size(), false);
-  }
-  // Force the systme not to set this to bigger than 256. As it can be
-  inline size_t get_work_group_size() const {
-    return std::min(
-        size_t(256),
-        q_.get_device()
-            .template get_info<cl::sycl::info::device::max_work_group_size>());
   }
 
   // This function returns the nearest power of 2
   // if roundup is ture returns result>=wgsize
   // else it return result <= wgsize
-  inline size_t get_power_of_two(size_t wGSize, bool rounUp) const {
+  sycl_blas_inline size_t get_power_of_two(size_t wGSize, bool rounUp) const {
     if (rounUp) --wGSize;
     wGSize |= (wGSize >> 1);
     wGSize |= (wGSize >> 2);
@@ -145,7 +167,7 @@ class Queue_Interface<SYCL> {
   side buffer<T> and T are the same
   */
   template <typename T>
-  inline buffer_t<T> get_buffer(T *ptr) const {
+  sycl_blas_inline buffer_t<T> get_buffer(T *ptr) const {
     using pointer_t = typename std::remove_const<T>::type *;
     auto original_buffer = pointerMapperPtr_->get_buffer(
         static_cast<void *>(const_cast<pointer_t>(ptr)));
@@ -161,7 +183,8 @@ class Queue_Interface<SYCL> {
   arithmetic operation on the host side
   */
   template <typename T>
-  inline buffer_iterator<T> get_buffer(buffer_iterator<T> buff) const {
+  sycl_blas_inline buffer_iterator<T> get_buffer(
+      buffer_iterator<T> buff) const {
     return buff;
   }
 
@@ -196,7 +219,7 @@ class Queue_Interface<SYCL> {
   @tparam T is the type of the pointer
   */
   template <typename T>
-  inline ptrdiff_t get_offset(const T *ptr) const {
+  sycl_blas_inline ptrdiff_t get_offset(const T *ptr) const {
     return (pointerMapperPtr_->get_offset(static_cast<const void *>(ptr)) /
             sizeof(T));
   }
@@ -205,7 +228,7 @@ class Queue_Interface<SYCL> {
   @tparam T is the type of the buffer_iterator<T>
   */
   template <typename T>
-  inline ptrdiff_t get_offset(buffer_iterator<T> buff) const {
+  sycl_blas_inline ptrdiff_t get_offset(buffer_iterator<T> buff) const {
     return buff.get_offset();
   }
   /*  @brief Copying the data back to device
@@ -239,8 +262,9 @@ class Queue_Interface<SYCL> {
     @param size is the number of elements to be copied
 */
   template <typename T>
-  inline cl::sycl::event copy_to_device(T *src, buffer_iterator<T> dst,
-                                        size_t = 0) {
+  sycl_blas_inline cl::sycl::event copy_to_device(T *src,
+                                                  buffer_iterator<T> dst,
+                                                  size_t = 0) {
     auto event = q_.submit([&](cl::sycl::handler &cgh) {
       auto acc =
           blas::get_range_accessor<cl::sycl::access::mode::write>(dst, cgh);
@@ -279,8 +303,8 @@ class Queue_Interface<SYCL> {
     @param size is the number of elements to be copied
 */
   template <typename T>
-  inline cl::sycl::event copy_to_host(buffer_iterator<T> src, T *dst,
-                                      size_t = 0) {
+  sycl_blas_inline cl::sycl::event copy_to_host(buffer_iterator<T> src, T *dst,
+                                                size_t = 0) {
     auto event = q_.submit([&](cl::sycl::handler &cgh) {
       auto acc =
           blas::get_range_accessor<cl::sycl::access::mode::read>(src, cgh);
@@ -294,14 +318,14 @@ class Queue_Interface<SYCL> {
     @param first_event  and next_events are instances of sycl::sycl::event
 */
   template <typename first_event_t, typename... next_event_t>
-  void inline wait_for_events(first_event_t first_event,
-                              next_event_t... next_events) {
+  void sycl_blas_inline wait_for_events(first_event_t first_event,
+                                        next_event_t... next_events) {
     cl::sycl::event::wait({first_event, next_events...});
   }
 
   /*  @brief waiting for a sycl::queue.wait()
    */
-  void inline wait() { q_.wait(); }
+  void sycl_blas_inline wait() { q_.wait(); }
 
 };  // class Queue_Interface
 }  // namespace blas

@@ -26,9 +26,9 @@
 #ifndef GER_HPP
 #define GER_HPP
 
+#include <operations/blas_operators.hpp>
 #include <stdexcept>
 #include <vector>
-#include <operations/blas_operators.hpp>
 #include <views/view_sycl.hpp>
 
 namespace blas {
@@ -59,9 +59,11 @@ struct Ger_Row {
         nWG_col(_nWG_col),
         shrMemSize(_shrMemSize){};
 
-  inline IndexType getSize() const { return r1.getSize(); }
+  sycl_blas_inline IndexType getSize() const { return r1.getSize(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
   value_type eval(IndexType i) {
     auto size = (l.is_row_access()) ? l.getSizeC() : l.getSizeR();
@@ -280,9 +282,11 @@ struct Ger_Col {
         nWG_col(_nWG_col),
         shrMemSize(_shrMemSize){};
 
-  inline IndexType getSize() const { return r1.getSize(); }
+  sycl_blas_inline IndexType getSize() const { return r1.getSize(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
   value_type eval(IndexType i) {
     auto size = (l.is_row_access()) ? l.getSizeC() : l.getSizeR();
@@ -471,6 +475,6 @@ Ger_Col<Single, Lower, Diag, Upper, LHS, RHS1, RHS2> make_Ger_Col(
       l, scl, r1, r2, nWG_row, nWG_col, shrMemSize);
 }
 
-} // namespace blas
+}  // namespace blas
 
-#endif 
+#endif

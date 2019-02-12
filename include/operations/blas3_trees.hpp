@@ -24,8 +24,8 @@
 
 #ifndef BLAS3_TREES_GEMM_HPP
 #define BLAS3_TREES_GEMM_HPP
-
 #include <CL/sycl.hpp>
+#include <blas_meta.hpp>
 
 #include <string>
 #include <type_traits>
@@ -87,8 +87,8 @@ class ReferenceGemmFactory {
   IndexType ldc;
   IndexType m_batch_size;
 
-  inline ReferenceGemmFactory(RHS0 A, RHS0 B, RHS1 C, T alpha, T beta,
-                              IndexType batch_size)
+  sycl_blas_inline ReferenceGemmFactory(RHS0 A, RHS0 B, RHS1 C, T alpha, T beta,
+                                        IndexType batch_size)
       : _A(A),
         _B(B),
         _C(C),
@@ -102,28 +102,30 @@ class ReferenceGemmFactory {
         ldc(_C.getSizeL()),
         m_batch_size(batch_size) {}
 
-  static inline std::string get_type_string() noexcept {
+  static sycl_blas_inline std::string get_type_string() noexcept {
     return std::string("ReferenceGemmFactory<") + std::to_string(wg_size) +
            ", " + type_string<value_type>::get_value() + ">";
   }
 
-  static inline cl::sycl::nd_range<1> get_nd_range(IndexType m,
-                                                   IndexType n) noexcept {
+  static sycl_blas_inline cl::sycl::nd_range<1> get_nd_range(
+      IndexType m, IndexType n) noexcept {
     const cl::sycl::range<1> nwg((m * n - 1) / wg_size + 1);
     const cl::sycl::range<1> wgs(wg_size);
     return cl::sycl::nd_range<1>(nwg * wgs, wgs);
   }
-  inline IndexType getSize() const { return m * n; }
+  sycl_blas_inline IndexType getSize() const { return m * n; }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
-  inline void eval(cl::sycl::nd_item<1> id) noexcept {
+  sycl_blas_inline void eval(cl::sycl::nd_item<1> id) noexcept {
     auto orig_A = _A.getData().get_pointer().get() + _A.getDisp();
     auto orig_B = _B.getData().get_pointer().get() + _B.getDisp();
     auto orig_C = _C.getData().get_pointer().get() + _C.getDisp();
-    const auto a_size = m * k;
-    const auto b_size = n * k;
-    const auto c_size = m * n;
+    const IndexType a_size = m * k;
+    const IndexType b_size = n * k;
+    const IndexType c_size = m * n;
     IndexType item_id = id.get_global_id(0);
     if (item_id >= m * n) {
       return;
@@ -142,7 +144,7 @@ class ReferenceGemmFactory {
       auto C = orig_C;
       value_type reg_res = {};
       while (k > 0) {
-        reg_res += A[0] * B[0];
+        reg_res = cl::sycl::mad(A[0], B[0], reg_res);
         --k;
         A = A + (trans_a ? 1 : lda);
         B = B + (trans_b ? ldb : 1);
@@ -180,11 +182,11 @@ class ReferenceGemmFactory {
  *       expression does not have to be evaluated in certain situations.
  */
 template <bool>
-inline bool do_check(bool cond) {
+sycl_blas_inline bool do_check(bool cond) {
   return cond;
 }
 template <>
-inline bool do_check<false>(bool) {
+sycl_blas_inline bool do_check<false>(bool) {
   return true;
 }
 
@@ -265,8 +267,8 @@ class NoLocalGemmFactory {
   IndexType ldc;
   IndexType m_batch_size;
 
-  inline NoLocalGemmFactory(RHS0 A, RHS0 B, RHS1 C, T alpha, T beta,
-                            IndexType batch_size)
+  sycl_blas_inline NoLocalGemmFactory(RHS0 A, RHS0 B, RHS1 C, T alpha, T beta,
+                                      IndexType batch_size)
       : _A(A),
         _B(B),
         _C(C),
@@ -283,14 +285,14 @@ class NoLocalGemmFactory {
   /*!
    * @brief Get the type of this NoLocalGemmFactory as a human readable string.
    */
-  static inline std::string get_type_string() noexcept {
+  static sycl_blas_inline std::string get_type_string() noexcept {
     return std::string("NoLocalGemmFactory<") + std::to_string(cl_size) + ", " +
            tile_type::get_type_string() + ", " +
            type_string<value_type>::get_value() + ">";
   }
 
-  static inline cl::sycl::nd_range<1> get_nd_range(IndexType m,
-                                                   IndexType n) noexcept {
+  static sycl_blas_inline cl::sycl::nd_range<1> get_nd_range(
+      IndexType m, IndexType n) noexcept {
     const cl::sycl::range<1> nwg(((m - 1) / (item_rows * wg_rows) + 1) *
                                  ((n - 1) / (item_cols * wg_cols) + 1));
     const cl::sycl::range<1> wgs(wg_size);
@@ -298,34 +300,36 @@ class NoLocalGemmFactory {
     return cl::sycl::nd_range<1>(nwg * wgs, wgs);
   }
 
-  inline IndexType getSize() const { return m * n; }
+  sycl_blas_inline IndexType getSize() const { return m * n; }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
-  inline void eval(cl::sycl::nd_item<1> id) noexcept {
+  sycl_blas_inline void eval(cl::sycl::nd_item<1> id) noexcept {
     auto orig_A = _A.getData().get_pointer().get() + _A.getDisp();
     auto orig_B = _B.getData().get_pointer().get() + _B.getDisp();
     auto orig_C = _C.getData().get_pointer().get() + _C.getDisp();
-    const auto number_of_block_per_row = ((m - 1) / block_rows) + 1;
-    const auto a_size = m * k;
-    const auto b_size = n * k;
-    const auto c_size = m * n;
+    const IndexType number_of_block_per_row = ((m - 1) / block_rows) + 1;
+    const IndexType a_size = m * k;
+    const IndexType b_size = n * k;
+    const IndexType c_size = m * n;
     /* linear work group id */
-    const auto wg_id = id.get_group(0);
+    const IndexType wg_id = id.get_group(0);
     /*linear work item id*/
-    const auto item_id = id.get_local_id(0);
+    const IndexType item_id = id.get_local_id(0);
     /* row tile id  per work group */
-    const auto tile_id_row = wg_id % number_of_block_per_row;
+    const IndexType tile_id_row = wg_id % number_of_block_per_row;
     /* column tile id per work group */
-    const auto tile_id_col = wg_id / number_of_block_per_row;
+    const IndexType tile_id_col = wg_id / number_of_block_per_row;
     /* work item id per row */
-    const auto local_item_id_row = item_id % wg_rows;
+    const IndexType local_item_id_row = item_id % wg_rows;
     /* work item id per column */
-    const auto local_item_id_col = item_id / wg_rows;
+    const IndexType local_item_id_col = item_id / wg_rows;
     /* the start position of the tile-row per work group */
-    const auto wg_row = tile_id_row * block_rows;
+    const IndexType wg_row = tile_id_row * block_rows;
     /* the start position of the tile-column per work group */
-    const auto wg_col = tile_id_col * block_cols;
+    const IndexType wg_col = tile_id_col * block_cols;
 
     /* Exiting from any threads outside of the m and n boundary */
     if ((local_item_id_row + wg_row >= m) ||
@@ -369,8 +373,8 @@ class NoLocalGemmFactory {
     };
 
     // computing the next element for a and b;
-    const auto A_ptr_index = (trans_a ? lda : 1) * wg_rows;
-    const auto B_ptr_index = (trans_b ? 1 : ldb) * wg_cols;
+    const IndexType A_ptr_index = (trans_a ? lda : 1) * wg_rows;
+    const IndexType B_ptr_index = (trans_b ? 1 : ldb) * wg_cols;
     /* temporary register array used to prefetch columns of A*/
     value_type reg_a[item_rows];
     /* temporary register used to prefetch elements of B*/
@@ -382,18 +386,18 @@ class NoLocalGemmFactory {
       compute_gemm_no_shared_pannel<false>(
           orig_A, orig_B, orig_C, a_size, b_size, c_size, dim_m_a_start,
           dim_n_b_start, A_ptr_index, B_ptr_index, boundary_check_m,
-          boundary_check_n, boundary_check_c, reg_a, reg_b);
+          boundary_check_n, boundary_check_c, reg_a, reg_b, id);
     } else {
       compute_gemm_no_shared_pannel<true>(
           orig_A, orig_B, orig_C, a_size, b_size, c_size, dim_m_a_start,
           dim_n_b_start, A_ptr_index, B_ptr_index, boundary_check_m,
-          boundary_check_n, boundary_check_c, reg_a, reg_b);
+          boundary_check_n, boundary_check_c, reg_a, reg_b, id);
     }
   }
   template <bool need_check_boundary, typename A_t, typename B_t, typename C_t,
             typename check_boundary_m_t, typename check_boundary_n_t,
             typename check_boundary_c_t>
-  void inline compute_gemm_no_shared_pannel(
+  void sycl_blas_inline compute_gemm_no_shared_pannel(
       A_t orig_A, B_t orig_B, C_t orig_C, const IndexType &a_size,
       const IndexType &b_size, const IndexType &c_size,
       const IndexType &dim_m_a_start, const IndexType &dim_n_b_start,
@@ -401,13 +405,12 @@ class NoLocalGemmFactory {
       const check_boundary_m_t &boundary_check_m,
       const check_boundary_n_t &boundary_check_n,
       const check_boundary_c_t &boundary_check_c, T (&reg_a)[item_rows],
-      T (&reg_b)[item_cols]) noexcept {
+      T (&reg_b)[item_cols], cl::sycl::nd_item<1> id) noexcept {
     do {
       auto A = orig_A;
       auto B = orig_B;
       auto C = orig_C;
-      // auto dim_m_a_start = orig_dim_m_a_start;
-      // auto dim_n_b_start = orig_dim_n_b_start;
+
       /* 2D register array used to store the result C*/
       value_type reg_res[item_rows][item_cols] = {};
       while (k > 0) {
@@ -416,6 +419,7 @@ class NoLocalGemmFactory {
          */
         load<item_rows, wg_rows, need_check_boundary>(
             A, reg_a, A_ptr_index, dim_m_a_start, boundary_check_m);
+        id.barrier(cl::sycl::access::fence_space::local_space);
         /*
          * Loading a corresponding block of matrix B into reg_b
          */
@@ -480,9 +484,9 @@ class NoLocalGemmFactory {
 
   template <IndexType item_size, IndexType next_element, bool check_block,
             typename PointerType, typename check_boundary>
-  static inline void load(PointerType ptr, T (&reg)[item_size],
-                          const IndexType &ld, IndexType index,
-                          const check_boundary &chk_boundary) noexcept {
+  static sycl_blas_inline void load(
+      PointerType ptr, T (&reg)[item_size], const IndexType &ld,
+      IndexType index, const check_boundary &chk_boundary) noexcept {
 #pragma unroll
     for (int i = 0; i < item_size; i++) {
       reg[i] = do_check<check_block>(chk_boundary(index)) ? ptr[0] : T(0);
@@ -498,14 +502,14 @@ class NoLocalGemmFactory {
    * @param reg_b  temporary register used to prefetch elements of B
    * @param reg_res  2D register array used to store the result C
    */
-  static inline void compute_block_gemm_no_shared(
+  static sycl_blas_inline void compute_block_gemm_no_shared(
       T (&reg_a)[item_rows], T (&reg_b)[item_cols],
       T (&reg_res)[item_rows][item_cols]) noexcept {
 #pragma unroll
     for (int j = 0; j < item_cols; j++) {
 #pragma unroll
       for (int i = 0; i < item_rows; i++) {
-        reg_res[i][j] = reg_res[i][j] + reg_a[i] * reg_b[j];
+        reg_res[i][j] = cl::sycl::mad(reg_a[i], reg_b[j], reg_res[i][j]);
       }
     }
   }
@@ -526,11 +530,11 @@ class NoLocalGemmFactory {
    * @param mc and nc are indices, used to check the boundary of C
    */
   template <bool check_block, typename PointerType, typename check_boundary>
-  static inline void store(PointerType C, T (&reg_res)[item_rows][item_cols],
-                           const T &alpha, const T &beta, const IndexType &ldc,
-                           const IndexType &dim_m_c_start,
-                           const IndexType &dim_n_c_start,
-                           const check_boundary &chk_boundary) noexcept {
+  static sycl_blas_inline void store(
+      PointerType C, T (&reg_res)[item_rows][item_cols], const T &alpha,
+      const T &beta, const IndexType &ldc, const IndexType &dim_m_c_start,
+      const IndexType &dim_n_c_start,
+      const check_boundary &chk_boundary) noexcept {
 #pragma unroll
     for (int j = 0; j < item_cols; j++) {
 #pragma unroll
@@ -614,7 +618,7 @@ struct Tile {
   /*!
    * @brief Get tile type as human readable string.
    */
-  static inline std::string get_type_string() noexcept {
+  static sycl_blas_inline std::string get_type_string() noexcept {
     return std::string("Tile<") + std::to_string(item_rows) + ", " +
            std::to_string(item_cols) + ", " + std::to_string(wg_rows) + ", " +
            std::to_string(wg_cols) + ", " + std::to_string(tl_rows) + ", " +
@@ -731,8 +735,8 @@ class GemmFactory {
   IndexType ldc;
   IndexType m_batch_size;
 
-  inline GemmFactory(RHS1 A, RHS1 B, RHS2 C, T alpha, T beta,
-                     IndexType batch_size)
+  sycl_blas_inline GemmFactory(RHS1 A, RHS1 B, RHS2 C, T alpha, T beta,
+                               IndexType batch_size)
       : _A(A),
         _B(B),
         _C(C),
@@ -749,7 +753,7 @@ class GemmFactory {
   /*!
    * @brief Get the type of this GemmFactory as a human readable string.
    */
-  static inline std::string get_type_string() noexcept {
+  static sycl_blas_inline std::string get_type_string() noexcept {
     return std::string("GemmFactory<") + std::to_string(double_buffer) + ", " +
            std::to_string(nbc_a) + ", " + std::to_string(nbc_b) + ", " +
            std::to_string(cl_size) + ", " + tile_type::get_type_string() +
@@ -768,8 +772,8 @@ class GemmFactory {
    * group to multiple work groups with size as expected by GemmFactory::run().
    * (This is done by manipulating wg_id and item_id parameters.)
    */
-  static inline cl::sycl::nd_range<1> get_nd_range(IndexType m,
-                                                   IndexType n) noexcept {
+  static sycl_blas_inline cl::sycl::nd_range<1> get_nd_range(
+      IndexType m, IndexType n) noexcept {
     const cl::sycl::range<1> nwg(((m - 1) / big_tile_rows + 1) *
                                  ((n - 1) / big_tile_cols + 1) * tl_rows *
                                  tl_cols);
@@ -817,37 +821,38 @@ class GemmFactory {
    * @param scratch  pointer to scratchpad memory
    */
   template <typename shared_mem>
-  inline void eval(shared_mem scratch_acc, cl::sycl::nd_item<1> id) noexcept {
+  sycl_blas_inline void eval(shared_mem scratch_acc,
+                             cl::sycl::nd_item<1> id) noexcept {
     auto scratch = scratch_acc.localAcc.get_pointer().get();
     using ScratchPointerType = decltype(scratch);
     auto orig_A = _A.getData().get_pointer().get() + _A.getDisp();
     auto orig_B = _B.getData().get_pointer().get() + _B.getDisp();
     auto orig_C = _C.getData().get_pointer().get() + _C.getDisp();
-    const auto wg_id = id.get_group(0);
-    const auto item_id = id.get_local_id(0);
-    const auto tile_size = tl_rows * tl_cols;
-    const auto tile_id = wg_id / tile_size;
-    const auto tile_local_id = wg_id % tile_size;
-    const auto tiles_per_col = (m - 1) / big_tile_rows + 1;
-    const auto tile_row = (tile_id % tiles_per_col) * tl_rows;
-    const auto tile_col = (tile_id / tiles_per_col) * tl_cols;
-    const auto wg_row = (tile_row + tile_local_id % tl_rows) * block_rows;
-    const auto wg_col = (tile_col + tile_local_id / tl_rows) * block_rows;
+    const IndexType wg_id = id.get_group(0);
+    const IndexType item_id = id.get_local_id(0);
+    const IndexType tile_size = tl_rows * tl_cols;
+    const IndexType tile_id = wg_id / tile_size;
+    const IndexType tile_local_id = wg_id % tile_size;
+    const IndexType tiles_per_col = (m - 1) / big_tile_rows + 1;
+    const IndexType tile_row = (tile_id % tiles_per_col) * tl_rows;
+    const IndexType tile_col = (tile_id / tiles_per_col) * tl_cols;
+    const IndexType wg_row = (tile_row + tile_local_id % tl_rows) * block_rows;
+    const IndexType wg_col = (tile_col + tile_local_id / tl_rows) * block_rows;
     if (wg_row >= m || wg_col >= n) {
       return;
     }
-    const auto item_row = item_id % wg_rows;
-    const auto item_col = (item_id / wg_rows) * item_cols;
+    const IndexType item_row = item_id % wg_rows;
+    const IndexType item_col = (item_id / wg_rows) * item_cols;
 
-    const auto row = wg_row + item_row;
-    const auto col = wg_col + item_col;
+    const IndexType row = wg_row + item_row;
+    const IndexType col = wg_col + item_col;
 
     T reg_a[item_rows];
     T reg_b;
 
     orig_C = orig_C + row + col * ldc;
-    const auto mc = m - row;
-    const auto nc = n - col;
+    const IndexType mc = m - row;
+    const IndexType nc = n - col;
 
     const bool internal = m - wg_row >= block_rows && n - wg_col >= block_cols;
     orig_B =
@@ -868,7 +873,7 @@ class GemmFactory {
                        ? item_id / block_cols + (item_id % block_cols) * ldsb
                        : item_id % cl_elems + (item_id / cl_elems) * ldsb);
     ScratchPointerType s2 = scratch + item_col * ldsb;
-    const auto ofs = (double_buffer + 1) * block_cols * ldsb;
+    const IndexType ofs = (double_buffer + 1) * block_cols * ldsb;
     ScratchPointerType s3 =
         scratch + ofs +
         (trans_a ? item_id / cl_elems + (item_id % cl_elems) * ldsa
@@ -891,7 +896,9 @@ class GemmFactory {
     _B.bind(h);
     _C.bind(h);
   }
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
  private:
   /*!
@@ -910,15 +917,13 @@ class GemmFactory {
   template <bool double_buffer, bool check_m_limit, bool check_n_limit,
             typename InputPointerType, typename OutputPointerType,
             typename ScratchPointerType>
-  inline void compute_panel_gemm(cl::sycl::nd_item<1> id, IndexType item_id,
-                                 IndexType m, IndexType mc, IndexType n,
-                                 IndexType nc, IndexType k, T alpha,
-                                 InputPointerType orig_A, IndexType lda,
-                                 InputPointerType orig_B, IndexType ldb, T beta,
-                                 OutputPointerType orig_C, IndexType ldc,
-                                 ScratchPointerType s1, ScratchPointerType s2,
-                                 ScratchPointerType s3, ScratchPointerType s4,
-                                 T (&reg_a)[item_rows], T &reg_b) noexcept {
+  sycl_blas_inline void compute_panel_gemm(
+      cl::sycl::nd_item<1> id, IndexType item_id, IndexType m, IndexType mc,
+      IndexType n, IndexType nc, IndexType k, T alpha, InputPointerType orig_A,
+      IndexType lda, InputPointerType orig_B, IndexType ldb, T beta,
+      OutputPointerType orig_C, IndexType ldc, ScratchPointerType s1,
+      ScratchPointerType s2, ScratchPointerType s3, ScratchPointerType s4,
+      T (&reg_a)[item_rows], T &reg_b) noexcept {
     IndexType ofs = 1;
     const IndexType a_size = _A.getSizeR() * _A.getSizeC();
     const IndexType b_size = _B.getSizeC() * _B.getSizeR();
@@ -980,12 +985,10 @@ class GemmFactory {
    */
   template <bool check_m_limit, bool check_n_limit, bool check_k_limit,
             typename InputPointerType, typename ScratchPointerType>
-  static inline void extract_input_blocks(IndexType item_id, IndexType m,
-                                          IndexType n, IndexType k,
-                                          InputPointerType A, IndexType lda,
-                                          InputPointerType B, IndexType ldb,
-                                          ScratchPointerType sB,
-                                          ScratchPointerType sA) noexcept {
+  static sycl_blas_inline void extract_input_blocks(
+      IndexType item_id, IndexType m, IndexType n, IndexType k,
+      InputPointerType A, IndexType lda, InputPointerType B, IndexType ldb,
+      ScratchPointerType sB, ScratchPointerType sA) noexcept {
     extract_block<check_m_limit, check_k_limit, trans_a, block_rows, cl_elems,
                   ldsa>(
         item_id, A, lda, sA, [&](IndexType ir, IndexType cr) { return cr < m; },
@@ -1030,7 +1033,7 @@ class GemmFactory {
             IndexType rows, IndexType cols, IndexType lds,
             typename InputPointerType, typename ScratchPointerType,
             typename RowPredicate, typename ColPredicate>
-  static inline typename std::enable_if<!trans>::type extract_block(
+  static sycl_blas_inline typename std::enable_if<!trans>::type extract_block(
       IndexType item_id, InputPointerType ptr, IndexType ld,
       ScratchPointerType scratch, RowPredicate in_row, ColPredicate in_col) {
     const IndexType bs = rows * cols;
@@ -1050,7 +1053,7 @@ class GemmFactory {
             IndexType rows, IndexType cols, IndexType lds,
             typename InputPointerType, typename ScratchPointerType,
             typename RowPredicate, typename ColPredicate>
-  static inline typename std::enable_if<trans>::type extract_block(
+  static sycl_blas_inline typename std::enable_if<trans>::type extract_block(
       IndexType item_id, InputPointerType ptr, IndexType ld,
       ScratchPointerType scratch, RowPredicate in_row, ColPredicate in_col) {
     const IndexType bs = rows * cols;
@@ -1080,7 +1083,7 @@ class GemmFactory {
    * @param reg_res  2D register array used to store the result C
    */
   template <typename InputPointerType>
-  static inline void compute_block_gemm(
+  static sycl_blas_inline void compute_block_gemm(
       InputPointerType B, InputPointerType A, T (&reg_a)[item_rows], T &reg_b,
       T (&reg_res)[item_rows][item_cols]) noexcept {
     // NOTE: Adding "#pragma unroll" here reduces performance on AMD R9 Nano.
@@ -1097,7 +1100,7 @@ class GemmFactory {
         reg_b = B[j * ldsb];
 #pragma unroll
         for (IndexType l = 0; l < item_rows; ++l) {
-          reg_res[l][j] += reg_a[l] * reg_b;
+          reg_res[l][j] = cl::sycl::mad(reg_a[l], reg_b, reg_res[l][j]);
         }
       }
       A = A + ldsa;
@@ -1122,20 +1125,20 @@ class GemmFactory {
    * @param ss  pointers to other memory blocks
    */
   template <bool db, IndexType o, IndexType... os, typename P, typename... Ps>
-  static inline typename std::enable_if<db>::type sync_smem(
+  static sycl_blas_inline typename std::enable_if<db>::type sync_smem(
       cl::sycl::nd_item<1> id, IndexType &ofs_sign, P &s, Ps &... ss) noexcept {
     s = s + ofs_sign * o;
     sync_smem<db, os...>(id, ofs_sign, ss...);
   }
 
   template <bool db>
-  static inline typename std::enable_if<db>::type sync_smem(
+  static sycl_blas_inline typename std::enable_if<db>::type sync_smem(
       cl::sycl::nd_item<1>, IndexType &ofs_sign) noexcept {
     ofs_sign = -ofs_sign;
   }
 
   template <bool db, IndexType..., typename... Ps>
-  static inline typename std::enable_if<!db>::type sync_smem(
+  static sycl_blas_inline typename std::enable_if<!db>::type sync_smem(
       cl::sycl::nd_item<1> id, IndexType &, Ps &...) noexcept {
     id.barrier(cl::sycl::access::fence_space::local_space);
   }
@@ -1144,8 +1147,8 @@ class GemmFactory {
 template <bool DoubleBuffer, bool ConflictA, bool ConflictB, int ClSize,
           typename TileType, bool TransA, bool TransB, typename RHS1,
           typename RHS2, typename T, typename IndexType>
-inline GemmFactory<RHS1, RHS2, DoubleBuffer, ConflictA, ConflictB, ClSize,
-                   TileType, TransA, TransB, T>
+sycl_blas_inline GemmFactory<RHS1, RHS2, DoubleBuffer, ConflictA, ConflictB,
+                             ClSize, TileType, TransA, TransB, T>
 make_gemm(RHS1 buffer_a, RHS1 buffer_b, RHS2 buffer_c, T alpha, T beta,
           IndexType batch_size) {
   return GemmFactory<RHS1, RHS2, DoubleBuffer, ConflictA, ConflictB, ClSize,
@@ -1155,16 +1158,17 @@ make_gemm(RHS1 buffer_a, RHS1 buffer_b, RHS2 buffer_c, T alpha, T beta,
 
 template <int ClSize, typename TileType, bool TransA, bool TransB,
           typename RHS1, typename RHS2, typename T, typename IndexType>
-inline NoLocalGemmFactory<RHS1, RHS2, ClSize, TileType, TransA, TransB, T>
-make_gemm_no_local_mem(RHS1 buffer_a, RHS1 buffer_b, RHS2 buffer_c, T alpha,
-                       T beta, IndexType batch_size) {
+sycl_blas_inline
+    NoLocalGemmFactory<RHS1, RHS2, ClSize, TileType, TransA, TransB, T>
+    make_gemm_no_local_mem(RHS1 buffer_a, RHS1 buffer_b, RHS2 buffer_c, T alpha,
+                           T beta, IndexType batch_size) {
   return NoLocalGemmFactory<RHS1, RHS2, ClSize, TileType, TransA, TransB, T>(
       buffer_a, buffer_b, buffer_c, alpha, beta, batch_size);
 }
 
 template <int WgSize, bool TransA, bool TransB, typename RHS1, typename RHS2,
           typename T, typename IndexType>
-inline ReferenceGemmFactory<RHS1, RHS2, WgSize, TransA, TransB, T>
+sycl_blas_inline ReferenceGemmFactory<RHS1, RHS2, WgSize, TransA, TransB, T>
 make_gemm_reference(RHS1 buffer_a, RHS1 buffer_b, RHS2 buffer_c, T alpha,
                     T beta, IndexType batch_size) {
   return ReferenceGemmFactory<RHS1, RHS2, WgSize, TransA, TransB, T>(

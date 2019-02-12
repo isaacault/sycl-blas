@@ -45,9 +45,9 @@ struct Gemv {
   Gemv(Output_t &_l, Matrix_t &_matrix, Vector_t &_vector)
       : l(_l), matrix(_matrix), vector(_vector){};
 
-  inline IndexType getSize() const { return vector.getSizeR(); }
+  sycl_blas_inline IndexType getSize() const { return vector.getSizeR(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
     return ndItem.get_global_id(0) < matrix.getSizeR();
   }
 

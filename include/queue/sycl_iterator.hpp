@@ -1,6 +1,8 @@
 #ifndef BLAS_SYCL_ITERATOR_HPP
 #define BLAS_SYCL_ITERATOR_HPP
+#include <blas_meta.hpp>
 #include <types/sycl_types.hpp>
+
 namespace blas {
 template <typename T>
 class buffer_iterator {
@@ -10,12 +12,12 @@ class buffer_iterator {
   using buff_t = buffer_t<scalar_t, 1>;
 
   template <cl::sycl::access::mode AcM, typename scal_t>
-  friend inline SyclAccessor<scal_t, AcM> get_range_accessor(
+  friend sycl_blas_inline SyclAccessor<scal_t, AcM> get_range_accessor(
       buffer_iterator<scal_t> buff_iterator, cl::sycl::handler& cgh);
 
   template <cl::sycl::access::mode AcM, typename scal_t>
-  friend inline placeholder_accessor_t<scal_t, AcM> get_range_accessor(
-      buffer_iterator<scal_t> buff_iterator);
+  friend sycl_blas_inline placeholder_accessor_t<scal_t, AcM>
+  get_range_accessor(buffer_iterator<scal_t> buff_iterator);
 
   buffer_iterator(const buff_t& buff_, std::ptrdiff_t offset_)
       : m_offset(offset_), m_buffer(buff_) {}
@@ -26,20 +28,20 @@ class buffer_iterator {
   buffer_iterator(const buffer_iterator<other_scalar_t>& other)
       : buffer_iterator(other.get_buffer(), other.get_offset()) {}
 
-  inline self_t& operator+=(std::ptrdiff_t offset_) {
+  sycl_blas_inline self_t& operator+=(std::ptrdiff_t offset_) {
     m_offset += offset_;
     return *this;
   }
 
-  inline self_t operator+(std::ptrdiff_t offset_) const {
+  sycl_blas_inline self_t operator+(std::ptrdiff_t offset_) const {
     return self_t(m_buffer, m_offset + offset_);
   }
 
-  inline self_t operator-(std::ptrdiff_t offset_) const {
+  sycl_blas_inline self_t operator-(std::ptrdiff_t offset_) const {
     return self_t(m_buffer, m_offset - offset_);
   }
 
-  inline self_t& operator-=(std::ptrdiff_t offset_) {
+  sycl_blas_inline self_t& operator-=(std::ptrdiff_t offset_) {
     m_offset -= offset_;
     return *this;
   }
@@ -57,13 +59,15 @@ class buffer_iterator {
     return temp_iterator;
   }
 
-  inline std::ptrdiff_t get_size() const {
+  sycl_blas_inline std::ptrdiff_t get_size() const {
     return (m_buffer.get_count() - m_offset);
   }
 
-  inline std::ptrdiff_t get_offset() const { return m_offset; }
+  sycl_blas_inline std::ptrdiff_t get_offset() const { return m_offset; }
 
-  inline void set_offset(std::ptrdiff_t offset_) { m_offset = offset_; }
+  sycl_blas_inline void set_offset(std::ptrdiff_t offset_) {
+    m_offset = offset_;
+  }
 
   scalar_t& operator*() = delete;
 
@@ -86,7 +90,7 @@ struct rebind_type<T, buffer_iterator<U>> {
 
 template <cl::sycl::access::mode AcM = cl::sycl::access::mode::read_write,
           typename scalar_t>
-inline SyclAccessor<scalar_t, AcM> get_range_accessor(
+sycl_blas_inline SyclAccessor<scalar_t, AcM> get_range_accessor(
     buffer_iterator<scalar_t> buff_iterator, cl::sycl::handler& cgh) {
   return SyclAccessor<scalar_t, AcM>(
       buff_iterator.m_buffer, cgh, cl::sycl::range<1>(buff_iterator.get_size()),
@@ -95,7 +99,7 @@ inline SyclAccessor<scalar_t, AcM> get_range_accessor(
 
 template <cl::sycl::access::mode AcM = cl::sycl::access::mode::read_write,
           typename scalar_t>
-inline placeholder_accessor_t<scalar_t, AcM> get_range_accessor(
+sycl_blas_inline placeholder_accessor_t<scalar_t, AcM> get_range_accessor(
     buffer_iterator<scalar_t> buff_iterator) {
   return placeholder_accessor_t<scalar_t, AcM>(
       buff_iterator.m_buffer, cl::sycl::range<1>(buff_iterator.get_size()),

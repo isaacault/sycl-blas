@@ -47,9 +47,9 @@ struct AddSetColumns {
 
   AddSetColumns(RHS &_r) : r(_r){};
 
-  inline IndexType getSize() const { return r.getSizeR(); }
+  sycl_blas_inline IndexType getSize() const { return r.getSizeR(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
     return ((ndItem.get_global_id(0) < getSize()));
   }
 
@@ -110,9 +110,11 @@ struct Gemv_Row {
         nWG_col(_nWG_col),
         shrMemSize(_shrMemSize){};
 
-  inline IndexType getSize() const { return matrix.getSize(); }
+  sycl_blas_inline IndexType getSize() const { return matrix.getSize(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
   // TODO (@JOSE) If this function is extra and it is not required please remove
   // it.
@@ -423,9 +425,11 @@ struct Gemv_Col {
         nWG_col(_nWG_col),
         shrMemSize(_shrMemSize){};
 
-  inline IndexType getSize() const { return matrix.getSizeR(); }
+  sycl_blas_inline IndexType getSize() const { return matrix.getSizeR(); }
 
-  inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const { return true; }
+  sycl_blas_inline bool valid_thread(cl::sycl::nd_item<1> ndItem) const {
+    return true;
+  }
 
   value_type eval(IndexType i) {
     auto dim = vector.getSize();

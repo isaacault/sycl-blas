@@ -154,19 +154,23 @@ cl::sycl::event _gemm_impl(Executor& ex, char _TransA, char _TransB,
 #ifndef NAIVE_GEMM
 #if defined(DYNAMIC)
   if (ex.get_device_type() ==
-      Executor::Queue_Interface_Type::device_type::SYCL_INTEL_GPU) {
+      sycl_device_property::device_type::SYCL_INTEL_GPU) {
     BIND_DATA_SIZE(1024, 4096, 1024) TO_TPARAMS(128, false, 64, 4, 4, 16, 16);
     BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, false, 64, 2, 2, 8, 8);
     BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 8, 8);
-  } else if ((ex.get_device_type() == Executor::Queue_Interface_Type::
-                                          device_type::SYCL_RCAR_CVENGINE) ||
-             (ex.get_device_type() == Executor::Queue_Interface_Type::
-                                          device_type::SYCL_RCAR_HOST_CPU)) {
+  } else if ((ex.get_device_type() ==
+              sycl_device_property::device_type::SYCL_RCAR_CVENGINE) ||
+             (ex.get_device_type() ==
+              sycl_device_property::device_type::SYCL_RCAR_HOST_CPU)) {
     if (_M < 512 && _N < 512) {
       BIND_DEFAULT TO_TPARAMS(32, false, 128, 4, 8, 8, 4);
     } else {
       BIND_DEFAULT TO_TPARAMS(32, false, 128, 8, 4, 4, 8);
     }
+  } else if (ex.get_device_type() ==
+             sycl_device_property::device_type::SYCL_ARM_GPU) {
+    BIND_DATA_SIZE(512, 512, 49) TO_TPARAMS(256, false, 64, 4, 4, 8, 8);
+    BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
   } else {
     BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, true, 64, 1, 1, 16, 16);
     BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
@@ -181,6 +185,9 @@ cl::sycl::event _gemm_impl(Executor& ex, char _TransA, char _TransB,
   } else {
     BIND_DEFAULT TO_TPARAMS(32, false, 128, 8, 4, 4, 8);
   }
+#elif defined(ARM_GPU)
+  BIND_DATA_SIZE(512, 512, 49) TO_TPARAMS(256, false, 64, 4, 4, 8, 8);
+  BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
 #else  // any other specified devices
   BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, true, 64, 1, 1, 16, 16);
   BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
