@@ -54,7 +54,7 @@ typename Executor::Return_Type _select_gemm(
     Executor& ex, bool _TransA, bool _TransB, IndexType _M, IndexType _N,
     IndexType _K, T _alpha, ContainerT0 _A, IndexType _lda, ContainerT1 _B,
     IndexType _ldb, T _beta, ContainerT2 _C, IndexType _ldc,
-    IndexType batch_size) {
+    IndexType batch_size, bool local_mem) {
   typename Executor::Return_Type ret;
 
   auto buffer_a = make_matrix_view(ex, _A, _M, _K, _lda, Access::ColMajor());
@@ -63,7 +63,7 @@ typename Executor::Return_Type _select_gemm(
 #ifndef NAIVE_GEMM
 #define ENABLE_GEMM_TRANSPOSE(_trans_a, _trans_b)                              \
   if (_TransA == _trans_a && _TransB == _trans_b) {                            \
-    if (ex.has_local_memory()) {                                               \
+    if (local_mem) {                                                           \
       auto gemm = make_gemm<DoubleBuffer, ConflictA, ConflictB, ClSize, TileT, \
                             _trans_a, _trans_b>(                               \
           buffer_a, buffer_b, buffer_c, T(_alpha), T(_beta), batch_size);      \
@@ -144,37 +144,48 @@ cl::sycl::event _gemm_impl(Executor& ex, char _TransA, char _TransB,
    * This is ensured iff: (item_rows | wg_cols)  and  (item_cols | wg_rows)
    * _clsize cannot be bigger than _twr * _twc * sizeof(T)
    */
-#define TO_TPARAMS(_wg, _db, _clsize, _tir, _tic, _twr, _twc)              \
+#define TO_TPARAMS(_wg, _db, _clsize, _tir, _tic, _twr, _twc, local_mem)   \
   {                                                                        \
     return _select_gemm<_wg, _db, false, false, _clsize,                   \
                         Tile<_tir, _tic, _twr, _twc>>(                     \
         ex, _TrA, _TrB, _M, _N, _K, _alpha, _A, _lda, _B, _ldb, _beta, _C, \
-        _ldc, batch_size);                                                 \
+        _ldc, batch_size, local_mem);                                      \
   }
 #ifndef NAIVE_GEMM
 #if defined(INTEL_GPU)
-  BIND_DATA_SIZE(1024, 4096, 1024) TO_TPARAMS(128, false, 64, 4, 4, 16, 16);
-  BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, false, 64, 2, 2, 8, 8);
-  BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
+  BIND_DATA_SIZE(1024, 4096, 1024)
+  TO_TPARAMS(128, false, 64, 4, 4, 16, 16, ex.has_local_memory());
+  BIND_DATA_SIZE(10, 1024, 1024)
+  TO_TPARAMS(128, false, 64, 2, 2, 8, 8, ex.has_local_memory());
+  if (!_TrA) {
+    BIND_DATA_SIZE(512, 49, 512) TO_TPARAMS(64, false, 64, 4, 4, 8, 8, false);
+    BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 8, 8, false);
+  } else {
+    BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 8, 8, ex.has_local_memory());
+  }
+
 #elif defined(RCAR)
   if (_M < 512 && _N < 512) {
-    BIND_DEFAULT TO_TPARAMS(32, false, 128, 4, 8, 8, 4);
+    BIND_DEFAULT TO_TPARAMS(32, false, 128, 4, 8, 8, 4, ex.has_local_memory());
   } else {
-    BIND_DEFAULT TO_TPARAMS(32, false, 128, 8, 4, 4, 8);
+    BIND_DEFAULT TO_TPARAMS(32, false, 128, 8, 4, 4, 8, ex.has_local_memory());
   }
 #elif defined(ARM_GPU)
-  BIND_DATA_SIZE(512, 49, 512) TO_TPARAMS(64, false, 64, 4, 4, 8, 8);
+  BIND_DATA_SIZE(512, 49, 512)
+  TO_TPARAMS(64, false, 64, 4, 4, 8, 8, ex.has_local_memory());
   if (_TrA) {
-    BIND_DEFAULT TO_TPARAMS(256, false, 64, 4, 8, 16, 8);
+    BIND_DEFAULT TO_TPARAMS(256, false, 64, 4, 8, 16, 8, ex.has_local_memory());
   } else {
-    BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8);
+    BIND_DEFAULT TO_TPARAMS(256, false, 64, 8, 4, 4, 8, ex.has_local_memory());
   }
 #else  // any other specified devices
-  BIND_DATA_SIZE(10, 1024, 1024) TO_TPARAMS(128, true, 64, 1, 1, 16, 16);
-  BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16);
+  BIND_DATA_SIZE(10, 1024, 1024)
+  TO_TPARAMS(128, true, 64, 1, 1, 16, 16, ex.has_local_memory());
+  BIND_DEFAULT TO_TPARAMS(128, false, 64, 8, 8, 16, 16, ex.has_local_memory());
 #endif
 #else
-  BIND_DEFAULT TO_TPARAMS(WG_SIZE, false, 64, 8, 8, 8, 8);
+  BIND_DEFAULT TO_TPARAMS(WG_SIZE, false, 64, 8, 8, 8, 8,
+                          ex.has_local_memory());
 #endif
 
 #undef BIND_DATA_SIZE
