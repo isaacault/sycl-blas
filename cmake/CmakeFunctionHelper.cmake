@@ -423,6 +423,41 @@ elseif(${TARGET} STREQUAL "ARM_GPU")
     "float"
   )
   foreach(data ${supported_types})
+
+    # DNN Resnet Optimizations
+
+    # Gemm <0, 0, 0, 0, Tile<8, 4, 4, 8, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:partial, vector size8, batch_type:strided>
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 8 4 4 8 1 1 1 1 "no_local" "standard" "partial" 8 "strided")
+    
+    # Gemm <0, 0, 0, 0, Tile<4, 8, 8, 4, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:partial, vector size2, batch_type:strided>
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 4 8 8 4 1 1 1 1 "no_local" "standard" "partial" 2 "strided")
+
+    # Gemm <0, 0, 0, 0, Tile<4, 4, 4, 4, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:full, vector size1, batch_type:strided>
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 4 4 4 4 1 1 1 1 "no_local" "standard" "full" 1 "strided")
+
+    # Gemm <0, 0, 0, 0, Tile<4, 4, 4, 4, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:full, vector size2, batch_type:strided>
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 4 4 4 4 1 1 1 1 "no_local" "standard" "full" 2 "strided")
+
+    # Gemm <0, 0, 0, 0, Tile<4, 4, 4, 4, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:partial, vector size8, batch_type:strided>
+    # No transpose
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 4 4 4 4 1 1 1 1 "no_local" "standard" "partial" 8 "strided")
+
+    # Gemm <0, 0, 0, 0, Tile<8, 4, 4, 8, 1, 1, 1, 1>, floatgemm_memory:no_local, gemm_algorithm:standard, gemm_vectorization:full, vector size4, batch_type:strided>
+    # RHS transpose
+    add_gemm_configuration(
+      "${data}" 64 "false" "false" "false"
+      64 8 4 4 8 1 1 1 1 "no_local" "standard" "full" 4 "strided")
+
     add_gemm_configuration(
       "${data}" 64 "false" "false" "false"
       64 4 4 8 8 1 1 1 1 "no_local" "standard" "partial" 2 "strided")
