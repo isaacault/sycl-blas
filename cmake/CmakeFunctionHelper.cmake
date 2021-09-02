@@ -201,6 +201,63 @@ add_sycl_to_target(TARGET ${func} SOURCES ${FUNC_SRC})
 endfunction(generate_blas_binary_objects)
 
 
+# blas binary function for generating source code
+function(generate_blas_reduction_objects blas_level func)
+set(LOCATION "${SYCLBLAS_GENERATED_SRC}/${blas_level}/${func}/")
+set(operator_list "blas::AddOperator")
+foreach(executor ${executor_list})
+  foreach(data ${data_list})
+    cpp_type(cpp_data ${data})
+    if(SYCL_BLAS_USE_USM)
+    set(container_list "typename ${sycl_blas_policy}::template buffer_t<${cpp_data}>")
+    else()
+    set(container_list "BufferIterator<${cpp_data},codeplay_policy>")
+    endif()
+    foreach(index ${index_list})
+      foreach(operator ${operator_list})
+        foreach(container0 ${container_list})
+          foreach(container1 ${container_list})
+            set(container_names "${container0}_${container1}")
+            foreach(increment ${index_list})
+              sanitize_file_name(file_name
+                "${func}_${executor}_${data}_${index}_${container_names}_${increment}_${operator}.cpp")
+              add_custom_command(OUTPUT "${LOCATION}/${file_name}"
+                COMMAND ${PYTHON_EXECUTABLE} ${SYCLBLAS_SRC_GENERATOR}/py_gen_blas_reduction.py
+                  ${PROJECT_SOURCE_DIR}/external/
+                  ${SYCLBLAS_SRC_GENERATOR}/gen
+                  ${blas_level}
+                  ${func}
+                  ${SYCLBLAS_SRC}/interface/${blas_level}/${func}.cpp.in
+                  ${executor}
+                  ${cpp_data}
+                  ${index}
+                  ${increment}
+                  ${container0}
+                  ${container1}
+                  ${operator}
+                  ${file_name}
+                MAIN_DEPENDENCY ${SYCLBLAS_SRC}/interface/${blas_level}/${func}.cpp.in
+                DEPENDS ${SYCLBLAS_SRC_GENERATOR}/py_gen_blas_reduction.py
+                WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+                VERBATIM
+              )
+              list(APPEND FUNC_SRC "${LOCATION}/${file_name}")
+              endforeach(increment)
+          endforeach(container1)
+        endforeach(container0)
+      endforeach(operator)
+    endforeach(index)
+  endforeach(data)
+endforeach(executor)
+add_library(${func} OBJECT ${FUNC_SRC})
+set_target_compile_def(${func})
+target_include_directories(${func} PRIVATE ${SYCLBLAS_SRC} ${SYCLBLAS_INCLUDE}
+                           ${SYCLBLAS_COMMON_INCLUDE_DIR} ${THIRD_PARTIES_INCLUDE})
+message(STATUS "Adding SYCL to target ${func}")
+add_sycl_to_target(TARGET ${func} SOURCES ${FUNC_SRC})
+endfunction(generate_blas_reduction_objects)
+
+
 
 # blas special binary function for generating source code
 function(generate_blas_binary_special_objects blas_level func)
@@ -759,6 +816,7 @@ add_library(${LIB_NAME}
                              $<TARGET_OBJECTS:gemm_launcher>
                              $<TARGET_OBJECTS:gemm>
                              $<TARGET_OBJECTS:trsm>
+                             $<TARGET_OBJECTS:reduction>
                             )
 else()
 add_library(${LIB_NAME}
@@ -788,6 +846,7 @@ add_library(${LIB_NAME}
                              $<TARGET_OBJECTS:gemm_launcher>
                              $<TARGET_OBJECTS:gemm>
                              $<TARGET_OBJECTS:trsm>
+                             $<TARGET_OBJECTS:reduction>
                             )
 endif()
 endfunction(build_library)

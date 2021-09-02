@@ -22,9 +22,5 @@
 # *  @filename CMakeLists.txt
 # *
 # **************************************************************************/
-add_subdirectory(blas1)
-add_subdirectory(blas2)
-add_subdirectory(blas3)
-add_subdirectory(reduction)
-
-
+#reduction
+generate_blas_reduction_objects(reduction reduction)

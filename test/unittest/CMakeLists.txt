@@ -51,6 +51,8 @@ set(SYCL_UNITTEST_SRCS
   ${SYCLBLAS_UNITTEST}/blas3/blas3_gemm_test.cpp
   ${SYCLBLAS_UNITTEST}/blas3/blas3_gemm_batched_test.cpp
   ${SYCLBLAS_UNITTEST}/blas3/blas3_trsm_test.cpp
+  # Reduction tests
+  ${SYCLBLAS_UNITTEST}/reduction/reduction_test.cpp
 )
 
 if(SYCL_BLAS_USE_USM)

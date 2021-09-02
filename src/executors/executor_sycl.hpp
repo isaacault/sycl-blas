@@ -471,8 +471,7 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
               static_cast<int>(Reduction_t::partial_rows)>
         reduction_wrapper) {
   using index_t = typename input_t::index_t;
-  using params_t =
-      blas::ReductionRows_Params<index_t, element_t, ClSize, WgSize>;
+  blas::ReductionRows_Params<index_t, element_t> params_t(ClSize, WgSize);
 
   /* Extract data from the reduction wrapper */
   const index_t rows_ = reduction_wrapper.rows_,
@@ -486,11 +485,11 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
   typename executor_policy_t::event_t reduction_event;
 
   const index_t max_group_count_col =
-      (cols_ - 1) / params_t::work_group_cols + 1;
+      (cols_ - 1) / params_t.work_group_cols + 1;
 
   const index_t group_count_cols =
-      params_t::work_group_cols < max_group_count_col
-          ? params_t::work_group_cols
+      params_t.work_group_cols < max_group_count_col
+          ? params_t.work_group_cols
           : max_group_count_col;
 
   /* Choose at run-time whether to do a one-step or two-step reduction.
@@ -513,14 +512,14 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), in_, temp_, group_count_cols,
-            params_t::local_memory_size, num_compute_units));
+            params_t.local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
 
     /* 2nd step */
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), temp_, out_, index_t(1),
-            params_t::local_memory_size, num_compute_units));
+            params_t.local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
   }
   /* 1-step reduction */
@@ -528,7 +527,7 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), in_, out_, index_t(1),
-            params_t::local_memory_size, num_compute_units));
+            params_t.local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
   }
 

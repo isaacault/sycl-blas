@@ -41,7 +41,7 @@ class ReductionPartialRows {
 
   /* Read some compile-time parameters from a structure.
    * See the header file for the definition of this structure */
-  using params_t = ReductionRows_Params<index_t, element_t, ClSize, WgSize>;
+  blas::ReductionRows_Params<index_t, element_t> params_t(ClSize, WgSize);
 
   /// Neutral value for this reduction operator
   /// TODO(Peter): This should be constexpr once half supports it

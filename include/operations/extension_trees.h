@@ -60,18 +60,25 @@ class Reduction {
  * @brief Calculates the parameters of the row reduction step (used by the
  * executor and the kernel)
  */
-template <typename index_t, typename element_t, int ClSize, int WgSize>
+template <typename index_t, typename element_t>
 struct ReductionRows_Params {
   /* The number of elements per cache line size depends on the element type */
-  static constexpr index_t cl_elems = ClSize / sizeof(element_t);
+  static constexpr index_t cl_elems;
 
   /* Work group dimensions */
-  static constexpr index_t work_group_rows = cl_elems;
-  static constexpr index_t work_group_cols = WgSize / work_group_rows;
+  static constexpr index_t work_group_rows;
+  static constexpr index_t work_group_cols;
 
   /* Local memory dimensions */
-  static constexpr index_t local_memory_size =
-      work_group_rows * work_group_cols;
+  static constexpr index_t local_memory_size;
+
+  ReductionRows_Params(const int ClSize, const int WgSize) {
+    cl_elems = ClSize / sizeof(element_t);
+    work_group_rows = cl_elems;
+    work_group_cols = WgSize / work_group_rows;
+    local_memory_size =
+        work_group_rows * work_group_cols;
+  }
 };
 
 /*!
