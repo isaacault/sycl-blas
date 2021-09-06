@@ -61,9 +61,9 @@ Executor<PolicyHandler<executor_policy_t>>::execute(expression_tree_t t) {
   auto nWG = (_N + localSize - 1) / localSize;
   auto globalSize = nWG * localSize;
 
-  typename executor_policy_t::event_t ret = 
-      {execute_tree<using_local_memory::disabled>(
-      policy_handler_.get_queue(), t, localSize, globalSize, 0)};
+  typename executor_policy_t::event_t ret = {
+      execute_tree<using_local_memory::disabled>(policy_handler_.get_queue(), t,
+                                                 localSize, globalSize, 0)};
 #ifdef SYCL_BLAS_USE_USM
   policy_handler_.wait(ret);
 #endif
@@ -78,13 +78,13 @@ template <>
 template <typename expression_tree_t, typename index_t>
 inline typename executor_policy_t::event_t
 Executor<PolicyHandler<executor_policy_t>>::execute(expression_tree_t t,
-                                                  index_t localSize) {
+                                                    index_t localSize) {
   auto _N = t.get_size();
   auto nWG = (_N + localSize - 1) / localSize;
   auto globalSize = nWG * localSize;
-  typename executor_policy_t::event_t ret = 
-      {execute_tree<using_local_memory::disabled>(
-      policy_handler_.get_queue(), t, localSize, globalSize, 0)};
+  typename executor_policy_t::event_t ret = {
+      execute_tree<using_local_memory::disabled>(policy_handler_.get_queue(), t,
+                                                 localSize, globalSize, 0)};
 #ifdef SYCL_BLAS_USE_USM
   policy_handler_.wait(ret);
 #endif
@@ -99,11 +99,11 @@ template <>
 template <typename expression_tree_t, typename index_t>
 inline typename executor_policy_t::event_t
 Executor<PolicyHandler<executor_policy_t>>::execute(expression_tree_t t,
-                                                  index_t localSize,
-                                                  index_t globalSize) {
-  typename executor_policy_t::event_t ret = 
-      {execute_tree<using_local_memory::disabled>(
-      policy_handler_.get_queue(), t, localSize, globalSize, 0)};
+                                                    index_t localSize,
+                                                    index_t globalSize) {
+  typename executor_policy_t::event_t ret = {
+      execute_tree<using_local_memory::disabled>(policy_handler_.get_queue(), t,
+                                                 localSize, globalSize, 0)};
 #ifdef SYCL_BLAS_USE_USM
   policy_handler_.wait(ret);
 #endif
@@ -118,12 +118,12 @@ template <>
 template <typename expression_tree_t, typename index_t>
 inline typename executor_policy_t::event_t
 Executor<PolicyHandler<executor_policy_t>>::execute(expression_tree_t t,
-                                                  index_t localSize,
-                                                  index_t globalSize,
-                                                  index_t shMem) {
-  typename executor_policy_t::event_t ret = 
-      {execute_tree<using_local_memory::enabled>(
-      policy_handler_.get_queue(), t, localSize, globalSize, shMem)};
+                                                    index_t localSize,
+                                                    index_t globalSize,
+                                                    index_t shMem) {
+  typename executor_policy_t::event_t ret = {
+      execute_tree<using_local_memory::enabled>(policy_handler_.get_queue(), t,
+                                                localSize, globalSize, shMem)};
 #ifdef SYCL_BLAS_USE_USM
   policy_handler_.wait(ret);
 #endif
@@ -151,17 +151,19 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
 
   // Two accessors to local memory
   auto sharedSize = ((nWG < localSize) ? localSize : nWG);
-  #ifdef SYCL_BLAS_USE_USM
-  auto shMem1 = cl::sycl::malloc_device<typename lhs_t::value_t>(sharedSize, policy_handler_.get_queue());
-  auto shMem2 = cl::sycl::malloc_device<typename lhs_t::value_t>(sharedSize, policy_handler_.get_queue());
+#ifdef SYCL_BLAS_USE_USM
+  auto shMem1 = cl::sycl::malloc_device<typename lhs_t::value_t>(
+      sharedSize, policy_handler_.get_queue());
+  auto shMem2 = cl::sycl::malloc_device<typename lhs_t::value_t>(
+      sharedSize, policy_handler_.get_queue());
   auto opShMem1 = lhs_t(shMem1, 0, 1, sharedSize);
   auto opShMem2 = lhs_t(shMem2, 0, 1, sharedSize);
-  #else
+#else
   auto shMem1 = make_sycl_iterator_buffer<typename lhs_t::value_t>(sharedSize);
   auto shMem2 = make_sycl_iterator_buffer<typename lhs_t::value_t>(sharedSize);
   auto opShMem1 = lhs_t(shMem1, 1, sharedSize);
   auto opShMem2 = lhs_t(shMem2, 1, sharedSize);
-  #endif
+#endif
   typename executor_policy_t::event_t event;
   bool frst = true;
   bool even = false;
@@ -187,7 +189,7 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
           sharedSize));
 #ifdef SYCL_BLAS_USE_USM
       policy_handler_.wait(event);
-#endif      
+#endif
     }
     _N = nWG;
     nWG = (_N + (2 * localSize) - 1) / (2 * localSize);
@@ -281,8 +283,7 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
            TransA, TransB, element_t, is_beta_zero, GemmMemoryType,
            GemmAlgorithm, GemmVectorization, VectorSize, BatchType>;
   auto rng = gemm_tree.get_nd_range(policy_handler_.get_num_compute_units());
-  typename executor_policy_t::event_t ret = 
-      {execute_tree<
+  typename executor_policy_t::event_t ret = {execute_tree<
       Choose<GemmMemoryType == static_cast<int>(gemm_memory_t::local), int,
              using_local_memory::enabled, using_local_memory::disabled>::type>(
       policy_handler_.get_queue(), gemm_tree, rng.get_local_range()[0],
@@ -336,7 +337,8 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
   /* First step: partial gemm */
   /* Create the cube buffer that will hold the output of the partial gemm */
 #ifdef SYCL_BLAS_USE_USM
-  auto cube_buffer = cl::sycl::malloc_device(sizeof(element_t) * rows * cols * depth);
+  auto cube_buffer =
+      cl::sycl::malloc_device(sizeof(element_t) * rows * cols * depth);
 #else
   auto cube_buffer = make_sycl_iterator_buffer<element_t>(rows * cols * depth);
 #endif
@@ -471,7 +473,8 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
               static_cast<int>(Reduction_t::partial_rows)>
         reduction_wrapper) {
   using index_t = typename input_t::index_t;
-  blas::ReductionRows_Params<index_t, element_t> params_t(ClSize, WgSize);
+  using params_t =
+      blas::ReductionRows_Params<index_t, element_t, ClSize, WgSize>;
 
   /* Extract data from the reduction wrapper */
   const index_t rows_ = reduction_wrapper.rows_,
@@ -485,11 +488,11 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
   typename executor_policy_t::event_t reduction_event;
 
   const index_t max_group_count_col =
-      (cols_ - 1) / params_t.work_group_cols + 1;
+      (cols_ - 1) / params_t::work_group_cols + 1;
 
   const index_t group_count_cols =
-      params_t.work_group_cols < max_group_count_col
-          ? params_t.work_group_cols
+      params_t::work_group_cols < max_group_count_col
+          ? params_t::work_group_cols
           : max_group_count_col;
 
   /* Choose at run-time whether to do a one-step or two-step reduction.
@@ -501,7 +504,8 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
     /* Create a temporary buffer */
     auto temp_buffer =
 #ifdef SYCL_BLAS_USE_USM
-        cl::sycl::malloc_device<element_t>(rows_ * group_count_cols, policy_handler_.get_queue());
+        cl::sycl::malloc_device<element_t>(rows_ * group_count_cols,
+                                           policy_handler_.get_queue());
 #else
         make_sycl_iterator_buffer<element_t>(rows_ * group_count_cols);
 #endif
@@ -512,14 +516,14 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), in_, temp_, group_count_cols,
-            params_t.local_memory_size, num_compute_units));
+            params_t::local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
 
     /* 2nd step */
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), temp_, out_, index_t(1),
-            params_t.local_memory_size, num_compute_units));
+            params_t::local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
   }
   /* 1-step reduction */
@@ -527,7 +531,7 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
     reduction_event.push_back(
         launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
             policy_handler_.get_queue(), in_, out_, index_t(1),
-            params_t.local_memory_size, num_compute_units));
+            params_t::local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
   }
 

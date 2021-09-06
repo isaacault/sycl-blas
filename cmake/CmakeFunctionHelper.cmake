@@ -204,7 +204,7 @@ endfunction(generate_blas_binary_objects)
 # blas binary function for generating source code
 function(generate_blas_reduction_objects blas_level func)
 set(LOCATION "${SYCLBLAS_GENERATED_SRC}/${blas_level}/${func}/")
-set(operator_list "blas::AddOperator")
+set(operator_list "AddOperator")
 foreach(executor ${executor_list})
   foreach(data ${data_list})
     cpp_type(cpp_data ${data})
@@ -220,7 +220,7 @@ foreach(executor ${executor_list})
             set(container_names "${container0}_${container1}")
             foreach(increment ${index_list})
               sanitize_file_name(file_name
-                "${func}_${executor}_${data}_${index}_${container_names}_${increment}_${operator}.cpp")
+                "${func}_${executor}_${data}_${index}_${container_names}_${increment}.cpp")
               add_custom_command(OUTPUT "${LOCATION}/${file_name}"
                 COMMAND ${PYTHON_EXECUTABLE} ${SYCLBLAS_SRC_GENERATOR}/py_gen_blas_reduction.py
                   ${PROJECT_SOURCE_DIR}/external/

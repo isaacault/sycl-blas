@@ -33,29 +33,30 @@ namespace blas {
 
 namespace internal {
 
-template <typename operator_t, typename element_t, 
-          typename executor_t, typename input_t, typename output_t, 
+template <typename operator_t, int ClSize, int WgSize, typename element_t,
+          typename executor_t, typename input_t, typename output_t,
           typename index_t>
-typename executor_t::policy_t::event_t _reduction(executor_t& ex, 
-                                                  input_t buffer_in, 
+typename executor_t::policy_t::event_t _reduction(executor_t& ex,
+                                                  input_t buffer_in,
                                                   output_t buffer_out,
-                                                  index_t rows, index_t cols, int const ClSize, int const WgSize);
+                                                  index_t rows, index_t cols);
 
-} // namespace internal
+}  // namespace internal
 
-template <typename operator_t, typename element_t, 
-          typename executor_t, typename input_t, typename output_t, 
+template <typename operator_t, int ClSize, int WgSize, typename element_t,
+          typename executor_t, typename input_t, typename output_t,
           typename index_t>
-typename executor_t::policy_t::event_t _reduction(executor_t& ex, 
-                                                  input_t buffer_in, 
+typename executor_t::policy_t::event_t _reduction(executor_t& ex,
+                                                  input_t buffer_in,
                                                   output_t buffer_out,
-                                                  index_t rows, index_t cols, int const ClSize, int const WgSize) {
+                                                  index_t rows, index_t cols) {
 #ifdef SYCL_BLAS_USE_USM
-  return internal::_reduction<operator_t, element_t>(ex, buffer_in, buffer_out, rows, rows, ClSize, WgSize);
+  return internal::_reduction<operator_t, ClSize, WgSize, element_t>(
+      ex, buffer_in, buffer_out, rows, rows);
 #else
-  return internal::_reduction<operator_t, element_t>(ex, ex.get_policy_handler().get_buffer(buffer_in),
-                            ex.get_policy_handler().get_buffer(buffer_out),
-                            rows, rows, ClSize, WgSize);
+  return internal::_reduction<operator_t, ClSize, WgSize, element_t>(
+      ex, ex.get_policy_handler().get_buffer(buffer_in),
+      ex.get_policy_handler().get_buffer(buffer_out), rows, rows);
 #endif
 }
 

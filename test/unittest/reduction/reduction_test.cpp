@@ -42,7 +42,6 @@ using index_t = int;
 template <typename scalar_t>
 using combination_t = std::tuple<index_t, index_t, index_t, operator_t>;
 
-
 /* Note: the product and division are not tested because our random data may
  * contain values close to zero */
 const auto combi = ::testing::Combine(
@@ -51,7 +50,6 @@ const auto combi = ::testing::Combine(
     ::testing::Values(1, 2, 3),                  // ld_mul
     ::testing::Values(operator_t::Add, operator_t::Max, operator_t::Min,
                       operator_t::AbsoluteAdd));
-
 
 template <typename scalar_t>
 void run_test(const combination_t<scalar_t> combi) {
@@ -153,50 +151,51 @@ void run_test(const combination_t<scalar_t> combi) {
   auto v_out_gpu = utils::make_quantized_buffer<scalar_t>(ex, out_v_gpu);
 #endif
   // auto buffer_in = make_matrix_view<col_major>(ex, m_in_gpu, rows, cols, ld);
-  // auto buffer_out = make_matrix_view<col_major>(ex, v_out_gpu, rows, 1, rows);
+  // auto buffer_out = make_matrix_view<col_major>(ex, v_out_gpu, rows, 1,
+  // rows);
   auto buffer_in = m_in_gpu;
   auto buffer_out = v_out_gpu;
   test_executor_t::policy_t::event_t ev;
   try {
     switch (op) {
       case operator_t::Add:
-        ev = _reduction<blas::AddOperator, scalar_t>(ex, buffer_in, buffer_out, rows,
-                                                cols, 64, 256);
+        ev = _reduction<blas::AddOperator, 64, 256, scalar_t>(
+            ex, buffer_in, buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Product:
-        ev = _reduction<blas::ProductOperator, scalar_t>(ex, buffer_in, buffer_out,
-                                                    rows, cols, 64, 256);
+        ev = _reduction<blas::ProductOperator, 64, 256, scalar_t>(
+            ex, buffer_in, buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Division:
-        ev = _reduction<DivisionOperator, scalar_t>(ex, buffer_in, buffer_out,
-                                                     rows, cols, 64, 256);
+        ev = _reduction<DivisionOperator, 64, 256, scalar_t>(
+            ex, buffer_in, buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Max:
-        ev = _reduction<MaxOperator, scalar_t>(ex, buffer_in, buffer_out, rows,
-                                                cols, 64, 256);
+        ev = _reduction<MaxOperator, 64, 256, scalar_t>(ex, buffer_in,
+                                                        buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Min:
-        ev = _reduction<MinOperator, scalar_t>(ex, buffer_in, buffer_out, rows,
-                                                cols, 64, 256);
+        ev = _reduction<MinOperator, 64, 256, scalar_t>(ex, buffer_in,
+                                                        buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::AbsoluteAdd:
-        ev = _reduction<AbsoluteAddOperator, scalar_t>(ex, buffer_in,
-                                                        buffer_out, rows, cols, 64, 256);
+        ev = _reduction<AbsoluteAddOperator, 64, 256, scalar_t>(
+            ex, buffer_in, buffer_out, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
