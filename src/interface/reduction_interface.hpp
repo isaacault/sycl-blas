@@ -31,17 +31,18 @@
 #include "policy/policy_handler.h"
 
 namespace blas {
+namespace extension {
 namespace internal {
 
-template <typename operator_t, int ClSize, int WgSize, typename element_t,
+template <typename operator_t, typename element_t,
           typename executor_t, typename input_t, typename output_t,
           typename index_t>
 typename executor_t::policy_t::event_t _reduction(executor_t& ex,
-                                                  input_t buffer_in,
+                                                  input_t buffer_in, index_t ld,
                                                   output_t buffer_out,
                                                   index_t rows, index_t cols) {
   using params_t =
-      blas::ReductionRows_Params<index_t, element_t, ClSize, WgSize>;
+      blas::ReductionRows_Params<index_t, element_t, 64, 256>;
   auto policy_handler = ex.get_policy_handler();
 
   const index_t num_compute_units = policy_handler.get_num_compute_units();
@@ -61,6 +62,9 @@ typename executor_t::policy_t::event_t _reduction(executor_t& ex,
    * Two-step reduction is needed when we have more than 1 valid work groups
    * along the columns */
   const bool two_step_reduction = group_count_cols > 1;
+
+  auto matrix_buffer_in = make_matrix_view<col_major>(ex, buffer_in, rows, cols, ld);
+  auto matrix_buffer_out = make_matrix_view<col_major>(ex, buffer_out, rows, 1, rows);
   /* 2-step reduction */
   if (two_step_reduction) {
     /* Create a temporary buffer */
@@ -76,23 +80,26 @@ typename executor_t::policy_t::event_t _reduction(executor_t& ex,
 
     /* 1st step */
     reduction_event.push_back(
-        launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
-            policy_handler.get_queue(), buffer_in, temp_, group_count_cols,
+        launch_row_reduction_step<operator_t, 64, 256, element_t>(
+            policy_handler.get_queue(), matrix_buffer_in, temp_, group_count_cols,
             params_t::local_memory_size, num_compute_units));
     policy_handler.wait(reduction_event);
 
     /* 2nd step */
     reduction_event.push_back(
-        launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
-            policy_handler.get_queue(), temp_, buffer_out, index_t(1),
+        launch_row_reduction_step<operator_t, 64, 256, element_t>(
+            policy_handler.get_queue(), temp_, matrix_buffer_out, index_t(1),
             params_t::local_memory_size, num_compute_units));
     policy_handler.wait(reduction_event);
+#ifdef SYCL_BLAS_USE_USM
+    cl::sycl::free(temp_buffer, policy_handler.get_queue());
+#endif
   }
   /* 1-step reduction */
   else {
     reduction_event.push_back(
-        launch_row_reduction_step<operator_t, ClSize, WgSize, element_t>(
-            policy_handler.get_queue(), buffer_in, buffer_out, index_t(1),
+        launch_row_reduction_step<operator_t, 64, 256, element_t>(
+            policy_handler.get_queue(), matrix_buffer_in, matrix_buffer_out, index_t(1),
             params_t::local_memory_size, num_compute_units));
     policy_handler.wait(reduction_event);
   }
@@ -104,6 +111,7 @@ typename executor_t::policy_t::event_t _reduction(executor_t& ex,
 }
 
 }  // namespace internal
+}  // namespace extension
 }  // namespace blas
 
 #endif  // SYCL_BLAS_BLAS_REDUCTION_INTERFACE_HPP

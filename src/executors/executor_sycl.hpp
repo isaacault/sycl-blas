@@ -455,7 +455,7 @@ template <typename operator_t, int ClSize, int WgSize, typename element_t,
 static inline cl::sycl::event launch_row_reduction_step(
     queue_t queue, input_t& in, output_t& out, index_t group_count_cols,
     index_t local_memory_size, index_t num_compute_units) {
-  ReductionPartialRows<operator_t, input_t, output_t, ClSize, WgSize, element_t>
+  ReductionPartialRows<operator_t, input_t, output_t, ClSize, WgSize, element_t, index_t>
       reduction_step(in, out, group_count_cols);
   auto step_range = reduction_step.get_nd_range(num_compute_units);
   return execute_tree<using_local_memory::enabled>(
@@ -525,6 +525,9 @@ Executor<PolicyHandler<executor_policy_t>>::execute(
             policy_handler_.get_queue(), temp_, out_, index_t(1),
             params_t::local_memory_size, num_compute_units));
     policy_handler_.wait(reduction_event);
+#ifdef SYCL_BLAS_USE_USM
+    cl::sycl::free(temp_buffer, policy_handler_.get_queue());
+#endif
   }
   /* 1-step reduction */
   else {

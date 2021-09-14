@@ -27,6 +27,7 @@
 
 #include "blas_test.hpp"
 #include <operations/blas_operators.h>
+#include <iostream>
 
 enum operator_t : int {
   Add = 0,
@@ -75,12 +76,12 @@ void run_test(const combination_t<scalar_t> combi) {
   std::vector<data_t> out_v_cpu(rows);
 
   fill_random(in_m);
+  // for (index_t i = 0; i < ld * cols; i++) {
+  //   in_m[i] = -1;
+  // }
   for (index_t i = 0; i < rows; i++) {
     out_v_gpu[i] = -1;
   }
-  std::copy(out_v_gpu.begin(), out_v_gpu.end(), out_v_cpu.begin());
-
-  /* Initialization value of the reduction accumulators. */
   scalar_t init_val;
   switch (op) {
     case operator_t::Add:
@@ -150,52 +151,48 @@ void run_test(const combination_t<scalar_t> combi) {
   auto m_in_gpu = utils::make_quantized_buffer<scalar_t>(ex, in_m);
   auto v_out_gpu = utils::make_quantized_buffer<scalar_t>(ex, out_v_gpu);
 #endif
-  // auto buffer_in = make_matrix_view<col_major>(ex, m_in_gpu, rows, cols, ld);
-  // auto buffer_out = make_matrix_view<col_major>(ex, v_out_gpu, rows, 1,
-  // rows);
-  auto buffer_in = m_in_gpu;
-  auto buffer_out = v_out_gpu;
+
   test_executor_t::policy_t::event_t ev;
   try {
     switch (op) {
       case operator_t::Add:
-        ev = _reduction<blas::AddOperator, 64, 256, scalar_t>(
-            ex, buffer_in, buffer_out, rows, cols);
+        ev = extension::_reduction<AddOperator, scalar_t>(
+            ex, m_in_gpu, ld, v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Product:
-        ev = _reduction<blas::ProductOperator, 64, 256, scalar_t>(
-            ex, buffer_in, buffer_out, rows, cols);
+        ev = extension::_reduction<ProductOperator, scalar_t>(
+            ex, m_in_gpu, ld, v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Division:
-        ev = _reduction<DivisionOperator, 64, 256, scalar_t>(
-            ex, buffer_in, buffer_out, rows, cols);
+        ev = extension::_reduction<DivisionOperator, scalar_t>(
+            ex, m_in_gpu, ld, v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Max:
-        ev = _reduction<MaxOperator, 64, 256, scalar_t>(ex, buffer_in,
-                                                        buffer_out, rows, cols);
+        ev = extension::_reduction<MaxOperator, scalar_t>(ex, m_in_gpu, ld,
+                                                        v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::Min:
-        ev = _reduction<MinOperator, 64, 256, scalar_t>(ex, buffer_in,
-                                                        buffer_out, rows, cols);
+        ev = extension::_reduction<MinOperator, scalar_t>(ex, m_in_gpu, ld,
+                                                        v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
         break;
       case operator_t::AbsoluteAdd:
-        ev = _reduction<AbsoluteAddOperator, 64, 256, scalar_t>(
-            ex, buffer_in, buffer_out, rows, cols);
+        ev = extension::_reduction<AbsoluteAddOperator, scalar_t>(
+            ex, m_in_gpu, ld, v_out_gpu, rows, cols);
 #ifdef SYCL_BLAS_USE_USM
         ex.get_policy_handler().wait(ev);
 #endif
@@ -205,10 +202,6 @@ void run_test(const combination_t<scalar_t> combi) {
     std::cerr << "Exception occured:" << std::endl;
     std::cerr << e.what() << std::endl;
   }
-#ifdef SYCL_BLAS_USE_USM
-  cl::sycl::free(m_in_gpu, q);
-  cl::sycl::free(v_out_gpu, q);
-#endif
   auto event =
 #ifdef SYCL_BLAS_USE_USM
       q.memcpy(out_v_gpu.data(), v_out_gpu, sizeof(data_t) * rows);
@@ -218,6 +211,11 @@ void run_test(const combination_t<scalar_t> combi) {
   ex.get_policy_handler().wait({event});
 
   ASSERT_TRUE(utils::compare_vectors(out_v_gpu, out_v_cpu));
+
+#ifdef SYCL_BLAS_USE_USM
+  cl::sycl::free(m_in_gpu, q);
+  cl::sycl::free(v_out_gpu, q);
+#endif
 }
 
 BLAS_REGISTER_TEST(ReductionPartialRows, combination_t, combi);
