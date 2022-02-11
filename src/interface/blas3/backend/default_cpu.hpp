@@ -40,8 +40,8 @@ typename executor_t::policy_t::event_t _gemm(
     gemm_batch_type_t batch_type) {
   if (batch_type == gemm_batch_type_t::interleaved) {
     return blas::Gemm_Launcher<
-        64, false, false, false, 64, Tile<2, 2, 4, 4, 1, 1, 1, 1, 4, 4>, _t_a, _t_b,
-        static_cast<int>(gemm_memory_t::no_local),
+        64, false, false, false, 64, Tile<2, 2, 4, 4, 1, 1, 1, 1, 4, 4>, _t_a,
+        _t_b, static_cast<int>(gemm_memory_t::no_local),
         static_cast<int>(gemm_algorithm_t::standard),
         static_cast<int>(gemm_vectorization_t::full), is_beta_zero, 4,
         static_cast<int>(
@@ -66,7 +66,40 @@ typename executor_t::policy_t::event_t _gemm(
                                                               _c, _ldc,
                                                               batch_size);
 #else
-  if (_M <= 128 && _N <= 128 && _K <= 128) {
+  /**
+   * VGG Tuning for M,N,K values of:
+   * 3136,64,3
+   * 3136,64,64
+   * 784,128,64
+   * 784,128,128
+   * 196,256,128
+   * 196,256,256
+   * 49,512,256
+   * 49,512,512
+   * 16,512,512
+   * 1,4096,25088 -- not verified yet
+   * 1,4096,4096
+   * 1,1000,4096
+   */
+  if ((_M = 3136 && _N = 64 && _K = 3) || (_M = 3136 && _N = 64 && _K = 64) ||
+      (_M = 784 && _N = 128 && _K = 64) || (_M = 784 && _N = 128 && _K = 128) ||
+      (_M = 196 && _N = 256 && _K = 128) ||
+      (_M = 196 && _N = 256 && _K = 256) || (_M = 49 && _N = 512 && _K = 256) ||
+      (_M = 49 && _N = 512 && _K = 512) || (_M = 16 && _N = 512 && _K = 512) ||
+      (_M = 1 && _N = 4096 && _K = 4096) ||
+      (_M = 1 && _N = 1000 && _K = 4096)) {
+    return blas::Gemm_Launcher<
+        64, false, false, false, 64, Tile<4, 4, 4, 4>, _t_a, _t_b,
+        static_cast<int>(gemm_memory_t::no_local),
+        static_cast<int>(gemm_algorithm_t::standard),
+        static_cast<int>(gemm_vectorization_t::partial), is_beta_zero, 1,
+        static_cast<int>(
+            gemm_batch_type_t::strided)>::template _select_gemm(ex, _M, _N, _K,
+                                                                _alpha, _a,
+                                                                _lda, _b, _ldb,
+                                                                _beta, _c, _ldc,
+                                                                batch_size);
+  } else if (_M <= 128 && _N <= 128 && _K <= 128) {
     return blas::Gemm_Launcher<
         64, false, false, false, 64, Tile<2, 2, 8, 8>, _t_a, _t_b,
         static_cast<int>(gemm_memory_t::no_local),
