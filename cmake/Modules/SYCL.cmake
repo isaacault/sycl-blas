@@ -77,7 +77,6 @@ if(is_computecpp)
   # NB: This must be after finding ComputeCpp
   list(APPEND COMPUTECPP_USER_FLAGS
     -O3
-    -fsycl-split-modules=20
     -mllvm -inline-threshold=10000
     -Xclang -cl-mad-enable
     # We add some flags to workaround OpenCL platform bugs, see ComputeCpp documentation

@@ -1,6 +1,7 @@
 #include "sycl_blas.hpp"
 #include <CL/sycl.hpp>
 #include "tuner_types.hpp"
+#include <SYCL/codeplay/profiling_user.h>
 
 #include <ctime>
 #include <chrono>
@@ -43,12 +44,16 @@ void tune(int r, GemmArgs<T> a, Executor_T &ex) {
       }
     }
     // time trial
-    auto start = std::chrono::steady_clock::now();
-    for (int i=0; i<r; i++) {
-      auto event_list = ex.execute(gemm);
-      for (auto &event : event_list) {
-        event.wait_and_throw();
-      }
+    std::chrono::time_point<std::chrono::steady_clock> start;
+    {
+	    cl::sycl::codeplay::profiling::profiling_zone mainZone("Timed Trial");
+	    start = std::chrono::steady_clock::now();
+	    for (int i=0; i<r; i++) {
+	      auto event_list = ex.execute(gemm);
+	      for (auto &event : event_list) {
+		event.wait_and_throw();
+	      }
+	    }
     }
     auto end = std::chrono::steady_clock::now();
     auto runtime_secs = end - start;
@@ -69,12 +74,18 @@ void tune(int r, GemmArgs<T> a, Executor_T &ex) {
 #define BENCH_PARAMS(MEM, ALG, BATCH, VEC, ...)                             \
   do {                                                                      \
         tune<__VA_ARGS__, GemmConfig<0, 0, MEM, ALG, BATCH, VEC>,           \
-             float>(500, args, executor);                                      \
+             float>(100, args, executor);                                      \
   } while (0);
 
 int main(int argc, char** argv) {
+  // Create a zone
+  cl::sycl::codeplay::profiling::profiling_zone mainZone("main");
+
+  // Initialize property list with profiling information
+  cl::sycl::property_list propList{cl::sycl::property::queue::enable_profiling()};
+
   /* Create a SYCL queue with the default device selector */
-  cl::sycl::queue q = cl::sycl::queue(cl::sycl::default_selector());
+  cl::sycl::queue q = cl::sycl::queue(cl::sycl::default_selector(), propList);
 
   /* Create a SYCL-BLAS executor and get the policy handler */
   blas::Executor<blas::PolicyHandler<blas::codeplay_policy>> executor(q);
@@ -146,7 +157,6 @@ int main(int argc, char** argv) {
   //             c_gpu, ldc);
 
 #include "generated_combinations.def" 
-
 
   /* Copy the result to the host */
   // std::cout << "Copying C to host\n";
