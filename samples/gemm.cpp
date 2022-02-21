@@ -74,7 +74,7 @@ void tune(int r, GemmArgs<T> a, Executor_T &ex) {
 #define BENCH_PARAMS(MEM, ALG, BATCH, VEC, ...)                             \
   do {                                                                      \
         tune<__VA_ARGS__, GemmConfig<0, 0, MEM, ALG, BATCH, VEC>,           \
-             float>(100, args, executor);                                      \
+             float>(10, args, executor);                                      \
   } while (0);
 
 int main(int argc, char** argv) {
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
   cl::sycl::property_list propList{cl::sycl::property::queue::enable_profiling()};
 
   /* Create a SYCL queue with the default device selector */
-  cl::sycl::queue q = cl::sycl::queue(cl::sycl::default_selector(), propList);
+  cl::sycl::queue q = cl::sycl::queue(cl::sycl::gpu_selector(), propList);
 
   /* Create a SYCL-BLAS executor and get the policy handler */
   blas::Executor<blas::PolicyHandler<blas::codeplay_policy>> executor(q);
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Usage: %s M N K\n", argv[0]);
     exit(1);
   }
-  int batch_size = 36;
+  int batch_size = atoi(argv[4]);
   int m = atoi(argv[1]);
   int k = atoi(argv[3]);
   int n = atoi(argv[2]);
